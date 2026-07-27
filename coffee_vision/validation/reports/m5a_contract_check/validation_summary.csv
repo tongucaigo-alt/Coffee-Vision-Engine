@@ -1,0 +1,3 @@
+sourceId,relativePath,surfaceType,format,enabled,analysisStatus,determinismStatus,repeatsPerformed,mismatchedRepeatIndexes,workingImageWidth,workingImageHeight,workingResiduePixelCount,workingContentResidueAreaRatio,componentCount,relationCount,selectedEdgeCount,graphNodeCount,graphEdgeCount,structureCount,largestStructureSize,isolatedStructureCount,errorCategory,errorMessage
+cup-synthetic-001,valid_2x3.png,cup,png,true,success,deterministic,3,,512,512,0,0.0,0,0,0,0,0,0,0,0,,
+saucer-synthetic-001,valid_3x2.jpg,saucer,jpeg,true,success,deterministic,3,,512,512,0,0.0,0,0,0,0,0,0,0,0,,

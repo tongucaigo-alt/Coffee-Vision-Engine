@@ -1,0 +1,322 @@
+﻿Activity Resolver Table:
+  Non-Data Actions:
+      android.intent.action.MAIN:
+        a131f19 com.coffeeplatform.atlas_m6_camera_vision_demo/.MainActivity filter 3f40bde
+          Action: "android.intent.action.MAIN"
+          Category: "android.intent.category.LAUNCHER"
+
+Receiver Resolver Table:
+  Non-Data Actions:
+      androidx.profileinstaller.action.SAVE_PROFILE:
+        63ae1bf com.coffeeplatform.atlas_m6_camera_vision_demo/androidx.profileinstaller.ProfileInstallReceiver filter 6b107ea
+          Action: "androidx.profileinstaller.action.SAVE_PROFILE"
+      androidx.profileinstaller.action.INSTALL_PROFILE:
+        63ae1bf com.coffeeplatform.atlas_m6_camera_vision_demo/androidx.profileinstaller.ProfileInstallReceiver filter 94808c
+          Action: "androidx.profileinstaller.action.INSTALL_PROFILE"
+      androidx.profileinstaller.action.SKIP_FILE:
+        63ae1bf com.coffeeplatform.atlas_m6_camera_vision_demo/androidx.profileinstaller.ProfileInstallReceiver filter 6ad93d5
+          Action: "androidx.profileinstaller.action.SKIP_FILE"
+      androidx.profileinstaller.action.BENCHMARK_OPERATION:
+        63ae1bf com.coffeeplatform.atlas_m6_camera_vision_demo/androidx.profileinstaller.ProfileInstallReceiver filter 2c5dadb
+          Action: "androidx.profileinstaller.action.BENCHMARK_OPERATION"
+
+Domain verification status:
+
+Permissions:
+  Permission [com.coffeeplatform.atlas_m6_camera_vision_demo.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION] (b166a07):
+    sourcePackage=com.coffeeplatform.atlas_m6_camera_vision_demo
+    uid=10468 gids=[] type=0 prot=signature
+    perm=PermissionInfo{ac51c2b com.coffeeplatform.atlas_m6_camera_vision_demo.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION}
+    flags=0x0
+
+Registered ContentProviders:
+  com.coffeeplatform.atlas_m6_camera_vision_demo/androidx.startup.InitializationProvider:
+    Provider{8c44888 com.coffeeplatform.atlas_m6_camera_vision_demo/androidx.startup.InitializationProvider}
+
+ContentProvider Authorities:
+  [com.coffeeplatform.atlas_m6_camera_vision_demo.androidx-startup]:
+    Provider{8c44888 com.coffeeplatform.atlas_m6_camera_vision_demo/androidx.startup.InitializationProvider}
+      applicationInfo=ApplicationInfo{5437734 com.coffeeplatform.atlas_m6_camera_vision_demo}
+
+Key Set Manager:
+  [com.coffeeplatform.atlas_m6_camera_vision_demo]
+      Signing KeySets: 175
+
+Packages:
+  Package [com.coffeeplatform.atlas_m6_camera_vision_demo] (103365c):
+    appId=10468
+    pkg=Package{34038ff com.coffeeplatform.atlas_m6_camera_vision_demo}
+    codePath=/data/app/~~SdSdSbyIn4GicfhSz5tgPQ==/com.coffeeplatform.atlas_m6_camera_vision_demo-UfjSl8lo2AQnv4A4iKhj9w==
+    resourcePath=/data/app/~~SdSdSbyIn4GicfhSz5tgPQ==/com.coffeeplatform.atlas_m6_camera_vision_demo-UfjSl8lo2AQnv4A4iKhj9w==
+    legacyNativeLibraryDir=/data/app/~~SdSdSbyIn4GicfhSz5tgPQ==/com.coffeeplatform.atlas_m6_camera_vision_demo-UfjSl8lo2AQnv4A4iKhj9w==/lib
+    extractNativeLibs=false
+    primaryCpuAbi=arm64-v8a
+    secondaryCpuAbi=null
+    cpuAbiOverride=null
+    versionCode=2001 minSdk=24 targetSdk=36
+    minExtensionVersions=[]
+    versionName=1.0.0
+    hiddenApiEnforcementPolicy=2
+    usesNonSdkApi=false
+    splits=[base]
+    apkSigningVersion=2
+    flags=[ DEBUGGABLE HAS_CODE ALLOW_CLEAR_USER_DATA ALLOW_BACKUP KILL_AFTER_RESTORE ]
+    privateFlags=[ PRIVATE_FLAG_ACTIVITIES_RESIZE_MODE_RESIZEABLE_VIA_SDK_VERSION ALLOW_AUDIO_PLAYBACK_CAPTURE PRIVATE_FLAG_ALLOW_NATIVE_HEAP_POINTER_TAGGING ]
+    forceQueryable=false
+    pageSizeCompat=0
+    queriesIntents=[Intent { act=android.intent.action.PROCESS_TEXT dat=content://*/... typ=text/plain }]
+    scannedAsStoppedSystemApp=false
+    supportsScreens=[small, medium, large, xlarge, resizeable, anyDensity]
+    usesOptionalLibraries:
+      androidx.window.extensions
+      androidx.window.sidecar
+    usesLibraryFiles:
+      /system_ext/framework/androidx.window.extensions.jar
+      /system_ext/framework/androidx.window.sidecar.jar
+    timeStamp=2026-07-22 19:15:11
+    lastUpdateTime=2026-07-22 19:15:12
+    installerPackageName=null
+    installerPackageUid=-1
+    initiatingPackageName=com.android.shell
+    originatingPackageName=null
+    category=manifest: -1, override: -1, by user: -1
+    packageSource=1
+    appMetadataFilePath=null
+    appMetadataSource=0
+    signatures=PackageSignatures{adadd15 version:2, signatures:[f9e893a9], past signatures:[]}
+    installPermissionsFixed=false
+    pkgFlags=[ DEBUGGABLE HAS_CODE ALLOW_CLEAR_USER_DATA ALLOW_BACKUP KILL_AFTER_RESTORE ]
+    privatePkgFlags=[ PRIVATE_FLAG_ACTIVITIES_RESIZE_MODE_RESIZEABLE_VIA_SDK_VERSION ALLOW_AUDIO_PLAYBACK_CAPTURE PRIVATE_FLAG_ALLOW_NATIVE_HEAP_POINTER_TAGGING ]
+    apexModuleName=null
+    componentsDeclared=4
+    declared permissions:
+      com.coffeeplatform.atlas_m6_camera_vision_demo.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION: prot=signature
+    requested permissions:
+      android.permission.INTERNET
+      com.coffeeplatform.atlas_m6_camera_vision_demo.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION
+      android.permission.ACCESS_NETWORK_STATE
+      android.permission.CAMERA
+    install permissions:
+      android.permission.INTERNET: granted=true
+      com.coffeeplatform.atlas_m6_camera_vision_demo.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION: granted=true
+      android.permission.ACCESS_NETWORK_STATE: granted=true
+    User 0: ceDataInode=160595 deDataInode=160590 installed=true hidden=false suspended=false distractionFlags=0 stopped=true notLaunched=false enabled=0 instant=false virtual=false quarantined=false
+      installReason=4
+      dataDir=/data/user/0/com.coffeeplatform.atlas_m6_camera_vision_demo
+      firstInstallTime=2026-07-22 17:33:21
+      uninstallReason=0
+      overlay paths:
+        /product/overlay/NavigationBarMode3Button/NavigationBarMode3ButtonOverlay.apk
+      legacy overlay paths:
+        /product/overlay/NavigationBarMode3Button/NavigationBarMode3ButtonOverlay.apk
+      gids=[3003]
+      runtime permissions:
+        android.permission.CAMERA: granted=true, flags=[ USER_SET|USER_SENSITIVE_WHEN_GRANTED|USER_SENSITIVE_WHEN_DENIED]
+
+Queries:
+  system apps queryable: false
+  queries via forceQueryable:
+  queries via package name:
+  queries via component:
+    com.samsung.android.bixby.agent:
+      com.coffeeplatform.atlas_m6_camera_vision_demo
+    com.android.settings.intelligence:
+      com.coffeeplatform.atlas_m6_camera_vision_demo
+    com.samsung.android.mocca:
+      com.coffeeplatform.atlas_m6_camera_vision_demo
+    com.google.android.apps.accessibility.voiceaccess:
+      com.coffeeplatform.atlas_m6_camera_vision_demo
+    com.google.android.as:
+      com.coffeeplatform.atlas_m6_camera_vision_demo
+    com.google.android.as.oss:
+      com.coffeeplatform.atlas_m6_camera_vision_demo
+    com.microsoft.office.outlook:
+      com.coffeeplatform.atlas_m6_camera_vision_demo
+    com.facebook.katana:
+      com.coffeeplatform.atlas_m6_camera_vision_demo
+    com.amazon.mShop.android.shopping:
+      com.coffeeplatform.atlas_m6_camera_vision_demo
+    com.abtnprojects.ambatana:
+      com.coffeeplatform.atlas_m6_camera_vision_demo
+    com.binance.dev:
+      com.coffeeplatform.atlas_m6_camera_vision_demo
+    com.facebook.orca:
+      com.coffeeplatform.atlas_m6_camera_vision_demo
+    com.garanti.cepsubesi:
+      com.coffeeplatform.atlas_m6_camera_vision_demo
+    com.getir:
+      com.coffeeplatform.atlas_m6_camera_vision_demo
+    com.google.android.apps.plus:
+      com.coffeeplatform.atlas_m6_camera_vision_demo
+    com.instagram.android:
+      com.coffeeplatform.atlas_m6_camera_vision_demo
+    com.pozitron.iscep:
+      com.coffeeplatform.atlas_m6_camera_vision_demo
+    com.pozitron.pegasus:
+      com.coffeeplatform.atlas_m6_camera_vision_demo
+    com.spexco.taxipassenger:
+      com.coffeeplatform.atlas_m6_camera_vision_demo
+    com.vakifbank.mobile:
+      com.coffeeplatform.atlas_m6_camera_vision_demo
+    com.whatsapp:
+      com.coffeeplatform.atlas_m6_camera_vision_demo
+    com.xingkeqi.peats:
+      com.coffeeplatform.atlas_m6_camera_vision_demo
+    trendyol.com:
+      com.coffeeplatform.atlas_m6_camera_vision_demo
+    com.xiaomi.smarthome:
+      com.coffeeplatform.atlas_m6_camera_vision_demo
+    com.coffeeplatform.atlas_m6_camera_vision_demo:
+      com.google.android.googlequicksearchbox
+      com.microsoft.office.officehubrow
+      com.amazon.mShop.android.shopping
+      com.google.android.apps.translate
+      com.openai.chatgpt
+      com.reddit.frontpage
+  queryable via interaction:
+    User 0:
+      [com.samsung.android.globalpostprocmgr,com.samsung.android.dqagent,com.samsung.android.knox.pushmanager,com.sec.android.app.parser,com.android.keychain,com.samsung.android.knox.zt.framework,com.samsung.android.biometrics.app.setting,com.samsung.android.qmdservice,com.samsung.android.aircommandmanager,com.sec.android.CcInfo,com.samsung.android.messageguardsync,com.android.inputdevices,com.sec.android.app.wlantest,com.sec.android.app.SecSetupWizard,com.samsung.android.stickercenter,com.sec.usbsettings,com.sec.android.sdhms,com.sec.android.soagent,com.sec.android.app.servicemodeapp,com.samsung.android.lool,android,com.samsung.android.forest,com.samsung.android.mdecservice,com.skms.android.agent,com.samsung.euicc,com.android.location.fused,com.samsung.android.providers.factory,com.sec.intc,com.android.localtransport,com.sec.android.iaft,com.sec.android.smartfpsadjuster,com.samsung.slsi.telephony.silentlogging,com.samsung.android.bixby.wakeup,com.samsung.oda.service,com.android.providers.settings,com.sem.factoryapp,com.sec.factory.camera,com.samsung.SMT,com.samsung.android.knox.mpos,com.sec.imslogger,com.sec.modem.settings,com.android.server.telecom,com.samsung.android.fmm,com.samsung.android.svcagent,com.sec.automation,com.sec.android.app.quicktool,com.samsung.android.emergency,com.samsung.sait.sohservice,com.samsung.android.knox.attestation,com.samsung.android.vexfwk.service,com.android.settings,com.sec.imsservice,com.samsung.sec.android.teegris.tui_service,com.sec.epdg,com.samsung.android.cameraxservice,com.samsung.android.vtcamerasettings,com.sec.android.app.personalization,com.android.dynsystem,com.sec.android.emergencylauncher,com.samsung.android.photoremasterservice,com.samsung.android.app.dressroom,com.samsung.android.themecenter,com.samsung.accessibility,com.samsung.gpuwatchapp,com.samsung.android.brightnessbackupservice,com.samsung.aasaservice,com.sec.cpagent,com.sec.facatfunction,com.samsung.android.wifi.ai,com.samsung.unifiedtp,com.samsung.android.motionphoto.app,com.samsung.android.bbc.bbcagent,com.samsung.android.hdmapp,com.samsung.android.ese,com.sec.android.app.factorykeystring,com.sec.mhs.smarttethering,com.sec.android.app.hwmoduletest,com.samsung.android.app.omcagent,com.samsung.android.provider.filterprovider,com.sec.app.RilErrorNotifier,com.samsung.android.da.daagent,com.samsung.android.app.esimkeystring,com.sec.sve,com.wssyncmldm,com.sec.android.diagmonagent,com.samsung.android.smartswitchassistant,com.sec.bcservice,com.samsung.android.smartface,com.sec.android.app.RilPhoneNumberService]:
+        com.coffeeplatform.atlas_m6_camera_vision_demo
+      com.samsung.android.honeyboard:
+        com.coffeeplatform.atlas_m6_camera_vision_demo
+      com.google.android.permissioncontroller:
+        com.coffeeplatform.atlas_m6_camera_vision_demo
+  queryable via uses-library:
+
+Dexopt state:
+  [com.coffeeplatform.atlas_m6_camera_vision_demo]
+    path: /data/app/~~SdSdSbyIn4GicfhSz5tgPQ==/com.coffeeplatform.atlas_m6_camera_vision_demo-UfjSl8lo2AQnv4A4iKhj9w==/base.apk
+      arm64: [status=run-from-apk] [reason=unknown] [primary-abi]
+        [location is error]
+
+SPEG state:
+
+Profile utilization state:
+  Current state:
+    Version: 2.1.2
+    Start reason: boot-after-mainline-update
+    Start time: Sat Jul 11 18:27:34 GMT+03:00 2026 ts=1783783654939
+    Finish time: Sat Jul 11 19:00:06 GMT+03:00 2026 ts=1783785606980
+    Took time 1952sec
+    PU_StatusWatcher:
+      Initial thermal status: 0
+      Thermal status: 0
+      Screen off: true
+      Low battery: false
+    PU_DexoptTrigger:
+      Dexopt concurrency: 4
+      Dexopting: false
+      Hot apps list:
+        com.instagram.android, w=58, s=OPTIMIZED, optTimeMs=1783785606979, cancelCount=7, dexopt=PERFORMED, [dex2oatTimeMs=66651, filter=speed-profile]
+        com.whatsapp, w=83, s=OPTIMIZED, optTimeMs=1783785172276, cancelCount=4, dexopt=PERFORMED, [dex2oatTimeMs=52055, filter=speed-profile]
+        com.blizzard.wtcg.hearthstone, w=96, s=OPTIMIZED, optTimeMs=1783783694652, cancelCount=1, dexopt=PERFORMED, [primaryDex=true, reason=profile-utilization, dex2oatTimeMs=794, filter=speed-profile]
+        com.xiaomi.smarthome, w=98, s=OPTIMIZED, optTimeMs=1783785155553, cancelCount=4, dexopt=PERFORMED, [primaryDex=true, reason=profile-utilization, dex2oatTimeMs=39976, filter=speed-profile]
+        com.samsung.android.dialer, w=104, s=OPTIMIZED, optTimeMs=1783783694730, cancelCount=0, dexopt=SKIPPED, [primaryDex=true, reason=boot-after-mainline-update, dex2oatTimeMs=0, filter=speed-profile]
+        com.ttech.android.onlineislem, w=104, s=OPTIMIZED, optTimeMs=1783785157743, cancelCount=3, dexopt=PERFORMED, [primaryDex=true, reason=profile-utilization, dex2oatTimeMs=42162, filter=speed-profile]
+        com.smsBlocker, w=108, s=OPTIMIZED, optTimeMs=1783785163498, cancelCount=0, dexopt=PERFORMED, [primaryDex=true, reason=profile-utilization, dex2oatTimeMs=7272, filter=speed-profile], [primaryDex=false, reason=profile-utilization, dex2oatTimeMs=478, filter=verify]
+        com.android.settings, w=109, s=OPTIMIZED, optTimeMs=1783785172235, cancelCount=0, dexopt=PERFORMED, [primaryDex=true, reason=profile-utilization, dex2oatTimeMs=9656, filter=speed-profile]
+        com.sec.android.gallery3d, w=110, s=OPTIMIZED, optTimeMs=1783785163578, cancelCount=0, dexopt=SKIPPED, [primaryDex=true, reason=boot-after-mainline-update, dex2oatTimeMs=0, filter=speed-profile]
+        com.google.android.youtube, w=119, s=OPTIMIZED, optTimeMs=1783785389878, cancelCount=2, dexopt=PERFORMED, [dex2oatTimeMs=55376, filter=speed-profile], [primaryDex=false, reason=unknown, dex2oatTimeMs=0, filter=verify], [primaryDex=false, reason=unknown, dex2oatTimeMs=0, filter=verify], [primaryDex=false, reason=unknown, dex2oatTimeMs=0, filter=verify], [primaryDex=false, reason=unknown, dex2oatTimeMs=0, filter=verify]
+        com.inovel.app.yemeksepeti, w=121, s=OPTIMIZED, optTimeMs=1783785386181, cancelCount=2, dexopt=PERFORMED, [dex2oatTimeMs=55378, filter=speed-profile]
+        com.pozitron.iscep, w=124, s=OPTIMIZED, optTimeMs=1783785372603, cancelCount=2, dexopt=PERFORMED, [primaryDex=true, reason=profile-utilization, dex2oatTimeMs=48873, filter=speed-profile]
+        com.google.android.googlequicksearchbox, w=126, s=OPTIMIZED, optTimeMs=1783785403848, cancelCount=0, dexopt=PERFORMED, [dex2oatTimeMs=15951, filter=speed-profile]
+        com.samsung.android.samsungpass, w=128, s=OPTIMIZED, optTimeMs=1783785395250, cancelCount=0, dexopt=PERFORMED, [primaryDex=true, reason=profile-utilization, dex2oatTimeMs=5692, filter=speed-profile]
+        com.facebook.katana, w=133, s=OPTIMIZED, optTimeMs=1783785595520, cancelCount=1, dexopt=PERFORMED, [dex2oatTimeMs=55341, filter=speed-profile]
+        com.samsung.android.oneconnect, w=133, s=OPTIMIZED, optTimeMs=1783785427234, cancelCount=0, dexopt=PERFORMED, [primaryDex=true, reason=profile-utilization, dex2oatTimeMs=12893, filter=speed-profile]
+        com.sec.android.app.voicenote, w=135, s=OPTIMIZED, optTimeMs=1783785424242, cancelCount=0, dexopt=PERFORMED, [primaryDex=true, reason=profile-utilization, dex2oatTimeMs=7312, filter=speed-profile]
+        com.samsung.android.bixby.agent, w=136, s=OPTIMIZED, optTimeMs=1783785440093, cancelCount=0, dexopt=PERFORMED, [primaryDex=true, reason=profile-utilization, dex2oatTimeMs=5577, filter=speed-profile], [primaryDex=false, reason=vdex, dex2oatTimeMs=0, filter=verify]
+        com.samsung.android.app.spage, w=145, s=OPTIMIZED, optTimeMs=1783785432564, cancelCount=0, dexopt=PERFORMED, [primaryDex=true, reason=profile-utilization, dex2oatTimeMs=2351, filter=speed-profile]
+        com.samsung.android.app.notes, w=147, s=OPTIMIZED, optTimeMs=1783785556028, cancelCount=1, dexopt=PERFORMED, [primaryDex=true, reason=profile-utilization, dex2oatTimeMs=16529, filter=speed-profile]
+        com.samsung.android.app.contacts, w=150, s=OPTIMIZED, optTimeMs=1783785549659, cancelCount=1, dexopt=PERFORMED, [primaryDex=true, reason=profile-utilization, dex2oatTimeMs=10144, filter=speed-profile]
+    PU_Storage:
+      Stored apps:
+        com.instagram.android 58
+        com.whatsapp 83
+        com.blizzard.wtcg.hearthstone 96
+        com.xiaomi.smarthome 98
+        com.samsung.android.dialer 104
+        com.ttech.android.onlineislem 104
+        com.smsBlocker 108
+        com.android.settings 109
+        com.sec.android.gallery3d 110
+        com.google.android.youtube 119
+        com.inovel.app.yemeksepeti 121
+        com.pozitron.iscep 124
+        com.google.android.googlequicksearchbox 126
+        com.samsung.android.samsungpass 128
+        com.facebook.katana 133
+        com.samsung.android.oneconnect 133
+        com.sec.android.app.voicenote 135
+        com.samsung.android.bixby.agent 136
+        com.samsung.android.app.spage 145
+        com.samsung.android.app.notes 147
+        com.samsung.android.app.contacts 150
+        com.google.android.apps.bard 152
+        com.microsoft.office.outlook 153
+        com.google.android.gm 158
+        com.abtnprojects.ambatana 161
+        com.android.vending 161
+        com.edenred.TicketRestaurant 170
+        com.binance.dev 171
+        com.sec.android.easyMover 173
+        com.google.android.apps.maps 175
+        com.google.android.apps.tachyon 175
+        com.anydo 183
+        com.amazon.mShop.android.shopping 189
+        com.samsung.android.app.find 191
+    Stored PU state:
+      Service:
+        Version: 2.1.2
+        Start reason: boot-after-mainline-update
+        Start time: Sat Jul 11 18:27:34 GMT+03:00 2026 ts=1783783654939
+        Finish time: Sat Jul 11 19:00:06 GMT+03:00 2026 ts=1783785606980
+        Took time 1952sec
+      Watcher:
+        Initial thermal status: 0
+        Thermal status: 0
+        Screen off: true
+        Low battery: false
+      Metrics:
+        Predicted and launched apps: 9
+        Predicted apps: 21
+        Launched apps: 10
+        Best f1Score: 0.64000005, prefixCount: 15, precision: 0.53333336, recall: 0.8
+      Trigger:
+        Dexopt concurrency: 4
+        Dexopting: false
+        Hot apps list:
+          com.instagram.android, w=58, s=OPTIMIZED, optTimeMs=1783785606979, cancelCount=7, dexopt=PERFORMED, [primaryDex=true, reason=profile-utilization, dex2oatTimeMs=66651, filter=speed-profile]
+          com.whatsapp, w=83, s=OPTIMIZED, optTimeMs=1783785172276, cancelCount=4, dexopt=PERFORMED, [primaryDex=true, reason=profile-utilization, dex2oatTimeMs=52055, filter=speed-profile]
+          com.blizzard.wtcg.hearthstone, w=96, s=OPTIMIZED, optTimeMs=1783783694652, cancelCount=1, dexopt=PERFORMED, [primaryDex=true, reason=profile-utilization, dex2oatTimeMs=794, filter=speed-profile]
+          com.xiaomi.smarthome, w=98, s=OPTIMIZED, optTimeMs=1783785155553, cancelCount=4, dexopt=PERFORMED, [primaryDex=true, reason=profile-utilization, dex2oatTimeMs=39976, filter=speed-profile]
+          com.samsung.android.dialer, w=104, s=OPTIMIZED, optTimeMs=1783783694730, cancelCount=0, dexopt=SKIPPED, [primaryDex=true, reason=boot-after-mainline-update, dex2oatTimeMs=0, filter=speed-profile]
+          com.ttech.android.onlineislem, w=104, s=OPTIMIZED, optTimeMs=1783785157743, cancelCount=3, dexopt=PERFORMED, [primaryDex=true, reason=profile-utilization, dex2oatTimeMs=42162, filter=speed-profile]
+          com.smsBlocker, w=108, s=OPTIMIZED, optTimeMs=1783785163498, cancelCount=0, dexopt=PERFORMED, [primaryDex=true, reason=profile-utilization, dex2oatTimeMs=7272, filter=speed-profile], [primaryDex=false, reason=profile-utilization, dex2oatTimeMs=478, filter=verify]
+          com.android.settings, w=109, s=OPTIMIZED, optTimeMs=1783785172235, cancelCount=0, dexopt=PERFORMED, [primaryDex=true, reason=profile-utilization, dex2oatTimeMs=9656, filter=speed-profile]
+          com.sec.android.gallery3d, w=110, s=OPTIMIZED, optTimeMs=1783785163578, cancelCount=0, dexopt=SKIPPED, [primaryDex=true, reason=boot-after-mainline-update, dex2oatTimeMs=0, filter=speed-profile]
+          com.google.android.youtube, w=119, s=OPTIMIZED, optTimeMs=1783785389878, cancelCount=2, dexopt=PERFORMED, [primaryDex=true, reason=profile-utilization, dex2oatTimeMs=55376, filter=speed-profile], [primaryDex=false, reason=vdex, dex2oatTimeMs=0, filter=verify], [primaryDex=false, reason=vdex, dex2oatTimeMs=0, filter=verify], [primaryDex=false, reason=vdex, dex2oatTimeMs=0, filter=verify], [primaryDex=false, reason=vdex, dex2oatTimeMs=0, filter=verify]
+          com.inovel.app.yemeksepeti, w=121, s=OPTIMIZED, optTimeMs=1783785386181, cancelCount=2, dexopt=PERFORMED, [primaryDex=true, reason=profile-utilization, dex2oatTimeMs=55378, filter=speed-profile]
+          com.pozitron.iscep, w=124, s=OPTIMIZED, optTimeMs=1783785372603, cancelCount=2, dexopt=PERFORMED, [primaryDex=true, reason=profile-utilization, dex2oatTimeMs=48873, filter=speed-profile]
+          com.google.android.googlequicksearchbox, w=126, s=OPTIMIZED, optTimeMs=1783785403848, cancelCount=0, dexopt=PERFORMED, [primaryDex=true, reason=profile-utilization, dex2oatTimeMs=15951, filter=speed-profile]
+          com.samsung.android.samsungpass, w=128, s=OPTIMIZED, optTimeMs=1783785395250, cancelCount=0, dexopt=PERFORMED, [primaryDex=true, reason=profile-utilization, dex2oatTimeMs=5692, filter=speed-profile]
+          com.facebook.katana, w=133, s=OPTIMIZED, optTimeMs=1783785595520, cancelCount=1, dexopt=PERFORMED, [primaryDex=true, reason=profile-utilization, dex2oatTimeMs=55341, filter=speed-profile]
+          com.samsung.android.oneconnect, w=133, s=OPTIMIZED, optTimeMs=1783785427234, cancelCount=0, dexopt=PERFORMED, [primaryDex=true, reason=profile-utilization, dex2oatTimeMs=12893, filter=speed-profile]
+          com.sec.android.app.voicenote, w=135, s=OPTIMIZED, optTimeMs=1783785424242, cancelCount=0, dexopt=PERFORMED, [primaryDex=true, reason=profile-utilization, dex2oatTimeMs=7312, filter=speed-profile]
+          com.samsung.android.bixby.agent, w=136, s=OPTIMIZED, optTimeMs=1783785440093, cancelCount=0, dexopt=PERFORMED, [primaryDex=true, reason=profile-utilization, dex2oatTimeMs=5577, filter=speed-profile], [primaryDex=false, reason=vdex, dex2oatTimeMs=0, filter=verify]
+          com.samsung.android.app.spage, w=145, s=OPTIMIZED, optTimeMs=1783785432564, cancelCount=0, dexopt=PERFORMED, [primaryDex=true, reason=profile-utilization, dex2oatTimeMs=2351, filter=speed-profile]
+          com.samsung.android.app.notes, w=147, s=OPTIMIZED, optTimeMs=1783785556028, cancelCount=1, dexopt=PERFORMED, [primaryDex=true, reason=profile-utilization, dex2oatTimeMs=16529, filter=speed-profile]
+          com.samsung.android.app.contacts, w=150, s=OPTIMIZED, optTimeMs=1783785549659, cancelCount=1, dexopt=PERFORMED, [primaryDex=true, reason=profile-utilization, dex2oatTimeMs=10144, filter=speed-profile]
+    Stored SCPM state:
+      packages-9a07:
+        [                                            ]
+      disable-2bb4:
+        [                                            ]
+
+HeimdAllFS state:
+  [com.coffeeplatform.atlas_m6_camera_vision_demo]
+    path: /data/app/~~SdSdSbyIn4GicfhSz5tgPQ==/com.coffeeplatform.atlas_m6_camera_vision_demo-UfjSl8lo2AQnv4A4iKhj9w==/base.apk
+    Compressed? False
+  [ Summary ]
+    # of packages: 1 / # of packages in DATA: 1 (1)
+    Compressed apks info - sum of orig size: 20028 / sum of compr size : 20028
+  [Lfo status]

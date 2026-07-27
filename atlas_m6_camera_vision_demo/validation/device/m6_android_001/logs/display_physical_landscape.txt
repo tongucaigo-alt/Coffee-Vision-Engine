@@ -1,0 +1,89 @@
+﻿
+    initCutout=DisplayCutout{insets=Rect(0, 92 - 0, 0) waterfall=Insets{left=0, top=0, right=0, bottom=0} boundingRect=
+{Bounds=[Rect(0, 0 - 0, 0), Rect(506, 24 - 574, 92), Rect(0, 0 - 0, 0), Rect(0, 0 - 0, 0)]} cutoutPathParserInfo={Cutou
+tPathParserInfo{displayWidth=1080 displayHeight=2340 physicalDisplayWidth=1080 physicalDisplayHeight=2340 density={2.81
+25} cutoutSpec={M 0,0 M 0, 8.533333333333333 a 12.08888888888889,12.08888888888889 0 1,0 0,24.17777777777778 a 12.08888
+888888889,12.08888888888889 0 1,0 0,-24.17777777777778 Z @dp} rotation={0} scale={1.0} physicalPixelDisplaySizeRatio={1
+.0}}} sideOverrides={}}
+    baseCutout=DisplayCutout{insets=Rect(0, 92 - 0, 0) waterfall=Insets{left=0, top=0, right=0, bottom=0} boundingRect=
+{Bounds=[Rect(0, 0 - 0, 0), Rect(506, 24 - 574, 92), Rect(0, 0 - 0, 0), Rect(0, 0 - 0, 0)]} cutoutPathParserInfo={Cutou
+tPathParserInfo{displayWidth=1080 displayHeight=2340 physicalDisplayWidth=1080 physicalDisplayHeight=2340 density={2.81
+25} cutoutSpec={M 0,0 M 0, 8.533333333333333 a 12.08888888888889,12.08888888888889 0 1,0 0,24.17777777777778 a 12.08888
+888888889,12.08888888888889 0 1,0 0,-24.17777777777778 Z @dp} rotation={0} scale={1.0} physicalPixelDisplaySizeRatio={1
+.0}}} sideOverrides={}}
+  overrideConfig={0.9 286mcc1mnc [tr_TR] ldltr sw384dp w384dp h832dp 450dpi nrml long compactNeeded hdr widecg port nig
+ht finger -keyb/v/h -nav/h winConfig={ mBounds=Rect(0, 0 - 1080, 2340) mAppBounds=Rect(0, 0 - 1080, 2340) mMaxBounds=Re
+ct(0, 0 - 1080, 2340) mDisplayRotation=ROTATION_0 mWindowingMode=fullscreen mActivityType=undefined mAlwaysOnTop=undefi
+ned mRotation=ROTATION_0 mStageConfig=undefined mPopOver=undefined mOverlappingWithCutout=false} s.25054 fontWeightAdju
+stment=300 ff=0 bf=-1 bts=0 cst=1.0 nightDim=0 themeSeq=0}
+  mCurrentFocus=Window{3311fbf u0 com.coffeeplatform.atlas_m6_camera_vision_demo/com.coffeeplatform.atlas_m6_camera_vis
+ion_demo.MainActivity}
+      overrideConfig={0.0 ?mcc0mnc ?localeList ?layoutDir ?swdp ?wdp ?hdp ?density ?lsize ?long ?round ?ldr ?wideColorG
+amut ?orien ?uimode ?night ?touch ?keyb/?/? ?nav/? winConfig={ mBounds=Rect(0, 0 - 0, 0) mAppBounds=null mMaxBounds=Rec
+t(0, 0 - 0, 0) mDisplayRotation=undefined mWindowingMode=fullscreen mActivityType=undefined mAlwaysOnTop=undefined mRot
+ation=undefined mStageConfig=undefined mPopOver=undefined mOverlappingWithCutout=false} ?fontWeightAdjustment ff=0 bf=-
+1 bts=-1 cst=0.0 nightDim=-1 themeSeq=0}
+    {0.9 286mcc1mnc [tr_TR] ldltr sw384dp w384dp h832dp 450dpi nrml long compactNeeded hdr widecg port night finger -ke
+yb/v/h -nav/h winConfig={ mBounds=Rect(0, 0 - 1080, 2340) mAppBounds=Rect(0, 0 - 1080, 2340) mMaxBounds=Rect(0, 0 - 108
+0, 2340) mDisplayRotation=ROTATION_0 mWindowingMode=fullscreen mActivityType=undefined mAlwaysOnTop=undefined mRotation
+=ROTATION_0 mStageConfig=undefined mPopOver=undefined mOverlappingWithCutout=false} as.1 s.23482 fontWeightAdjustment=3
+00 ff=0 bf=-1 bts=0 cst=1.0 nightDim=0 themeSeq=0}
+    mRotation=0 mDeferredRotationPauseCount=0
+    mLandscapeRotation=ROTATION_90 mSeascapeRotation=ROTATION_270
+    mPortraitRotation=ROTATION_0 mUpsideDownRotation=ROTATION_180
+    mSupportAutoRotation=true
+      mCurrentRotation=ROTATION_0
+        mDesiredRotation=ROTATION_270
+        mProposedRotation=ROTATION_270
+    mCarDockRotation=-1 mDeskDockRotation=-1
+    mUserRotationMode=USER_ROTATION_FREE mUserRotation=ROTATION_0 mCameraRotationMode=0 mAllowAllRotations=false
+    mDemoHdmiRotation=ROTATION_90 mDemoHdmiRotationLock=false mUndockedHdmiRotation=-1
+    mLidOpenRotation=-1
+    mFixedToUserRotation=false
+          07-22 19:18:54.616: mode=USER_ROTATION_FREE, rotation=ROTATION_0, caller=UiAutomationConnection#restoreRotati
+onStateLocked
+          07-22 19:19:33.480: mode=USER_ROTATION_FREE, rotation=ROTATION_0, caller=UiAutomationConnection#restoreRotati
+onStateLocked
+          07-22 19:19:59.019: mode=USER_ROTATION_FREE, rotation=ROTATION_0, caller=UiAutomationConnection#restoreRotati
+onStateLocked
+          07-22 19:23:27.551: mode=USER_ROTATION_FREE, rotation=ROTATION_0, caller=UiAutomationConnection#restoreRotati
+onStateLocked
+          07-22 19:24:42.502: mode=USER_ROTATION_FREE, rotation=ROTATION_0, caller=UiAutomationConnection#restoreRotati
+onStateLocked
+          07-22 19:25:06.282: mode=USER_ROTATION_FREE, rotation=ROTATION_0, caller=UiAutomationConnection#restoreRotati
+onStateLocked
+          07-22 19:27:58.541: mode=USER_ROTATION_FREE, rotation=ROTATION_0, caller=UiAutomationConnection#restoreRotati
+onStateLocked
+          07-22 19:30:54.910: mode=USER_ROTATION_FREE, rotation=ROTATION_0, caller=UiAutomationConnection#restoreRotati
+onStateLocked
+          07-22 19:31:57.638: mode=USER_ROTATION_FREE, rotation=ROTATION_0, caller=UiAutomationConnection#restoreRotati
+onStateLocked
+          07-22 19:32:31.408: mode=USER_ROTATION_FREE, rotation=ROTATION_0, caller=UiAutomationConnection#restoreRotati
+onStateLocked
+          07-22 19:34:55.639: mode=USER_ROTATION_FREE, rotation=ROTATION_0, caller=UiAutomationConnection#restoreRotati
+onStateLocked
+          07-22 19:35:24.250: mode=USER_ROTATION_FREE, rotation=ROTATION_0, caller=UiAutomationConnection#restoreRotati
+onStateLocked
+          07-22 19:38:28.803: mode=USER_ROTATION_FREE, rotation=ROTATION_0, caller=UiAutomationConnection#restoreRotati
+onStateLocked
+          07-22 19:42:30.519: mode=USER_ROTATION_FREE, rotation=ROTATION_0, caller=UiAutomationConnection#restoreRotati
+onStateLocked
+          07-22 19:42:46.167: mode=USER_ROTATION_FREE, rotation=ROTATION_0, caller=UiAutomationConnection#restoreRotati
+onStateLocked
+          07-22 19:44:34.872: mode=USER_ROTATION_FREE, rotation=ROTATION_0, caller=UiAutomationConnection#restoreRotati
+onStateLocked
+      mDisplayCutout=DisplayCutout{insets=Rect(0, 92 - 0, 0) waterfall=Insets{left=0, top=0, right=0, bottom=0} boundin
+gRect={Bounds=[Rect(0, 0 - 0, 0), Rect(506, 24 - 574, 92), Rect(0, 0 - 0, 0), Rect(0, 0 - 0, 0)]} cutoutPathParserInfo=
+{CutoutPathParserInfo{displayWidth=1080 displayHeight=2340 physicalDisplayWidth=1080 physicalDisplayHeight=2340 density
+={2.8125} cutoutSpec={M 0,0 M 0, 8.533333333333333 a 12.08888888888889,12.08888888888889 0 1,0 0,24.17777777777778 a 12
+.08888888888889,12.08888888888889 0 1,0 0,-24.17777777777778 Z @dp} rotation={0} scale={1.0} physicalPixelDisplaySizeRa
+tio={1.0}}} sideOverrides={}}
+      mPrivacyIndicatorBounds=PrivacyIndicatorBounds {static bounds=Rect(956, 0 - 1080, 101) rotation=0}
+      mDisplayShape=DisplayShape{ spec=-311912193 displayWidth=1080 displayHeight=2340 physicalPixelDisplaySizeRatio=1.
+0 rotation=0 offsetX=0 offsetY=0 scale=1.0}
+    SettingsEntry{mWindowingMode=0, mUserRotationMode=null, mUserRotation=null, mForcedWidth=0, mForcedHeight=0, mForce
+dDensity=0, mForcedDensityRatio=0.0, mForcedScalingMode=null, mRemoveContentMode=0, mShouldShowWithInsecureKeyguard=nul
+l, mShouldShowSystemDecors=null, mIsHomeSupported=null, mShouldShowIme=null, mFixedToUserRotation=null, mIgnoreOrientat
+ionRequest=null, mIgnoreDisplayCutout=null, mDontMoveToTop=null, mForceAppsUniversalResizable=null}
+
+

@@ -1,0 +1,14 @@
+name: coffee_pattern
+description: Deterministic physical-pattern contract for Coffee Platform.
+version: 0.0.1
+publish_to: none
+
+environment:
+  sdk: ^3.12.2
+
+dependencies:
+  coffee_vision:
+    path: ../coffee_vision
+
+dev_dependencies:
+  test: ^1.31.0

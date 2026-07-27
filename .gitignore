@@ -1,0 +1,17 @@
+# Atlas yedekleri ve doğrulama artefact’ları
+ATLAS_K3_COMPLETE_PRE_NEXT_LAYER_2026-07-26/
+.atlas_m25_validation/
+
+# Dart ve Flutter tarafından üretilen klasörler
+**/.dart_tool/
+**/build/
+**/coverage/
+
+# IDE ve işletim sistemi dosyaları
+**/.idea/
+**/.vscode/
+**/*.iml
+Thumbs.db
+.DS_Storeatlas_m5b_dataset/
+atlas_m5b_dataset/
+**/*.mp4

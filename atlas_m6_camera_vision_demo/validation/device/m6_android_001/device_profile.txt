@@ -1,0 +1,24 @@
+﻿validationStartUtc=2026-07-22T15:59:28.9142032Z
+validationEndUtc=2026-07-22T17:09:55.2796034Z
+serial=R5GL329BC0N
+manufacturer=samsung
+model=SM-A566B
+product=a56xnatur
+androidVersion=16
+apiLevel=36
+buildFingerprint=samsung/a56xnatur/a56x:16/BP4A.251205.006/A566BXXSBCZF5_OXMBCZF5:user/release-keys
+packageId=com.coffeeplatform.atlas_m6_camera_vision_demo
+installedApkType=arm64-v8a-debug-split
+installedApkSizeBytes=81945267
+installedApkSha256=sha256:7eb50ae479b86a7a7d5d96c6591ff2572ab227d7a0f6647df6c07b9f83fd19c5
+finalUniversalApkPath=C:\Users\exzau\OneDrive\Belgeler\Coffee Vision Engine\atlas_m6_camera_vision_demo\build\app\outputs\flutter-apk\app-debug.apk
+finalUniversalApkSizeBytes=152872104
+finalUniversalApkSha256=sha256:3eaad32188c6a2138ae196738ff960eeeed5e8789b9a39073e7be44a90ee9edd
+
+[aapt]
+package: com.coffeeplatform.atlas_m6_camera_vision_demo versionCode=1 versionName=1.0.0
+minSdk=24
+targetSdk=36
+permissions=INTERNET,CAMERA,DYNAMIC_RECEIVER_NOT_EXPORTED,ACCESS_NETWORK_STATE
+applicationLabel=Atlas M6 Camera Vision
+launchableActivity=com.coffeeplatform.atlas_m6_camera_vision_demo.MainActivity

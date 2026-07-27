@@ -1,0 +1,14 @@
+name: coffee_knowledge
+description: Immutable physical knowledge contracts for Atlas.
+version: 0.0.1
+publish_to: none
+
+environment:
+  sdk: ^3.12.2
+
+dependencies:
+  coffee_pattern:
+    path: ../coffee_pattern
+
+dev_dependencies:
+  test: ^1.31.0

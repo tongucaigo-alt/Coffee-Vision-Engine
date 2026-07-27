@@ -1,0 +1,108 @@
+{
+  "schemaVersion": "1.0",
+  "milestone": "Atlas M5A",
+  "packageName": "coffee_vision",
+  "packageVersion": "0.0.1",
+  "repeatCount": 3,
+  "config": {
+    "workingResolution": 512
+  },
+  "summary": {
+    "overall": {
+      "entryCount": 2,
+      "enabledEntryCount": 2,
+      "skippedEntryCount": 0,
+      "successfulAnalysisCount": 2,
+      "failedAnalysisCount": 0,
+      "deterministicCount": 2,
+      "nonDeterministicCount": 0
+    },
+    "cup": {
+      "entryCount": 1,
+      "enabledEntryCount": 1,
+      "skippedEntryCount": 0,
+      "successfulAnalysisCount": 1,
+      "failedAnalysisCount": 0,
+      "deterministicCount": 1,
+      "nonDeterministicCount": 0
+    },
+    "saucer": {
+      "entryCount": 1,
+      "enabledEntryCount": 1,
+      "skippedEntryCount": 0,
+      "successfulAnalysisCount": 1,
+      "failedAnalysisCount": 0,
+      "deterministicCount": 1,
+      "nonDeterministicCount": 0
+    }
+  },
+  "runErrors": [],
+  "records": [
+    {
+      "entry": {
+        "sourceId": "cup-synthetic-001",
+        "relativePath": "valid_2x3.png",
+        "surfaceType": "cup",
+        "format": "png",
+        "ownership": "synthetic-test-fixture",
+        "consent": "test-use-only",
+        "enabled": true,
+        "contentChecksum": "sha256:be54e64af065a8b61e79f00d35f63d4af79c5166046b06c2b146f6efb31e76d1"
+      },
+      "analysisStatus": "success",
+      "determinismStatus": "deterministic",
+      "repeatsPerformed": 3,
+      "mismatchedRepeatIndexes": [],
+      "metrics": {
+        "surfaceType": "cup",
+        "sourceId": "cup-synthetic-001",
+        "workingImageWidth": 512,
+        "workingImageHeight": 512,
+        "workingResiduePixelCount": 0,
+        "workingContentResidueAreaRatio": 0.0,
+        "componentCount": 0,
+        "relationCount": 0,
+        "selectedEdgeCount": 0,
+        "graphNodeCount": 0,
+        "graphEdgeCount": 0,
+        "structureCount": 0,
+        "largestStructureSize": 0,
+        "isolatedStructureCount": 0
+      },
+      "error": null
+    },
+    {
+      "entry": {
+        "sourceId": "saucer-synthetic-001",
+        "relativePath": "valid_3x2.jpg",
+        "surfaceType": "saucer",
+        "format": "jpeg",
+        "ownership": "synthetic-test-fixture",
+        "consent": "test-use-only",
+        "enabled": true,
+        "contentChecksum": "sha256:6ee12e36128f59e34aecc8979f3bf6dd6d331e17b821934a6fb27df50c7bddda"
+      },
+      "analysisStatus": "success",
+      "determinismStatus": "deterministic",
+      "repeatsPerformed": 3,
+      "mismatchedRepeatIndexes": [],
+      "metrics": {
+        "surfaceType": "saucer",
+        "sourceId": "saucer-synthetic-001",
+        "workingImageWidth": 512,
+        "workingImageHeight": 512,
+        "workingResiduePixelCount": 0,
+        "workingContentResidueAreaRatio": 0.0,
+        "componentCount": 0,
+        "relationCount": 0,
+        "selectedEdgeCount": 0,
+        "graphNodeCount": 0,
+        "graphEdgeCount": 0,
+        "structureCount": 0,
+        "largestStructureSize": 0,
+        "isolatedStructureCount": 0
+      },
+      "error": null
+    }
+  ]
+}

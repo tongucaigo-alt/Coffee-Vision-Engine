@@ -1,0 +1,25 @@
+{
+  "schemaVersion": "1.0",
+  "entries": [
+    {
+      "sourceId": "cup-synthetic-001",
+      "relativePath": "valid_2x3.png",
+      "surfaceType": "cup",
+      "format": "png",
+      "ownership": "synthetic-test-fixture",
+      "consent": "test-use-only",
+      "enabled": true,
+      "contentChecksum": "sha256:be54e64af065a8b61e79f00d35f63d4af79c5166046b06c2b146f6efb31e76d1"
+    },
+    {
+      "sourceId": "saucer-synthetic-001",
+      "relativePath": "valid_3x2.jpg",
+      "surfaceType": "saucer",
+      "format": "jpeg",
+      "ownership": "synthetic-test-fixture",
+      "consent": "test-use-only",
+      "enabled": true,
+      "contentChecksum": "sha256:6ee12e36128f59e34aecc8979f3bf6dd6d331e17b821934a6fb27df50c7bddda"
+    }
+  ]
+}

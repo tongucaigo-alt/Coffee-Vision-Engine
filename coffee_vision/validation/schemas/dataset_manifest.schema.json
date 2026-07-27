@@ -1,0 +1,61 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://coffee-platform.local/schemas/validation-dataset-manifest-1.0.json",
+  "title": "Coffee Vision Validation Dataset Manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "entries"],
+  "properties": {
+    "schemaVersion": {
+      "const": "1.0"
+    },
+    "entries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "sourceId",
+          "relativePath",
+          "surfaceType",
+          "format",
+          "ownership",
+          "consent",
+          "enabled",
+          "contentChecksum"
+        ],
+        "properties": {
+          "sourceId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "relativePath": {
+            "type": "string",
+            "minLength": 1
+          },
+          "surfaceType": {
+            "enum": ["cup", "saucer"]
+          },
+          "format": {
+            "enum": ["png", "jpeg"]
+          },
+          "ownership": {
+            "type": "string",
+            "minLength": 1
+          },
+          "consent": {
+            "type": "string",
+            "minLength": 1
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "contentChecksum": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          }
+        }
+      }
+    }
+  }
+}

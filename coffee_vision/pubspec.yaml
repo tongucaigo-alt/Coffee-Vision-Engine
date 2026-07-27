@@ -1,0 +1,14 @@
+name: coffee_vision
+description: Independent image-observation foundation for Coffee Platform.
+version: 0.0.1
+publish_to: none
+
+environment:
+  sdk: ^3.12.2
+
+dependencies:
+  image: ^4.9.1
+
+dev_dependencies:
+  crypto: ^3.0.7
+  test: ^1.31.0
