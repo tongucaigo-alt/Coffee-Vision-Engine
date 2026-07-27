@@ -1,6 +1,8 @@
 library;
 
 export 'src/constraint_evaluator.dart' show ConstraintEvaluator;
+export 'src/knowledge_record_collection_matcher.dart'
+    show KnowledgeRecordCollectionMatcher;
 export 'src/knowledge_record_evaluator.dart' show KnowledgeRecordEvaluator;
 export 'src/knowledge_record_match_decider.dart'
     show KnowledgeRecordMatchDecider;

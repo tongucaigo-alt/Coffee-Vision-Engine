@@ -47,6 +47,7 @@ void main() {
 
       for (final approved in [
         'ConstraintEvaluator',
+        'KnowledgeRecordCollectionMatcher',
         'KnowledgeRecordEvaluator',
         'KnowledgeRecordMatchDecider',
         'KnowledgeConstraint',
