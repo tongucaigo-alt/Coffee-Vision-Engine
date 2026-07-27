@@ -12,6 +12,6 @@ ATLAS_K3_COMPLETE_PRE_NEXT_LAYER_2026-07-26/
 **/.vscode/
 **/*.iml
 Thumbs.db
-.DS_Storeatlas_m5b_dataset/
+.DS_Store
 atlas_m5b_dataset/
 **/*.mp4
