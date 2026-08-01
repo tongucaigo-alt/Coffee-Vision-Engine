@@ -1,0 +1,13 @@
+﻿Validation ID: k6_android_001
+Validation date local: 2026-08-01
+Time zone: Europe/Istanbul (UTC+03:00)
+Manufacturer: Samsung
+Model: SM-A566B
+Operating system: Android 16
+API level: 36
+ADB serial: masked (R5G***BC0N)
+Application ID: com.coffeeplatform.atlas_k6_end_to_end_demo
+APK type: debug
+APK SHA-256: 1649738e02b2e8fcc3ccdf409ea211f43fe91d4944a80fb9374742f7d202c017
+Dataset version: kds-001
+Dataset SHA-256: 18b65abeca6971cc98153f0c5781bcdffecb2869fc4fabb205d004f9fb372895

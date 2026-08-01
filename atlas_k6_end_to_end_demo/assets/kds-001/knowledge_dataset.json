@@ -1,0 +1,30 @@
+{
+  "schemaVersion": "1.0",
+  "datasetVersion": "kds-001",
+  "records": [
+    {
+      "id": "physical-pattern-001",
+      "enabled": true,
+      "constraints": [
+        {
+          "key": "geometryCentroidX",
+          "kind": "doubleRange",
+          "minimum": 0.49363603489882152,
+          "maximum": 0.53447512459156987
+        },
+        {
+          "key": "geometryCentroidY",
+          "kind": "doubleRange",
+          "minimum": 0.47921483103000467,
+          "maximum": 0.50934748698319832
+        },
+        {
+          "key": "topologyNodeCount",
+          "kind": "integerRange",
+          "minimum": 60,
+          "maximum": 64
+        }
+      ]
+    }
+  ]
+}

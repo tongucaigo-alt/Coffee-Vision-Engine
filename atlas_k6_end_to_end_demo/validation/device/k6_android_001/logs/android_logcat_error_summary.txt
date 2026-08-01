@@ -1,0 +1,5 @@
+﻿Android logcat error summary
+Validation window: 2026-08-01 14:19-14:28 Europe/Istanbul
+Patterns checked: FATAL EXCEPTION; CameraController was used after being disposed; Unhandled Exception; E/flutter
+Matches during recorded full flow and reopen/cancel validation: 0
+Raw log remained local and was not committed because the concise result is sufficient and avoids unrelated device data.

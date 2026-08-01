@@ -1,0 +1,6 @@
+﻿Camera resource summary
+Before completing the flow: Active Camera Clients contained com.coffeeplatform.atlas_k6_end_to_end_demo on camera 0.
+After the complete cup and saucer flow: Active Camera Clients: []
+After opening a second capture and cancelling: Active Camera Clients: []
+Conclusion: no retained active camera client after completion or cancellation.
+The camera service previous-session dump is historical and is not an active-client entry.
