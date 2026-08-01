@@ -23,6 +23,14 @@ void main() {
       }
     });
 
+    test('dependency boundary parsing is line-ending independent', () {
+      const pubspec =
+          'name: sample\r\ndependencies:\r\n  crypto: ^3.0.7\r\n'
+          'dev_dependencies:\r\n  test: any\r\n';
+
+      expect(_yamlSection(pubspec, 'dependencies'), contains('crypto: ^3.0.7'));
+    });
+
     test('exports only the approved public contract families', () {
       final barrel = File('lib/atlas_canonical_json.dart').readAsStringSync();
       for (final approved in [
@@ -90,9 +98,10 @@ String _productionSources() {
 }
 
 String _yamlSection(String source, String section) {
-  final start = source.indexOf('$section:\n');
+  final normalized = source.replaceAll('\r\n', '\n');
+  final start = normalized.indexOf('$section:\n');
   if (start < 0) return '';
-  final rest = source.substring(start + section.length + 2);
+  final rest = normalized.substring(start + section.length + 2);
   final nextTopLevel = RegExp(
     r'^[A-Za-z_].*:$',
     multiLine: true,
