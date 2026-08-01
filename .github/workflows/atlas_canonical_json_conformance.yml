@@ -1,0 +1,38 @@
+name: Atlas Canonical JSON Conformance
+
+on:
+  pull_request:
+    paths:
+      - 'atlas_canonical_json/**'
+      - 'docs/symbol/canonical-json/**'
+      - '.github/workflows/atlas_canonical_json_conformance.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'atlas_canonical_json/**'
+      - 'docs/symbol/canonical-json/**'
+      - '.github/workflows/atlas_canonical_json_conformance.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  dart-vm:
+    name: Dart VM (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    defaults:
+      run:
+        working-directory: atlas_canonical_json
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: 3.12.2
+      - run: dart pub get
+      - run: dart format --output=none --set-exit-if-changed lib test tool
+      - run: dart analyze
+      - run: dart test --reporter expanded

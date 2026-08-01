@@ -1,0 +1,23 @@
+name: atlas_canonical_json_android
+description: Android-only conformance harness for Atlas Canonical JSON.
+publish_to: none
+version: 0.1.0+1
+
+environment:
+  sdk: ^3.12.2
+
+dependencies:
+  atlas_canonical_json:
+    path: ../..
+  flutter:
+    sdk: flutter
+  integration_test:
+    sdk: flutter
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: false
