@@ -1,0 +1,14 @@
+name: coffee_symbol
+description: Immutable Symbol contracts and deterministic candidate resolution for Atlas.
+version: 0.0.1
+publish_to: none
+
+environment:
+  sdk: ^3.12.2
+
+dependencies:
+  coffee_knowledge:
+    path: ../coffee_knowledge
+
+dev_dependencies:
+  test: ^1.31.0
