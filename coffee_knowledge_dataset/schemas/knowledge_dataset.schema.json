@@ -1,0 +1,106 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://atlas.local/schemas/knowledge_dataset.schema.json",
+  "title": "Atlas Physical Knowledge Dataset",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "datasetVersion", "records"],
+  "properties": {
+    "schemaVersion": {
+      "const": "1.0"
+    },
+    "datasetVersion": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^\\S(?:.*\\S)?$"
+    },
+    "records": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/record"
+      }
+    }
+  },
+  "$defs": {
+    "record": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "enabled", "constraints"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^\\S(?:.*\\S)?$"
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "constraints": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "oneOf": [
+              {"$ref": "#/$defs/doubleRange"},
+              {"$ref": "#/$defs/integerRange"},
+              {"$ref": "#/$defs/booleanEquals"}
+            ]
+          }
+        }
+      }
+    },
+    "doubleKey": {
+      "enum": [
+        "geometryLeft",
+        "geometryTop",
+        "geometryRight",
+        "geometryBottom",
+        "geometryCentroidX",
+        "geometryCentroidY",
+        "geometryWidth",
+        "geometryHeight",
+        "geometryAspectRatio"
+      ]
+    },
+    "integerKey": {
+      "enum": ["topologyNodeCount", "topologyDirectedEdgeCount"]
+    },
+    "booleanKey": {
+      "enum": [
+        "geometryTouchesWorkingImageBorder",
+        "topologyIsIsolated"
+      ]
+    },
+    "doubleRange": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["key", "kind", "minimum", "maximum"],
+      "properties": {
+        "key": {"$ref": "#/$defs/doubleKey"},
+        "kind": {"const": "doubleRange"},
+        "minimum": {"type": "number"},
+        "maximum": {"type": "number"}
+      }
+    },
+    "integerRange": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["key", "kind", "minimum", "maximum"],
+      "properties": {
+        "key": {"$ref": "#/$defs/integerKey"},
+        "kind": {"const": "integerRange"},
+        "minimum": {"type": "integer"},
+        "maximum": {"type": "integer"}
+      }
+    },
+    "booleanEquals": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["key", "kind", "expected"],
+      "properties": {
+        "key": {"$ref": "#/$defs/booleanKey"},
+        "kind": {"const": "booleanEquals"},
+        "expected": {"type": "boolean"}
+      }
+    }
+  }
+}
