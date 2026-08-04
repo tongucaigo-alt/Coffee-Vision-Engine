@@ -1,0 +1,36 @@
+name: Coffee Symbol Dataset CI
+
+on:
+  pull_request:
+    paths:
+      - 'coffee_symbol_dataset/**'
+      - '.github/workflows/coffee_symbol_dataset_ci.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'coffee_symbol_dataset/**'
+      - '.github/workflows/coffee_symbol_dataset_ci.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  dart-vm:
+    name: Dart VM (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    defaults:
+      run:
+        working-directory: coffee_symbol_dataset
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: 3.12.2
+      - run: dart pub get
+      - run: dart format --output=none --set-exit-if-changed lib test
+      - run: dart analyze
+      - run: dart test --reporter expanded

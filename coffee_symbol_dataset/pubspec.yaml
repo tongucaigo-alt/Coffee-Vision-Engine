@@ -1,0 +1,17 @@
+name: coffee_symbol_dataset
+description: Strict Symbol release JSON adapter for Atlas.
+version: 0.0.1
+publish_to: none
+
+environment:
+  sdk: ^3.12.2
+
+dependencies:
+  atlas_canonical_json:
+    path: ../atlas_canonical_json
+  coffee_symbol:
+    path: ../coffee_symbol
+
+dev_dependencies:
+  json_schema: ^5.2.2
+  test: ^1.31.0

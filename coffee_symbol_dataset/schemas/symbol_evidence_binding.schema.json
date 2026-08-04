@@ -1,0 +1,115 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://atlas.local/schemas/symbol_evidence_binding.schema.json",
+  "title": "Atlas SymbolEvidenceBinding",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "recordType",
+    "bindingId",
+    "revision",
+    "canonicalJsonProfileRef",
+    "symbolRef",
+    "knowledgeTargetRef",
+    "evidenceAssessmentRefs"
+  ],
+  "properties": {
+    "schemaVersion": {"const": "1.0"},
+    "recordType": {"const": "atlas.symbolEvidenceBinding"},
+    "bindingId": {"$ref": "#/$defs/identifier"},
+    "revision": {"$ref": "#/$defs/revision"},
+    "canonicalJsonProfileRef": {"$ref": "#/$defs/profileRef"},
+    "symbolRef": {"$ref": "#/$defs/symbolRef"},
+    "knowledgeTargetRef": {"$ref": "#/$defs/knowledgeTargetRef"},
+    "sourceRefs": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/sourceRef"}
+    },
+    "evidenceAssessmentRefs": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/assessmentRef"}
+    }
+  },
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
+    },
+    "revision": {"type": "integer", "minimum": 1},
+    "checksum": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "profileRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["profileId", "revision", "checksum"],
+      "properties": {
+        "profileId": {"const": "atlas-canonical-json"},
+        "revision": {"const": 1},
+        "checksum": {
+          "const": "sha256:16e9e10eb848828a863a7eca1c0b7e7c84e1a485065d00f938c6af356cd54ad7"
+        }
+      }
+    },
+    "sourceRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sourceId", "revision"],
+      "properties": {
+        "sourceId": {"$ref": "#/$defs/identifier"},
+        "revision": {"$ref": "#/$defs/revision"},
+        "locator": {"type": "string", "minLength": 1}
+      }
+    },
+    "symbolRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["symbolId", "revision", "checksum"],
+      "properties": {
+        "symbolId": {"$ref": "#/$defs/identifier"},
+        "revision": {"$ref": "#/$defs/revision"},
+        "checksum": {"$ref": "#/$defs/checksum"}
+      }
+    },
+    "knowledgeTargetRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "knowledgeReleaseId",
+        "knowledgeReleaseChecksum",
+        "knowledgeRecordId"
+      ],
+      "properties": {
+        "knowledgeReleaseId": {"$ref": "#/$defs/identifier"},
+        "knowledgeReleaseChecksum": {"$ref": "#/$defs/checksum"},
+        "knowledgeRecordId": {"$ref": "#/$defs/identifier"}
+      }
+    },
+    "assessmentRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "assessmentId",
+        "revision",
+        "assessmentType",
+        "checksum"
+      ],
+      "properties": {
+        "assessmentId": {"$ref": "#/$defs/identifier"},
+        "revision": {"$ref": "#/$defs/revision"},
+        "assessmentType": {
+          "enum": [
+            "cohortValidation",
+            "holdoutValidation",
+            "confoundChallenge",
+            "expertMorphologyReview"
+          ]
+        },
+        "checksum": {"$ref": "#/$defs/checksum"}
+      }
+    }
+  }
+}
