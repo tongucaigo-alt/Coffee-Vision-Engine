@@ -135,9 +135,10 @@ String _productionSources() {
 }
 
 String _yamlSection(String source, String section) {
-  final start = source.indexOf('$section:\n');
+  final normalized = source.replaceAll('\r\n', '\n');
+  final start = normalized.indexOf('$section:\n');
   if (start < 0) return '';
-  final rest = source.substring(start + section.length + 2);
+  final rest = normalized.substring(start + section.length + 2);
   final nextTopLevel = RegExp(
     r'^[A-Za-z_].*:$',
     multiLine: true,
