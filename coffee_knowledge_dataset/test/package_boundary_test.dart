@@ -54,6 +54,45 @@ void main() {
       expect(sources, isNot(contains('analyzeDetailed(')));
     });
 
+    test('LF-1 remains research-only with no production API expansion', () {
+      final barrel = File(
+        'lib/coffee_knowledge_dataset.dart',
+      ).readAsStringSync();
+      final production = Directory('lib')
+          .listSync(recursive: true)
+          .whereType<File>()
+          .where((file) => file.path.endsWith('.dart'))
+          .map((file) => file.readAsStringSync())
+          .join('\n');
+      final lf1 = Directory('tool')
+          .listSync(recursive: true)
+          .whereType<File>()
+          .where(
+            (file) =>
+                file.path.contains('lf1_') ||
+                file.path.contains('local_formation_'),
+          )
+          .map((file) => file.readAsStringSync())
+          .join('\n');
+
+      expect(barrel, isNot(contains('Lf1')));
+      expect(production, isNot(contains('Lf1')));
+      expect(lf1, isNot(contains('package:coffee_vision/src/')));
+      expect(lf1, isNot(contains('package:coffee_pattern/src/')));
+      for (final forbidden in [
+        'confidence',
+        'ranking',
+        'fortune',
+        'interpretation',
+      ]) {
+        expect(
+          RegExp('\\b$forbidden\\b', caseSensitive: false).hasMatch(lf1),
+          isFalse,
+          reason: forbidden,
+        );
+      }
+    });
+
     test('report contract contains no semantic or scoring fields', () {
       final source = File(
         'tool/src/k6a_models.dart',
