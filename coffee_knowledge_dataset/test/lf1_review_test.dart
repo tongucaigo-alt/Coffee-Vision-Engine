@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:test/test.dart';
 
@@ -143,6 +144,22 @@ void main() {
         'repo',
       ]);
       expect(options.port, 8766);
+    });
+
+    test('review UI maps working-image candidates onto source images', () {
+      final source = File(
+        'tool/local_formation_review_server.dart',
+      ).readAsStringSync();
+
+      expect(source, contains('box(candidateInSource(c)'));
+      expect(source, contains('const contentWidth=width/height'));
+      expect(source, contains('const contentHeight=height/width'));
+      expect(
+        source,
+        contains(r"$('saveStatus').textContent='Unsaved changes'"),
+      );
+      expect(source, contains('Physical annotation'));
+      expect(source, contains('Algorithm candidate'));
     });
   });
 }
