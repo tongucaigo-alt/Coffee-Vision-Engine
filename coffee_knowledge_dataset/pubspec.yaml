@@ -16,4 +16,5 @@ dev_dependencies:
   coffee_vision:
     path: ../coffee_vision
   crypto: ^3.0.7
+  image: ^4.9.1
   test: ^1.31.0

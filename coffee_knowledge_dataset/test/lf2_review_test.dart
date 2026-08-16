@@ -343,6 +343,24 @@ void main() {
       expect(feasibility.outputDirectory, 'output');
     });
 
+    test('review UI links candidate rows and canvas boxes bidirectionally', () {
+      final source = File(
+        'tool/local_formation_evidence_review_server.dart',
+      ).readAsStringSync();
+
+      expect(source, contains('selectedCandidateId'));
+      expect(source, contains('hoveredCandidateId'));
+      expect(source, contains('data-candidate-id'));
+      expect(source, contains("canvas.addEventListener('mousemove'"));
+      expect(source, contains("canvas.addEventListener('click'"));
+      expect(source, contains('candidateAtCanvasPoint'));
+      expect(source, contains('scrollIntoView'));
+      expect(source, contains("classList.toggle('selected'"));
+      expect(source, contains("classList.toggle('hovered'"));
+      expect(source, contains('.candidate.selected'));
+      expect(source, contains('.swatch.truth'));
+    });
+
     test(
       'research sources use public Vision evidence without downstream engines',
       () {
