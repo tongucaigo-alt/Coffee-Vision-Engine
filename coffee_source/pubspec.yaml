@@ -1,0 +1,14 @@
+name: coffee_source
+description: Immutable SourceRecord contracts for the Atlas Source Catalog.
+version: 0.0.1
+publish_to: none
+
+environment:
+  sdk: ^3.12.2
+
+dependencies:
+  coffee_symbol:
+    path: ../coffee_symbol
+
+dev_dependencies:
+  test: ^1.31.0
