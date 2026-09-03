@@ -228,8 +228,71 @@ final class SymbolReleaseManifest {
     evidenceAssessmentRegistryReleaseRef,
     required Iterable<KnowledgeDatasetReleaseRef> knowledgeDatasetReleaseRefs,
     required String manifestChecksum,
+  }) => _create(
+    schemaVersion: schemaVersion,
+    releaseId: releaseId,
+    createdAtUtc: createdAtUtc,
+    canonicalJsonProfileRef: canonicalJsonProfileRef,
+    governanceSnapshotRef: governanceSnapshotRef,
+    records: records,
+    sourceCatalogReleaseRef: sourceCatalogReleaseRef,
+    symbolAdmissionPolicyRef: symbolAdmissionPolicyRef,
+    evidenceAdmissionPolicyRef: evidenceAdmissionPolicyRef,
+    evidenceAssessmentRegistryReleaseRef: evidenceAssessmentRegistryReleaseRef,
+    knowledgeDatasetReleaseRefs: knowledgeDatasetReleaseRefs,
+    manifestChecksum: manifestChecksum,
+    conditionalPhysicalDependencies: false,
+  );
+
+  /// Creates a version 2 manifest with binding-conditional physical refs.
+  factory SymbolReleaseManifest.v2({
+    required String schemaVersion,
+    required String releaseId,
+    required String createdAtUtc,
+    required CanonicalJsonProfileRef canonicalJsonProfileRef,
+    required GovernanceSnapshotRef governanceSnapshotRef,
+    required Iterable<SymbolReleaseRecordRef> records,
+    required SourceCatalogReleaseRef sourceCatalogReleaseRef,
+    required SymbolAdmissionPolicyRef symbolAdmissionPolicyRef,
+    EvidenceAdmissionPolicyRef? evidenceAdmissionPolicyRef,
+    EvidenceAssessmentRegistryReleaseRef? evidenceAssessmentRegistryReleaseRef,
+    Iterable<KnowledgeDatasetReleaseRef> knowledgeDatasetReleaseRefs =
+        const <KnowledgeDatasetReleaseRef>[],
+    required String manifestChecksum,
+  }) => _create(
+    schemaVersion: schemaVersion,
+    releaseId: releaseId,
+    createdAtUtc: createdAtUtc,
+    canonicalJsonProfileRef: canonicalJsonProfileRef,
+    governanceSnapshotRef: governanceSnapshotRef,
+    records: records,
+    sourceCatalogReleaseRef: sourceCatalogReleaseRef,
+    symbolAdmissionPolicyRef: symbolAdmissionPolicyRef,
+    evidenceAdmissionPolicyRef: evidenceAdmissionPolicyRef,
+    evidenceAssessmentRegistryReleaseRef: evidenceAssessmentRegistryReleaseRef,
+    knowledgeDatasetReleaseRefs: knowledgeDatasetReleaseRefs,
+    manifestChecksum: manifestChecksum,
+    conditionalPhysicalDependencies: true,
+  );
+
+  static SymbolReleaseManifest _create({
+    required String schemaVersion,
+    required String releaseId,
+    required String createdAtUtc,
+    required CanonicalJsonProfileRef canonicalJsonProfileRef,
+    required GovernanceSnapshotRef governanceSnapshotRef,
+    required Iterable<SymbolReleaseRecordRef> records,
+    required SourceCatalogReleaseRef sourceCatalogReleaseRef,
+    required SymbolAdmissionPolicyRef symbolAdmissionPolicyRef,
+    required EvidenceAdmissionPolicyRef? evidenceAdmissionPolicyRef,
+    required EvidenceAssessmentRegistryReleaseRef?
+    evidenceAssessmentRegistryReleaseRef,
+    required Iterable<KnowledgeDatasetReleaseRef> knowledgeDatasetReleaseRefs,
+    required String manifestChecksum,
+    required bool conditionalPhysicalDependencies,
   }) {
-    if (schemaVersion != '1.0') {
+    final expectedVersion = conditionalPhysicalDependencies ? '2.0' : '1.0';
+    if (schemaVersion != expectedVersion) {
       throw ArgumentError.value(schemaVersion, 'schemaVersion');
     }
     final canonicalRecords = records.toList(growable: false)
@@ -246,14 +309,33 @@ final class SymbolReleaseManifest {
       );
     }
     _rejectDuplicateRecords(canonicalRecords);
+    final hasBindings = canonicalRecords.any(
+      (record) =>
+          record.recordType == SymbolDatasetRecordType.symbolEvidenceBinding,
+    );
     final knowledgeReleases = knowledgeDatasetReleaseRefs.toList(
       growable: false,
     );
-    if (knowledgeReleases.length != 1) {
+    final requiresPhysicalDependencies =
+        !conditionalPhysicalDependencies || hasBindings;
+    if (requiresPhysicalDependencies &&
+        (evidenceAdmissionPolicyRef == null ||
+            evidenceAssessmentRegistryReleaseRef == null ||
+            knowledgeReleases.length != 1)) {
       throw ArgumentError.value(
         knowledgeDatasetReleaseRefs,
         'knowledgeDatasetReleaseRefs',
-        'must contain exactly one release',
+        'physical dependencies must be complete with exactly one release',
+      );
+    }
+    if (!requiresPhysicalDependencies &&
+        (evidenceAdmissionPolicyRef != null ||
+            evidenceAssessmentRegistryReleaseRef != null ||
+            knowledgeReleases.isNotEmpty)) {
+      throw ArgumentError.value(
+        knowledgeDatasetReleaseRefs,
+        'knowledgeDatasetReleaseRefs',
+        'definition-only version 2 manifests must omit physical dependencies',
       );
     }
     return SymbolReleaseManifest._(
@@ -300,13 +382,20 @@ final class SymbolReleaseManifest {
   final List<SymbolReleaseRecordRef> records;
   final SourceCatalogReleaseRef sourceCatalogReleaseRef;
   final SymbolAdmissionPolicyRef symbolAdmissionPolicyRef;
-  final EvidenceAdmissionPolicyRef evidenceAdmissionPolicyRef;
-  final EvidenceAssessmentRegistryReleaseRef
+  final EvidenceAdmissionPolicyRef? evidenceAdmissionPolicyRef;
+  final EvidenceAssessmentRegistryReleaseRef?
   evidenceAssessmentRegistryReleaseRef;
   final List<KnowledgeDatasetReleaseRef> knowledgeDatasetReleaseRefs;
 
-  KnowledgeDatasetReleaseRef get knowledgeRelease =>
-      knowledgeDatasetReleaseRefs.single;
+  bool get hasBindings => records.any(
+    (record) =>
+        record.recordType == SymbolDatasetRecordType.symbolEvidenceBinding,
+  );
+
+  KnowledgeDatasetReleaseRef? get knowledgeRelease =>
+      knowledgeDatasetReleaseRefs.isEmpty
+      ? null
+      : knowledgeDatasetReleaseRefs.single;
 
   @override
   bool operator ==(Object other) =>
@@ -346,7 +435,7 @@ final class SymbolReleaseManifest {
   @override
   String toString() {
     return 'SymbolReleaseManifest(releaseRef: $releaseRef, '
-        'recordCount: ${records.length}, knowledgeRelease: $knowledgeRelease)';
+        'recordCount: ${records.length}, hasBindings: $hasBindings)';
   }
 }
 
@@ -387,7 +476,7 @@ final class SymbolDatasetSnapshot {
   final List<SymbolDefinition> definitions;
   final List<SymbolEvidenceBinding> bindings;
 
-  KnowledgeDatasetReleaseRef get knowledgeRelease => manifest.knowledgeRelease;
+  KnowledgeDatasetReleaseRef? get knowledgeRelease => manifest.knowledgeRelease;
 
   @override
   bool operator ==(Object other) =>

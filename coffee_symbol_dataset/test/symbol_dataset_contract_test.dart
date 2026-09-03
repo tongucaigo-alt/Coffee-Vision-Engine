@@ -64,7 +64,7 @@ void main() {
       expect(manifest.records, [definition, binding]);
       expect(identical(manifest.records.first, definition), isTrue);
       expect(identical(manifest.records.last, binding), isTrue);
-      expect(manifest.knowledgeRelease.releaseId, 'test-kds-001');
+      expect(manifest.knowledgeRelease!.releaseId, 'test-kds-001');
     });
 
     test('manifest requires at least one definition', () {
@@ -108,6 +108,52 @@ void main() {
         throwsArgumentError,
       );
     });
+
+    test('version 2 definition-only manifest omits physical dependencies', () {
+      final definition = _definitionRef();
+      final manifest = _v2Manifest(records: [definition]);
+
+      expect(manifest.schemaVersion, '2.0');
+      expect(manifest.hasBindings, isFalse);
+      expect(manifest.evidenceAdmissionPolicyRef, isNull);
+      expect(manifest.evidenceAssessmentRegistryReleaseRef, isNull);
+      expect(manifest.knowledgeDatasetReleaseRefs, isEmpty);
+      expect(manifest.knowledgeRelease, isNull);
+    });
+
+    test('version 2 binding manifest requires the complete physical set', () {
+      final definition = _definitionRef();
+      final binding = SymbolReleaseRecordRef(
+        recordType: SymbolDatasetRecordType.symbolEvidenceBinding,
+        recordId: 'test-binding-001',
+        revision: 1,
+        checksum: checksum('2'),
+      );
+
+      expect(
+        () => _v2Manifest(records: [definition, binding]),
+        throwsArgumentError,
+      );
+      final complete = _v2Manifest(
+        records: [definition, binding],
+        includePhysicalDependencies: true,
+      );
+      expect(complete.hasBindings, isTrue);
+      expect(complete.knowledgeRelease!.releaseId, 'test-kds-001');
+    });
+
+    test(
+      'version 2 definition-only manifest rejects physical dependencies',
+      () {
+        expect(
+          () => _v2Manifest(
+            records: [_definitionRef()],
+            includePhysicalDependencies: true,
+          ),
+          throwsArgumentError,
+        );
+      },
+    );
 
     test('manifest validates exact UTC timestamps', () {
       final definition = SymbolReleaseRecordRef(
@@ -171,6 +217,66 @@ void main() {
       expect(exception.toString(), isNot(contains('Test symbol')));
     });
   });
+}
+
+SymbolReleaseRecordRef _definitionRef() => SymbolReleaseRecordRef(
+  recordType: SymbolDatasetRecordType.symbolDefinition,
+  recordId: 'test-symbol-001',
+  revision: 1,
+  checksum: checksum('1'),
+);
+
+SymbolReleaseManifest _v2Manifest({
+  required Iterable<SymbolReleaseRecordRef> records,
+  bool includePhysicalDependencies = false,
+}) {
+  return SymbolReleaseManifest.v2(
+    schemaVersion: '2.0',
+    releaseId: 'test-symbol-release-v2-001',
+    createdAtUtc: '2026-08-22T00:00:00Z',
+    canonicalJsonProfileRef: CanonicalJsonProfileRef(
+      profileId: 'atlas-canonical-json',
+      revision: 1,
+      checksum:
+          'sha256:16e9e10eb848828a863a7eca1c0b7e7c84e1a485065d00f938c6af356cd54ad7',
+    ),
+    governanceSnapshotRef: GovernanceSnapshotRef(
+      snapshotId: 'test-governance-001',
+      checksum: checksum('1'),
+    ),
+    records: records,
+    sourceCatalogReleaseRef: SourceCatalogReleaseRef(
+      releaseId: 'test-source-release-001',
+      checksum: checksum('2'),
+    ),
+    symbolAdmissionPolicyRef: SymbolAdmissionPolicyRef(
+      policyId: 'test-symbol-policy-001',
+      revision: 1,
+      checksum: checksum('3'),
+    ),
+    evidenceAdmissionPolicyRef: includePhysicalDependencies
+        ? EvidenceAdmissionPolicyRef(
+            policyId: 'test-evidence-policy-001',
+            revision: 1,
+            checksum: checksum('4'),
+          )
+        : null,
+    evidenceAssessmentRegistryReleaseRef: includePhysicalDependencies
+        ? EvidenceAssessmentRegistryReleaseRef(
+            releaseId: 'test-assessment-release-001',
+            checksum: checksum('5'),
+          )
+        : null,
+    knowledgeDatasetReleaseRefs: includePhysicalDependencies
+        ? [
+            KnowledgeDatasetReleaseRef(
+              releaseId: 'test-kds-001',
+              checksum: checksum('6'),
+            ),
+          ]
+        : const <KnowledgeDatasetReleaseRef>[],
+    manifestChecksum: checksum('7'),
+  );
 }
 
 SymbolReleaseManifest _manifest({

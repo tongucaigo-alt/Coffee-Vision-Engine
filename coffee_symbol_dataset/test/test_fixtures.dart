@@ -155,6 +155,23 @@ SyntheticBundle syntheticBundle({bool includeBinding = true}) {
   );
 }
 
+SyntheticBundle syntheticV2Bundle({bool includeBinding = true}) {
+  final base = syntheticBundle(includeBinding: includeBinding);
+  final manifest = deepCopy(base.manifest)..['schemaVersion'] = '2.0';
+  if (!includeBinding) {
+    manifest
+      ..remove('evidenceAdmissionPolicyRef')
+      ..remove('evidenceAssessmentRegistryReleaseRef')
+      ..remove('knowledgeDatasetReleaseRefs');
+  }
+  return SyntheticBundle(
+    manifest: rechecksumManifest(manifest),
+    records: base.records.map(deepCopy).toList(growable: false),
+    definition: deepCopy(base.definition),
+    binding: base.binding == null ? null : deepCopy(base.binding!),
+  );
+}
+
 Map<String, Object?> profileMap() => <String, Object?>{
   'profileId': 'atlas-canonical-json',
   'revision': 1,

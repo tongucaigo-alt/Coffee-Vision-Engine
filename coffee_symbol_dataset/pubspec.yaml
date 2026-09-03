@@ -1,6 +1,6 @@
 name: coffee_symbol_dataset
 description: Strict Symbol release JSON adapter for Atlas.
-version: 0.0.1
+version: 0.1.0
 publish_to: none
 
 environment:

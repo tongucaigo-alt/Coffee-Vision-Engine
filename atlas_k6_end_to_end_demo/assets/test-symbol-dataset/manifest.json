@@ -1,0 +1,33 @@
+{
+  "schemaVersion": "2.0",
+  "recordType": "atlas.symbolReleaseManifest",
+  "releaseId": "test-symbol-release-definition-only-001",
+  "createdAtUtc": "2026-08-22T00:00:00Z",
+  "canonicalJsonProfileRef": {
+    "profileId": "atlas-canonical-json",
+    "revision": 1,
+    "checksum": "sha256:16e9e10eb848828a863a7eca1c0b7e7c84e1a485065d00f938c6af356cd54ad7"
+  },
+  "governanceSnapshotRef": {
+    "snapshotId": "test-governance-001",
+    "checksum": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+  },
+  "records": [
+    {
+      "recordType": "atlas.symbolDefinition",
+      "recordId": "test-symbol-001",
+      "revision": 1,
+      "checksum": "sha256:9929a3f28e4dce53e9e9a841585135a4257fd5a96dfa576cdaa81aa596a374e2"
+    }
+  ],
+  "sourceCatalogReleaseRef": {
+    "releaseId": "test-source-release-001",
+    "checksum": "sha256:4444444444444444444444444444444444444444444444444444444444444444"
+  },
+  "symbolAdmissionPolicyRef": {
+    "policyId": "test-symbol-policy-001",
+    "revision": 1,
+    "checksum": "sha256:5555555555555555555555555555555555555555555555555555555555555555"
+  },
+  "manifestChecksum": "sha256:a700b1d0b4eadc0d91022608050d62d25eee788067d7e35811d1412749c26ad4"
+}

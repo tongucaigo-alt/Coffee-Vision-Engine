@@ -15,6 +15,13 @@ void main() {
     await tester.pumpWidget(_page(controller));
 
     expect(find.text('kds-001 research baseline'), findsOneWidget);
+    expect(
+      find.text(
+        'test-symbol-release-001 technical fixture',
+        findRichText: true,
+      ),
+      findsOneWidget,
+    );
     expect(find.text('1 kayit'), findsOneWidget);
     expect(find.byKey(const ValueKey('idle-state')), findsOneWidget);
     expect(find.byKey(const ValueKey('capture-button')), findsOneWidget);
@@ -60,6 +67,8 @@ void main() {
     expect(find.text('2/2 Tabak'), findsOneWidget);
     expect(find.text('physical-pattern-001'), findsNWidgets(2));
     expect(find.text('MATCH'), findsNWidgets(2));
+    expect(find.text('INSUFFICIENT SYMBOL EVIDENCE'), findsOneWidget);
+    expect(find.text('0'), findsWidgets);
     expect(find.textContaining('geometryCentroidX'), findsNWidgets(2));
     await tester.pumpWidget(const SizedBox());
   });
@@ -107,6 +116,8 @@ void main() {
 AtlasK6Controller _controller({AtlasFeatureAnalyzer? analyzeFeatures}) {
   return AtlasK6Controller(
     dataset: createDataset(),
+    knowledgeRelease: createKnowledgeRelease(),
+    symbolDataset: createSymbolDataset(),
     readFile: fakeRead,
     analyzeFeatures:
         analyzeFeatures ?? (input) async => createFeatureSet(input.surfaceType),

@@ -24,7 +24,7 @@ void main() {
       expect(snapshot.bindings, hasLength(1));
       expect(snapshot.definitions.single.symbolId, 'test-symbol-001');
       expect(snapshot.bindings.single.bindingId, 'test-binding-001');
-      expect(snapshot.knowledgeRelease.releaseId, 'test-kds-001');
+      expect(snapshot.knowledgeRelease!.releaseId, 'test-kds-001');
     });
 
     test('accepts an unbound definition', () {
@@ -37,6 +37,81 @@ void main() {
 
       expect(snapshot.definitions, hasLength(1));
       expect(snapshot.bindings, isEmpty);
+      expect(snapshot.manifest.schemaVersion, '1.0');
+      expect(snapshot.knowledgeRelease, isNotNull);
+    });
+
+    test('accepts a version 2 definition-only release', () {
+      final bundle = syntheticV2Bundle(includeBinding: false);
+
+      final snapshot = parser.parse(
+        manifestBytes: bundle.manifestBytes,
+        recordDocuments: bundle.recordBytes,
+      );
+
+      expect(snapshot.manifest.schemaVersion, '2.0');
+      expect(snapshot.definitions, hasLength(1));
+      expect(snapshot.bindings, isEmpty);
+      expect(snapshot.manifest.evidenceAdmissionPolicyRef, isNull);
+      expect(snapshot.manifest.evidenceAssessmentRegistryReleaseRef, isNull);
+      expect(snapshot.manifest.knowledgeDatasetReleaseRefs, isEmpty);
+      expect(snapshot.knowledgeRelease, isNull);
+    });
+
+    test('accepts a version 2 release with complete binding dependencies', () {
+      final bundle = syntheticV2Bundle();
+
+      final snapshot = parser.parse(
+        manifestBytes: bundle.manifestBytes,
+        recordDocuments: bundle.recordBytes,
+      );
+
+      expect(snapshot.manifest.schemaVersion, '2.0');
+      expect(snapshot.bindings, hasLength(1));
+      expect(snapshot.manifest.evidenceAdmissionPolicyRef, isNotNull);
+      expect(snapshot.knowledgeRelease!.releaseId, 'test-kds-001');
+    });
+
+    test('version 2 definition-only rejects every physical field', () {
+      final bundle = syntheticV2Bundle(includeBinding: false);
+      final physicalValues = syntheticBundle().manifest;
+      for (final field in [
+        'evidenceAdmissionPolicyRef',
+        'evidenceAssessmentRegistryReleaseRef',
+        'knowledgeDatasetReleaseRefs',
+      ]) {
+        final manifest = deepCopy(bundle.manifest)
+          ..[field] = physicalValues[field];
+
+        expect(
+          () => parser.parse(
+            manifestBytes: bytesFor(rechecksumManifest(manifest)),
+            recordDocuments: bundle.recordBytes,
+          ),
+          throwsFailure(SymbolDatasetFailure.schemaViolation),
+          reason: field,
+        );
+      }
+    });
+
+    test('version 2 binding rejects every incomplete physical set', () {
+      final bundle = syntheticV2Bundle();
+      for (final field in [
+        'evidenceAdmissionPolicyRef',
+        'evidenceAssessmentRegistryReleaseRef',
+        'knowledgeDatasetReleaseRefs',
+      ]) {
+        final manifest = deepCopy(bundle.manifest)..remove(field);
+
+        expect(
+          () => parser.parse(
+            manifestBytes: bytesFor(rechecksumManifest(manifest)),
+            recordDocuments: bundle.recordBytes,
+          ),
+          throwsFailure(SymbolDatasetFailure.schemaViolation),
+          reason: field,
+        );
+      }
     });
 
     test('is independent of record document iteration order', () {
@@ -103,7 +178,7 @@ void main() {
         'test-source-release-001',
       );
       expect(
-        snapshot.manifest.evidenceAssessmentRegistryReleaseRef.releaseId,
+        snapshot.manifest.evidenceAssessmentRegistryReleaseRef!.releaseId,
         'test-assessment-release-001',
       );
       expect(

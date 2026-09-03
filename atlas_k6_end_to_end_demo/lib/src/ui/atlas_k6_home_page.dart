@@ -93,7 +93,8 @@ class _AtlasK6HomePageState extends State<AtlasK6HomePage> {
                 key: ValueKey('cup-processing-state'),
                 icon: Icons.coffee_outlined,
                 title: 'Fincan isleniyor',
-                detail: 'Vision, Pattern ve Knowledge sirali calisiyor.',
+                detail:
+                    'Vision, Pattern, Knowledge ve Symbol sirali calisiyor.',
               ),
               AtlasK6Phase.processingSaucer => _SaucerProgress(state: state),
               AtlasK6Phase.success => _SuccessContent(state: state),
@@ -173,9 +174,19 @@ class _DatasetStrip extends StatelessWidget {
           const Icon(Icons.inventory_2_outlined, size: 20),
           const SizedBox(width: 10),
           Expanded(
-            child: Text(
-              '${controller.dataset.datasetVersion} research baseline',
-              style: const TextStyle(fontWeight: FontWeight.w600),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${controller.dataset.datasetVersion} research baseline',
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+                Text(
+                  '${controller.symbolDataset.manifest.releaseRef.releaseId} '
+                  'technical fixture',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
             ),
           ),
           Text('${controller.dataset.activeRecords.length} kayit'),
@@ -204,7 +215,8 @@ class _IdleContent extends StatelessWidget {
             const SizedBox(height: 8),
             const Text(
               'Cekimlerden VisionFeatureSet, PatternCandidate ve fiziksel '
-              'Knowledge eslesmeleri sirali olarak uretilir.',
+              'Knowledge eslesmeleri uretilir; admitted binding varsa tum '
+              'Symbol adaylari kayipsiz korunur.',
             ),
           ],
         ),
@@ -293,6 +305,12 @@ class _SuccessContent extends StatelessWidget {
         ),
         const SizedBox(height: 4),
         Text('Dataset: ${result.datasetVersion}'),
+        const SizedBox(height: 4),
+        Text(
+          _outcomeLabel(result.outcome),
+          key: const ValueKey('aggregate-outcome'),
+          style: const TextStyle(fontWeight: FontWeight.w700),
+        ),
         const SizedBox(height: 18),
         _SurfaceResultSection(
           title: '1/2 Fincan',
@@ -355,6 +373,10 @@ class _SurfaceResultSection extends StatelessWidget {
           label: 'Eslesen kayit',
           value: '${result.matchedRecordCount}',
         ),
+        _MetricRow(
+          label: 'Symbol adayi',
+          value: '${result.symbolCandidateCount}',
+        ),
         _DurationRow(
           label: 'Uc uca isleme',
           duration: result.processingDuration,
@@ -367,10 +389,34 @@ class _SurfaceResultSection extends StatelessWidget {
             _CandidateCard(result: candidate),
             const SizedBox(height: 8),
           ],
+        if (result.symbolCandidates.isNotEmpty) ...[
+          const SizedBox(height: 4),
+          Text(
+            'Symbol candidates',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+          const SizedBox(height: 4),
+          for (final symbol in result.symbolCandidates)
+            _MetricRow(
+              label: 'Candidate ${symbol.patternCandidateId}',
+              value:
+                  '${symbol.symbolId} r${symbol.symbolRevision} '
+                  '(${symbol.supports.length} support)',
+            ),
+        ],
       ],
     );
   }
 }
+
+String _outcomeLabel(AtlasK6AggregateOutcome outcome) => switch (outcome) {
+  AtlasK6AggregateOutcome.noMatch => 'NO MATCH',
+  AtlasK6AggregateOutcome.insufficientSymbolEvidence =>
+    'INSUFFICIENT SYMBOL EVIDENCE',
+  AtlasK6AggregateOutcome.symbolCandidatesAvailable =>
+    'SYMBOL CANDIDATES AVAILABLE',
+  AtlasK6AggregateOutcome.technicalError => 'TECHNICAL ERROR',
+};
 
 class _CandidateCard extends StatelessWidget {
   const _CandidateCard({required this.result});

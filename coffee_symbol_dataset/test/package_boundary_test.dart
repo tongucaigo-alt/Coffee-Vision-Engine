@@ -120,6 +120,10 @@ void main() {
         File('schemas/symbol_release_manifest.schema.json').existsSync(),
         isTrue,
       );
+      expect(
+        File('schemas/symbol_release_manifest_v2.schema.json').existsSync(),
+        isTrue,
+      );
       expect(Directory('datasets').existsSync(), isFalse);
     });
   });

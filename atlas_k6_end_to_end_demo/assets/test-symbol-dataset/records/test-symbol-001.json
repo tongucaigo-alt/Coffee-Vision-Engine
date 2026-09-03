@@ -1,0 +1,36 @@
+{
+  "schemaVersion": "1.0",
+  "recordType": "atlas.symbolDefinition",
+  "symbolId": "test-symbol-001",
+  "revision": 1,
+  "canonicalJsonProfileRef": {
+    "profileId": "atlas-canonical-json",
+    "revision": 1,
+    "checksum": "sha256:16e9e10eb848828a863a7eca1c0b7e7c84e1a485065d00f938c6af356cd54ad7"
+  },
+  "preferredNames": [
+    {
+      "language": "en",
+      "value": "Test Symbol",
+      "sourceRefs": [
+        {
+          "sourceId": "test-source-001",
+          "revision": 1
+        }
+      ]
+    }
+  ],
+  "aliases": [],
+  "neutralDefinitions": [
+    {
+      "language": "en",
+      "value": "A synthetic symbol definition for engine integration testing.",
+      "sourceRefs": [
+        {
+          "sourceId": "test-source-001",
+          "revision": 1
+        }
+      ]
+    }
+  ]
+}

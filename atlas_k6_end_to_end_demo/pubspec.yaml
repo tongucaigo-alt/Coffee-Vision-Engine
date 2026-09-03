@@ -8,13 +8,17 @@ environment:
 
 dependencies:
   coffee_camera:
-    path: ../../Fal uygulaması Kamera sistemi
+    path: ../coffee_camera
   coffee_knowledge:
     path: ../coffee_knowledge
   coffee_knowledge_dataset:
     path: ../coffee_knowledge_dataset
   coffee_pattern:
     path: ../coffee_pattern
+  coffee_symbol:
+    path: ../coffee_symbol
+  coffee_symbol_dataset:
+    path: ../coffee_symbol_dataset
   coffee_vision:
     path: ../coffee_vision
   flutter:
@@ -29,3 +33,5 @@ flutter:
   uses-material-design: true
   assets:
     - assets/kds-001/knowledge_dataset.json
+    - assets/test-symbol-dataset/manifest.json
+    - assets/test-symbol-dataset/records/test-symbol-001.json

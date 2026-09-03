@@ -90,4 +90,10 @@ final class AtlasK6State {
       phase == AtlasK6Phase.failure &&
       captureResult != null &&
       failureStage != AtlasK6FailureStage.capture;
+
+  AtlasK6AggregateOutcome? get aggregateOutcome => switch (phase) {
+    AtlasK6Phase.success => result!.outcome,
+    AtlasK6Phase.failure => AtlasK6AggregateOutcome.technicalError,
+    _ => null,
+  };
 }

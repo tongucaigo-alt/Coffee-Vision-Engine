@@ -1,13 +1,22 @@
 import 'package:coffee_knowledge_dataset/coffee_knowledge_dataset.dart';
+import 'package:coffee_symbol/coffee_symbol.dart';
+import 'package:coffee_symbol_dataset/coffee_symbol_dataset.dart';
 import 'package:flutter/material.dart';
 
 import 'integration/atlas_k6_controller.dart';
 import 'ui/atlas_k6_home_page.dart';
 
 class AtlasK6EndToEndApp extends StatefulWidget {
-  const AtlasK6EndToEndApp({required this.dataset, super.key});
+  const AtlasK6EndToEndApp({
+    required this.dataset,
+    required this.knowledgeRelease,
+    required this.symbolDataset,
+    super.key,
+  });
 
   final KnowledgeDatasetSnapshot dataset;
+  final KnowledgeDatasetReleaseRef knowledgeRelease;
+  final SymbolDatasetSnapshot symbolDataset;
 
   @override
   State<AtlasK6EndToEndApp> createState() => _AtlasK6EndToEndAppState();
@@ -16,6 +25,8 @@ class AtlasK6EndToEndApp extends StatefulWidget {
 class _AtlasK6EndToEndAppState extends State<AtlasK6EndToEndApp> {
   late final AtlasK6Controller _controller = AtlasK6Controller(
     dataset: widget.dataset,
+    knowledgeRelease: widget.knowledgeRelease,
+    symbolDataset: widget.symbolDataset,
   );
 
   @override

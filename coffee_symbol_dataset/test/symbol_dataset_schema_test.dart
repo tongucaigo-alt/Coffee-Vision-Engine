@@ -50,6 +50,53 @@ void main() {
       expect(schema.validate(bundle.manifest).isValid, isTrue);
     });
 
+    test(
+      'version 2 definition-only manifest validates without physical refs',
+      () {
+        final bundle = syntheticV2Bundle(includeBinding: false);
+
+        expect(
+          _schema(_schemaPaths[3]).validate(bundle.manifest).isValid,
+          isTrue,
+        );
+        expect(
+          _schema(_schemaPaths[2]).validate(bundle.manifest).isValid,
+          isFalse,
+        );
+      },
+    );
+
+    test('version 2 binding manifest requires the complete physical set', () {
+      final bundle = syntheticV2Bundle();
+      final schema = _schema(_schemaPaths[3]);
+
+      expect(schema.validate(bundle.manifest).isValid, isTrue);
+      for (final field in [
+        'evidenceAdmissionPolicyRef',
+        'evidenceAssessmentRegistryReleaseRef',
+        'knowledgeDatasetReleaseRefs',
+      ]) {
+        final manifest = deepCopy(bundle.manifest)..remove(field);
+        expect(schema.validate(manifest).isValid, isFalse, reason: field);
+      }
+    });
+
+    test('version 2 definition-only manifest forbids every physical field', () {
+      final bundle = syntheticV2Bundle(includeBinding: false);
+      final physicalValues = syntheticBundle().manifest;
+      final schema = _schema(_schemaPaths[3]);
+
+      for (final field in [
+        'evidenceAdmissionPolicyRef',
+        'evidenceAssessmentRegistryReleaseRef',
+        'knowledgeDatasetReleaseRefs',
+      ]) {
+        final manifest = deepCopy(bundle.manifest)
+          ..[field] = physicalValues[field];
+        expect(schema.validate(manifest).isValid, isFalse, reason: field);
+      }
+    });
+
     test('schemas reject unknown semantic and activation fields', () {
       final bundle = syntheticBundle();
       final definition = deepCopy(bundle.definition)..['meaning'] = 'forbidden';
@@ -79,6 +126,7 @@ const _schemaPaths = [
   'schemas/symbol_definition.schema.json',
   'schemas/symbol_evidence_binding.schema.json',
   'schemas/symbol_release_manifest.schema.json',
+  'schemas/symbol_release_manifest_v2.schema.json',
 ];
 
 JsonSchema _schema(String path) => JsonSchema.create(

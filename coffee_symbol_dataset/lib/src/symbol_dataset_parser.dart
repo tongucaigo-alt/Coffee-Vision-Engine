@@ -100,42 +100,33 @@ final class SymbolDatasetParser {
 
   static SymbolReleaseManifest _parseManifest(_DecodedDocument document) {
     final object = document.object;
+    final schemaVersion = _manifestSchemaVersion(object, document.name);
+    const commonFields = {
+      'schemaVersion',
+      'recordType',
+      'releaseId',
+      'createdAtUtc',
+      'canonicalJsonProfileRef',
+      'governanceSnapshotRef',
+      'records',
+      'sourceCatalogReleaseRef',
+      'symbolAdmissionPolicyRef',
+      'manifestChecksum',
+    };
+    const physicalFields = {
+      'evidenceAdmissionPolicyRef',
+      'evidenceAssessmentRegistryReleaseRef',
+      'knowledgeDatasetReleaseRefs',
+    };
     _requireShape(
       object,
-      required: const {
-        'schemaVersion',
-        'recordType',
-        'releaseId',
-        'createdAtUtc',
-        'canonicalJsonProfileRef',
-        'governanceSnapshotRef',
-        'records',
-        'sourceCatalogReleaseRef',
-        'symbolAdmissionPolicyRef',
-        'evidenceAdmissionPolicyRef',
-        'evidenceAssessmentRegistryReleaseRef',
-        'knowledgeDatasetReleaseRefs',
-        'manifestChecksum',
-      },
-      allowed: const {
-        'schemaVersion',
-        'recordType',
-        'releaseId',
-        'createdAtUtc',
-        'canonicalJsonProfileRef',
-        'governanceSnapshotRef',
-        'records',
-        'sourceCatalogReleaseRef',
-        'symbolAdmissionPolicyRef',
-        'evidenceAdmissionPolicyRef',
-        'evidenceAssessmentRegistryReleaseRef',
-        'knowledgeDatasetReleaseRefs',
-        'manifestChecksum',
-      },
+      required: schemaVersion == '1.0'
+          ? {...commonFields, ...physicalFields}
+          : commonFields,
+      allowed: {...commonFields, ...physicalFields},
       document: document.name,
       field: 'manifest',
     );
-    _requireSchemaVersion(object, document.name);
     if (_string(object['recordType'], document.name, 'recordType') !=
         SymbolReleaseManifest.recordType) {
       throw SymbolDatasetException(
@@ -187,33 +178,56 @@ final class SymbolDatasetParser {
     }
     _requireStrictRecordOrder(records, document.name);
 
-    final knowledgeSource = _list(
-      object['knowledgeDatasetReleaseRefs'],
-      document.name,
-      'knowledgeDatasetReleaseRefs',
+    final hasBindings = records.any(
+      (record) =>
+          record.recordType == SymbolDatasetRecordType.symbolEvidenceBinding,
     );
-    if (knowledgeSource.length != 1) {
-      throw SymbolDatasetException(
-        SymbolDatasetFailure.schemaViolation,
-        document: document.name,
-        field: 'knowledgeDatasetReleaseRefs',
+    if (schemaVersion == '2.0') {
+      final presentPhysicalFields = physicalFields
+          .where(object.containsKey)
+          .toSet();
+      if (hasBindings &&
+          presentPhysicalFields.length != physicalFields.length) {
+        throw SymbolDatasetException(
+          SymbolDatasetFailure.schemaViolation,
+          document: document.name,
+          field: 'physical dependencies',
+        );
+      }
+      if (!hasBindings && presentPhysicalFields.isNotEmpty) {
+        throw SymbolDatasetException(
+          SymbolDatasetFailure.schemaViolation,
+          document: document.name,
+          field: 'physical dependencies',
+        );
+      }
+    }
+
+    final knowledgeReleases = <KnowledgeDatasetReleaseRef>[];
+    if (schemaVersion == '1.0' || hasBindings) {
+      final knowledgeSource = _list(
+        object['knowledgeDatasetReleaseRefs'],
+        document.name,
+        'knowledgeDatasetReleaseRefs',
+      );
+      if (knowledgeSource.length != 1) {
+        throw SymbolDatasetException(
+          SymbolDatasetFailure.schemaViolation,
+          document: document.name,
+          field: 'knowledgeDatasetReleaseRefs',
+        );
+      }
+      knowledgeReleases.add(
+        _parseKnowledgeReleaseRef(
+          knowledgeSource.single,
+          document.name,
+          'knowledgeDatasetReleaseRefs[0]',
+        ),
       );
     }
-    final knowledgeReleases = [
-      _parseKnowledgeReleaseRef(
-        knowledgeSource.single,
-        document.name,
-        'knowledgeDatasetReleaseRefs[0]',
-      ),
-    ];
 
     try {
-      return SymbolReleaseManifest(
-        schemaVersion: _string(
-          object['schemaVersion'],
-          document.name,
-          'schemaVersion',
-        ),
+      final common = (
         releaseId: _string(object['releaseId'], document.name, 'releaseId'),
         createdAtUtc: _string(
           object['createdAtUtc'],
@@ -230,7 +244,6 @@ final class SymbolDatasetParser {
           document.name,
           'governanceSnapshotRef',
         ),
-        records: records,
         sourceCatalogReleaseRef: _parseSourceCatalogRef(
           object['sourceCatalogReleaseRef'],
           document.name,
@@ -241,6 +254,44 @@ final class SymbolDatasetParser {
           document.name,
           'symbolAdmissionPolicyRef',
         ),
+      );
+      if (schemaVersion == '2.0') {
+        return SymbolReleaseManifest.v2(
+          schemaVersion: schemaVersion,
+          releaseId: common.releaseId,
+          createdAtUtc: common.createdAtUtc,
+          canonicalJsonProfileRef: common.canonicalJsonProfileRef,
+          governanceSnapshotRef: common.governanceSnapshotRef,
+          records: records,
+          sourceCatalogReleaseRef: common.sourceCatalogReleaseRef,
+          symbolAdmissionPolicyRef: common.symbolAdmissionPolicyRef,
+          evidenceAdmissionPolicyRef: hasBindings
+              ? _parseEvidencePolicyRef(
+                  object['evidenceAdmissionPolicyRef'],
+                  document.name,
+                  'evidenceAdmissionPolicyRef',
+                )
+              : null,
+          evidenceAssessmentRegistryReleaseRef: hasBindings
+              ? _parseAssessmentRegistryRef(
+                  object['evidenceAssessmentRegistryReleaseRef'],
+                  document.name,
+                  'evidenceAssessmentRegistryReleaseRef',
+                )
+              : null,
+          knowledgeDatasetReleaseRefs: knowledgeReleases,
+          manifestChecksum: manifestChecksum,
+        );
+      }
+      return SymbolReleaseManifest(
+        schemaVersion: schemaVersion,
+        releaseId: _string(object['releaseId'], document.name, 'releaseId'),
+        createdAtUtc: common.createdAtUtc,
+        canonicalJsonProfileRef: common.canonicalJsonProfileRef,
+        governanceSnapshotRef: common.governanceSnapshotRef,
+        records: records,
+        sourceCatalogReleaseRef: common.sourceCatalogReleaseRef,
+        symbolAdmissionPolicyRef: common.symbolAdmissionPolicyRef,
         evidenceAdmissionPolicyRef: _parseEvidencePolicyRef(
           object['evidenceAdmissionPolicyRef'],
           document.name,
@@ -978,6 +1029,21 @@ final class SymbolDatasetParser {
         field: 'schemaVersion',
       );
     }
+  }
+
+  static String _manifestSchemaVersion(
+    Map<String, Object?> object,
+    String document,
+  ) {
+    final version = _string(object['schemaVersion'], document, 'schemaVersion');
+    if (version != '1.0' && version != '2.0') {
+      throw SymbolDatasetException(
+        SymbolDatasetFailure.unsupportedSchemaVersion,
+        document: document,
+        field: 'schemaVersion',
+      );
+    }
+    return version;
   }
 
   static void _requireShape(

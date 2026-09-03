@@ -4,6 +4,8 @@ import 'package:coffee_camera/coffee_camera.dart';
 import 'package:coffee_knowledge/coffee_knowledge.dart';
 import 'package:coffee_knowledge_dataset/coffee_knowledge_dataset.dart';
 import 'package:coffee_pattern/coffee_pattern.dart';
+import 'package:coffee_symbol/coffee_symbol.dart';
+import 'package:coffee_symbol_dataset/coffee_symbol_dataset.dart';
 import 'package:coffee_vision/coffee_vision.dart';
 import 'package:flutter/foundation.dart';
 
@@ -21,16 +23,27 @@ typedef AtlasKnowledgeMatcher =
       required Iterable<KnowledgeRecord> records,
     });
 typedef AtlasFileReader = Future<Uint8List> Function(String path);
+typedef AtlasSymbolResolver =
+    List<SymbolCandidate> Function({
+      required KnowledgeDatasetReleaseRef knowledgeRelease,
+      required Iterable<KnowledgeMatchResult> knowledgeMatches,
+      required Iterable<SymbolDefinition> definitions,
+      required Iterable<SymbolEvidenceBinding> bindings,
+    });
 
 final class AtlasK6Controller extends ChangeNotifier {
   AtlasK6Controller({
     required this.dataset,
+    required this.knowledgeRelease,
+    required this.symbolDataset,
     CoffeeVisionEngine? visionEngine,
     PatternEngine? patternEngine,
     KnowledgeRecordCollectionMatcher? knowledgeMatcher,
+    SymbolCandidateResolver? symbolResolver,
     AtlasFeatureAnalyzer? analyzeFeatures,
     AtlasPatternAnalyzer? analyzePatterns,
     AtlasKnowledgeMatcher? matchRecords,
+    AtlasSymbolResolver? resolveSymbols,
     AtlasFileReader? readFile,
   }) : _analyzeFeatures =
            analyzeFeatures ??
@@ -41,12 +54,34 @@ final class AtlasK6Controller extends ChangeNotifier {
        _matchRecords =
            matchRecords ??
            (knowledgeMatcher ?? const KnowledgeRecordCollectionMatcher()).match,
-       _readFile = readFile ?? _readFileBytes;
+       _resolveSymbols =
+           resolveSymbols ??
+           (symbolResolver ?? const SymbolCandidateResolver()).resolve,
+       _readFile = readFile ?? _readFileBytes {
+    if (dataset.datasetVersion != knowledgeRelease.releaseId) {
+      throw ArgumentError.value(
+        knowledgeRelease.releaseId,
+        'knowledgeRelease',
+        'must identify the supplied Knowledge dataset',
+      );
+    }
+    final declaredRelease = symbolDataset.knowledgeRelease;
+    if (declaredRelease != null && declaredRelease != knowledgeRelease) {
+      throw ArgumentError.value(
+        declaredRelease,
+        'symbolDataset',
+        'must target the supplied Knowledge release',
+      );
+    }
+  }
 
   final KnowledgeDatasetSnapshot dataset;
+  final KnowledgeDatasetReleaseRef knowledgeRelease;
+  final SymbolDatasetSnapshot symbolDataset;
   final AtlasFeatureAnalyzer _analyzeFeatures;
   final AtlasPatternAnalyzer _analyzePatterns;
   final AtlasKnowledgeMatcher _matchRecords;
+  final AtlasSymbolResolver _resolveSymbols;
   final AtlasFileReader _readFile;
 
   AtlasK6State _state = const AtlasK6State.idle();
@@ -227,22 +262,30 @@ final class AtlasK6Controller extends ChangeNotifier {
       );
       final patternResult = await _analyzePatterns(featureSet);
       final candidateResults = <AtlasK6CandidateResult>[];
+      final knowledgeMatches = <KnowledgeMatchResult>[];
       for (final candidate in patternResult.candidates) {
-        candidateResults.add(
-          AtlasK6CandidateResult(
+        final candidateResult = AtlasK6CandidateResult(
+          candidate: candidate,
+          matches: _matchRecords(
             candidate: candidate,
-            matches: _matchRecords(
-              candidate: candidate,
-              records: dataset.activeRecords,
-            ),
+            records: dataset.activeRecords,
           ),
         );
+        candidateResults.add(candidateResult);
+        knowledgeMatches.addAll(candidateResult.matches);
       }
+      final symbolCandidates = _resolveSymbols(
+        knowledgeRelease: knowledgeRelease,
+        knowledgeMatches: knowledgeMatches,
+        definitions: symbolDataset.definitions,
+        bindings: symbolDataset.bindings,
+      );
       stopwatch.stop();
       return AtlasK6SurfaceResult(
         featureSet: featureSet,
         patternResult: patternResult,
         candidateResults: candidateResults,
+        symbolCandidates: symbolCandidates,
         processingDuration: stopwatch.elapsed,
       );
     } catch (_) {

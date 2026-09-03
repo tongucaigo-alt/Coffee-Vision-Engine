@@ -1,0 +1,153 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://atlas.local/schemas/symbol_release_manifest_v2.schema.json",
+  "title": "Atlas SymbolReleaseManifest Conditional Definition Release",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "recordType",
+    "releaseId",
+    "createdAtUtc",
+    "canonicalJsonProfileRef",
+    "governanceSnapshotRef",
+    "records",
+    "sourceCatalogReleaseRef",
+    "symbolAdmissionPolicyRef",
+    "manifestChecksum"
+  ],
+  "properties": {
+    "schemaVersion": {"const": "2.0"},
+    "recordType": {"const": "atlas.symbolReleaseManifest"},
+    "releaseId": {"$ref": "#/$defs/identifier"},
+    "createdAtUtc": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]{1,9})?Z$"
+    },
+    "canonicalJsonProfileRef": {"$ref": "#/$defs/profileRef"},
+    "governanceSnapshotRef": {"$ref": "#/$defs/snapshotRef"},
+    "records": {
+      "type": "array",
+      "minItems": 1,
+      "contains": {
+        "type": "object",
+        "required": ["recordType"],
+        "properties": {
+          "recordType": {"const": "atlas.symbolDefinition"}
+        }
+      },
+      "items": {"$ref": "#/$defs/recordRef"}
+    },
+    "sourceCatalogReleaseRef": {"$ref": "#/$defs/releaseRef"},
+    "symbolAdmissionPolicyRef": {"$ref": "#/$defs/policyRef"},
+    "evidenceAdmissionPolicyRef": {"$ref": "#/$defs/policyRef"},
+    "evidenceAssessmentRegistryReleaseRef": {"$ref": "#/$defs/releaseRef"},
+    "knowledgeDatasetReleaseRefs": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 1,
+      "items": {"$ref": "#/$defs/releaseRef"}
+    },
+    "manifestChecksum": {"$ref": "#/$defs/checksum"}
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "records": {
+            "contains": {
+              "type": "object",
+              "required": ["recordType"],
+              "properties": {
+                "recordType": {"const": "atlas.symbolEvidenceBinding"}
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "evidenceAdmissionPolicyRef",
+          "evidenceAssessmentRegistryReleaseRef",
+          "knowledgeDatasetReleaseRefs"
+        ]
+      },
+      "else": {
+        "not": {
+          "anyOf": [
+            {"required": ["evidenceAdmissionPolicyRef"]},
+            {"required": ["evidenceAssessmentRegistryReleaseRef"]},
+            {"required": ["knowledgeDatasetReleaseRefs"]}
+          ]
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
+    },
+    "revision": {"type": "integer", "minimum": 1},
+    "checksum": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "profileRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["profileId", "revision", "checksum"],
+      "properties": {
+        "profileId": {"const": "atlas-canonical-json"},
+        "revision": {"const": 1},
+        "checksum": {
+          "const": "sha256:16e9e10eb848828a863a7eca1c0b7e7c84e1a485065d00f938c6af356cd54ad7"
+        }
+      }
+    },
+    "releaseRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["releaseId", "checksum"],
+      "properties": {
+        "releaseId": {"$ref": "#/$defs/identifier"},
+        "checksum": {"$ref": "#/$defs/checksum"}
+      }
+    },
+    "snapshotRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["snapshotId", "checksum"],
+      "properties": {
+        "snapshotId": {"$ref": "#/$defs/identifier"},
+        "checksum": {"$ref": "#/$defs/checksum"}
+      }
+    },
+    "policyRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["policyId", "revision", "checksum"],
+      "properties": {
+        "policyId": {"$ref": "#/$defs/identifier"},
+        "revision": {"$ref": "#/$defs/revision"},
+        "checksum": {"$ref": "#/$defs/checksum"}
+      }
+    },
+    "recordRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["recordType", "recordId", "revision", "checksum"],
+      "properties": {
+        "recordType": {
+          "enum": [
+            "atlas.symbolDefinition",
+            "atlas.symbolEvidenceBinding"
+          ]
+        },
+        "recordId": {"$ref": "#/$defs/identifier"},
+        "revision": {"$ref": "#/$defs/revision"},
+        "checksum": {"$ref": "#/$defs/checksum"}
+      }
+    }
+  }
+}
