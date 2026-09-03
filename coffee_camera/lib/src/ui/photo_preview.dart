@@ -12,6 +12,8 @@ class PhotoPreview extends StatelessWidget {
     required this.onRetake,
     required this.onApprove,
     this.title,
+    this.useAppTitleLayout = false,
+    this.instruction,
     this.onBack,
   });
 
@@ -20,6 +22,8 @@ class PhotoPreview extends StatelessWidget {
   final VoidCallback onRetake;
   final VoidCallback onApprove;
   final String? title;
+  final bool useAppTitleLayout;
+  final String? instruction;
   final VoidCallback? onBack;
 
   @override
@@ -51,7 +55,10 @@ class PhotoPreview extends StatelessWidget {
                           padding: const EdgeInsets.symmetric(horizontal: 52),
                           child: Text(
                             value,
-                            maxLines: 1,
+                            textAlign: useAppTitleLayout
+                                ? TextAlign.center
+                                : null,
+                            maxLines: useAppTitleLayout ? 2 : 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
                               color: config.theme.foreground,
@@ -86,29 +93,56 @@ class PhotoPreview extends StatelessWidget {
             alignment: Alignment.bottomCenter,
             child: SafeArea(
               minimum: const EdgeInsets.all(20),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: onRetake,
-                      icon: const Icon(Icons.refresh),
-                      label: Text(config.strings.retake),
+              child: instruction == null
+                  ? _buildActions()
+                  : Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          instruction!,
+                          key: const Key('coffee-camera-preview-instruction'),
+                          textAlign: TextAlign.center,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: config.theme.foreground,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            shadows: const [
+                              Shadow(blurRadius: 10, color: Colors.black),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        _buildActions(),
+                      ],
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: FilledButton.icon(
-                      onPressed: onApprove,
-                      icon: const Icon(Icons.check),
-                      label: Text(config.strings.approve),
-                    ),
-                  ),
-                ],
-              ),
             ),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildActions() {
+    return Row(
+      children: [
+        Expanded(
+          child: OutlinedButton.icon(
+            onPressed: onRetake,
+            icon: const Icon(Icons.refresh),
+            label: Text(config.strings.retake),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: FilledButton.icon(
+            onPressed: onApprove,
+            icon: const Icon(Icons.check),
+            label: Text(config.strings.approve),
+          ),
+        ),
+      ],
     );
   }
 }

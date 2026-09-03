@@ -29,6 +29,17 @@ if (result != null) {
 }
 ```
 
+Tekli çekimin hangi uygulama adımına ait olduğunu göstermek için algılama ve
+kalite davranışını değiştirmeyen sunum bağlamı verilebilir:
+
+```dart
+final result = await showCoffeeCamera(
+  context,
+  captureTitle: '1 / 3 · Üst açı',
+  captureInstruction: 'Fincanın iç yüzeyini yukarıdan göster.',
+);
+```
+
 Kendi navigasyonunuzu kullanmak için `CoffeeCameraScreen` widget'ını doğrudan
 ekleyip `onApproved` ve `onCancelled` callback'lerini yönetin.
 

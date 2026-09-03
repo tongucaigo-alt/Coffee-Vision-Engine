@@ -44,6 +44,15 @@ Engine execution time.
 
 ## Verification
 
+The camera-first three-angle capture experience runs from a separate target:
+
+```text
+flutter run -t lib/three_angle_main.dart
+```
+
+It only collects three guided cup captures. It does not aggregate the images
+or claim Knowledge, Symbol, or interpretation output.
+
 ```text
 dart format --output=none --set-exit-if-changed lib test
 flutter analyze

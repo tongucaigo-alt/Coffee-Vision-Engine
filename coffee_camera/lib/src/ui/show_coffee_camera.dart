@@ -8,10 +8,16 @@ import '../models/coffee_camera_capture_result.dart';
 import '../models/residue_analysis_result.dart';
 import 'coffee_camera_screen.dart';
 
+/// Opens one camera capture.
+///
+/// [captureTitle] and [captureInstruction] add host-provided presentation
+/// context without changing detection, quality, capture, or ownership rules.
 Future<CameraCaptureResult?> showCoffeeCamera(
   BuildContext context, {
   CoffeeCameraConfig config = const CoffeeCameraConfig(),
   CupDetector? detector,
+  String? captureTitle,
+  String? captureInstruction,
 }) {
   if (config.requireSaucerCapture) {
     throw ArgumentError.value(
@@ -26,6 +32,8 @@ Future<CameraCaptureResult?> showCoffeeCamera(
       builder: (cameraContext) => CoffeeCameraScreen(
         config: config,
         detector: detector,
+        captureTitle: captureTitle,
+        captureInstruction: captureInstruction,
         onApproved: (result) => Navigator.of(cameraContext).pop(result),
         onCancelled: () => Navigator.of(cameraContext).pop(),
       ),

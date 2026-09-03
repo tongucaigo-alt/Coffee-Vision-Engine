@@ -104,8 +104,8 @@ void main() {
       expect(mainSource, contains(checksum));
     });
 
-    test('integration never writes or deletes capture files', () {
-      final sources = Directory('lib')
+    test('engine integration never writes or deletes capture files', () {
+      final sources = Directory('lib/src/integration')
           .listSync(recursive: true)
           .whereType<File>()
           .where((file) => file.path.endsWith('.dart'))
@@ -116,6 +116,43 @@ void main() {
       expect(sources, isNot(contains('writeAsString')));
       expect(sources, isNot(contains('.delete(')));
       expect(sources, isNot(contains('FileMode')));
+    });
+
+    test('capture deletion is isolated to the app-local cleanup service', () {
+      final deletingSources = Directory('lib')
+          .listSync(recursive: true)
+          .whereType<File>()
+          .where((file) => file.path.endsWith('.dart'))
+          .where((file) => file.readAsStringSync().contains('.delete('))
+          .map((file) => file.path.replaceAll('\\', '/'))
+          .toList(growable: false);
+
+      expect(deletingSources, [
+        'lib/src/capture/atlas_capture_file_cleaner.dart',
+      ]);
+    });
+
+    test('three-angle workflow has no deferred product behavior', () {
+      final sources = [
+        File('lib/three_angle_main.dart'),
+        ...Directory('lib/src/capture')
+            .listSync(recursive: true)
+            .whereType<File>()
+            .where((file) => file.path.endsWith('.dart')),
+        File('lib/src/ui/atlas_three_angle_capture_page.dart'),
+      ].map((file) => file.readAsStringSync().toLowerCase()).join('\n');
+
+      for (final forbidden in [
+        'showcoffeecameraflow',
+        'image_picker',
+        'gallery',
+        'analyzefeatures',
+        'analyzepatterns',
+        'knowledgerecordcollectionmatcher',
+        'symbolcandidateresolver',
+      ]) {
+        expect(sources, isNot(contains(forbidden)), reason: forbidden);
+      }
     });
 
     test('contains no semantic, scoring, interpretation, or AI behavior', () {

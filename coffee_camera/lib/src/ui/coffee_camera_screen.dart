@@ -32,6 +32,8 @@ class CoffeeCameraScreen extends StatefulWidget {
     this.motionService,
     this.imageProcessor,
     this.onSaucerResidueAnalysis,
+    this.captureTitle,
+    this.captureInstruction,
   }) : onCompleted = null,
        flowMode = false;
 
@@ -47,6 +49,8 @@ class CoffeeCameraScreen extends StatefulWidget {
     this.imageProcessor,
     this.onSaucerResidueAnalysis,
   }) : onApproved = null,
+       captureTitle = null,
+       captureInstruction = null,
        flowMode = true;
 
   final ValueChanged<CameraCaptureResult>? onApproved;
@@ -57,6 +61,8 @@ class CoffeeCameraScreen extends StatefulWidget {
   final SaucerDetector? saucerDetector;
   final bool flowMode;
   final ValueChanged<ResidueAnalysisResult>? onSaucerResidueAnalysis;
+  final String? captureTitle;
+  final String? captureInstruction;
 
   @visibleForTesting
   final CameraService? cameraService;
@@ -193,6 +199,7 @@ class _CoffeeCameraScreenState extends State<CoffeeCameraScreen>
   }
 
   String? get _stepLabel {
+    if (!widget.flowMode) return widget.captureTitle;
     if (!widget.config.requireSaucerCapture) return null;
     return switch (_controller.currentStep) {
       CoffeeCaptureStep.cup => widget.config.strings.cupCaptureStep,
@@ -296,6 +303,8 @@ class _CoffeeCameraScreenState extends State<CoffeeCameraScreen>
       filePath: _controller.previewDisplayPath!,
       config: widget.config,
       title: _stepLabel,
+      useAppTitleLayout: !widget.flowMode && widget.captureTitle != null,
+      instruction: widget.captureInstruction,
       onBack: widget.config.requireSaucerCapture ? _back : null,
       onRetake: _controller.retake,
       onApprove: _approve,
@@ -465,7 +474,10 @@ class _CoffeeCameraScreenState extends State<CoffeeCameraScreen>
               const SizedBox(height: 6),
               Text(
                 label,
-                maxLines: 1,
+                textAlign: widget.captureTitle == null
+                    ? null
+                    : TextAlign.center,
+                maxLines: widget.captureTitle == null ? 1 : 2,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                   color: widget.config.theme.foreground,
@@ -506,6 +518,22 @@ class _CoffeeCameraScreenState extends State<CoffeeCameraScreen>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            if (widget.captureInstruction case final instruction?) ...[
+              Text(
+                instruction,
+                key: const Key('coffee-camera-capture-instruction'),
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: widget.config.theme.mutedForeground,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  shadows: const [Shadow(blurRadius: 10, color: Colors.black)],
+                ),
+              ),
+              const SizedBox(height: 8),
+            ],
             Text(
               _controller.guidance,
               key: const Key('coffee-camera-guidance'),

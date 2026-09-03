@@ -5,12 +5,65 @@ import 'package:coffee_camera/src/analysis/device_motion_service.dart';
 import 'package:coffee_camera/src/camera/camera_service.dart';
 import 'package:coffee_camera/src/capture/captured_image_processor.dart';
 import 'package:coffee_camera/src/config/coffee_camera_config.dart';
+import 'package:coffee_camera/src/models/camera_capture_result.dart';
 import 'package:coffee_camera/src/models/target_geometry.dart';
 import 'package:coffee_camera/src/ui/coffee_camera_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('single capture preserves optional app context through review', (
+    tester,
+  ) async {
+    const capturePath = 'missing-single-context.png';
+    final service = _FakeCameraService([capturePath]);
+    CameraCaptureResult? approved;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: CoffeeCameraScreen(
+          captureTitle: '1 / 3 · Üst açı',
+          captureInstruction: 'Fincanın iç yüzeyini yukarıdan göster.',
+          cameraService: service,
+          motionService: _FakeMotionService(),
+          imageProcessor: const _FakeImageProcessor(),
+          onApproved: (result) => approved = result,
+          onCancelled: () {},
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+
+    expect(find.text('1 / 3 · Üst açı'), findsOneWidget);
+    expect(
+      find.byKey(const Key('coffee-camera-capture-instruction')),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byKey(const Key('coffee-camera-shutter')));
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 100)),
+    );
+    await tester.pump();
+    await _pumpUntilFound(tester, find.text('Fotoğrafı onayla'));
+
+    expect(find.text('1 / 3 · Üst açı'), findsOneWidget);
+    expect(
+      find.byKey(const Key('coffee-camera-preview-instruction')),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.text('Fotoğrafı onayla'));
+    await tester.pump();
+    expect(approved?.filePath, capturePath);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 50)),
+    );
+  });
+
   testWidgets(
     'step effects stay active and cup restarts after returning from saucer',
     (tester) async {
