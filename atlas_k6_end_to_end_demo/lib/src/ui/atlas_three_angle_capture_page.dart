@@ -6,6 +6,9 @@ import 'package:flutter/material.dart';
 
 import '../capture/atlas_three_angle_capture_controller.dart';
 import '../capture/atlas_three_angle_capture_models.dart';
+import '../integration/atlas_k6_result.dart';
+import '../integration/atlas_three_angle_engine_controller.dart';
+import '../integration/atlas_three_angle_engine_models.dart';
 
 typedef AtlasThreeAngleCameraLauncher =
     Future<CameraCaptureResult?> Function(
@@ -48,13 +51,19 @@ extension AtlasCupCaptureRolePresentation on AtlasCupCaptureRole {
 
 final class AtlasThreeAngleCaptureHomePage extends StatefulWidget {
   const AtlasThreeAngleCaptureHomePage({
+    required this.processSurface,
     required this.cameraLauncher,
     required this.releaseCaptures,
+    this.diagnosticModeLabel,
+    this.setupErrorMessage,
     super.key,
   });
 
+  final AtlasThreeAngleSurfaceOperation processSurface;
   final AtlasThreeAngleCameraLauncher cameraLauncher;
   final AtlasCaptureRelease releaseCaptures;
+  final String? diagnosticModeLabel;
+  final String? setupErrorMessage;
 
   @override
   State<AtlasThreeAngleCaptureHomePage> createState() =>
@@ -64,8 +73,21 @@ final class AtlasThreeAngleCaptureHomePage extends StatefulWidget {
 class _AtlasThreeAngleCaptureHomePageState
     extends State<AtlasThreeAngleCaptureHomePage> {
   AtlasThreeAngleCupCaptureResult? _result;
+  late final AtlasThreeAngleEngineController _engineController =
+      AtlasThreeAngleEngineController(
+        processSurface: widget.processSurface,
+        setupError: widget.setupErrorMessage,
+      )..addListener(_onEngineChanged);
+
+  void _onEngineChanged() {
+    if (mounted) setState(() {});
+  }
 
   Future<void> _startCapture() async {
+    if (_engineController.state.isBusy ||
+        _engineController.state.setupError != null) {
+      return;
+    }
     final next = await Navigator.of(context)
         .push<AtlasThreeAngleCupCaptureResult>(
           MaterialPageRoute(
@@ -77,14 +99,20 @@ class _AtlasThreeAngleCaptureHomePageState
         );
     if (next == null || !mounted) return;
     final previous = _result;
+    _engineController.reset();
     if (previous != null) await widget.releaseCaptures(previous.captures);
     if (mounted) setState(() => _result = next);
   }
 
   @override
   void dispose() {
+    _engineController.removeListener(_onEngineChanged);
     final result = _result;
-    if (result != null) unawaited(widget.releaseCaptures(result.captures));
+    unawaited(
+      _engineController.close().whenComplete(() async {
+        if (result != null) await widget.releaseCaptures(result.captures);
+      }),
+    );
     super.dispose();
   }
 
@@ -93,24 +121,54 @@ class _AtlasThreeAngleCaptureHomePageState
     final result = _result;
     return Scaffold(
       body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) => SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(24, 24, 24, 28),
-            child: ConstrainedBox(
-              constraints: BoxConstraints(
-                minHeight: constraints.maxHeight > 52
-                    ? constraints.maxHeight - 52
-                    : 0,
-                maxWidth: 640,
+        child: Column(
+          children: [
+            if (widget.diagnosticModeLabel case final label?)
+              Container(
+                key: const ValueKey('three-angle-diagnostic-banner'),
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 10,
+                ),
+                color: Theme.of(context).colorScheme.errorContainer,
+                child: Text(
+                  'TEST ONLY · $label',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onErrorContainer,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
               ),
-              child: result == null
-                  ? _CaptureIntroduction(onStart: _startCapture)
-                  : _CompletedCapture(
-                      result: result,
-                      onStartAgain: _startCapture,
+            Expanded(
+              child: LayoutBuilder(
+                builder: (context, constraints) => SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(24, 24, 24, 28),
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      minHeight: constraints.maxHeight > 52
+                          ? constraints.maxHeight - 52
+                          : 0,
+                      maxWidth: 640,
                     ),
+                    child: result == null
+                        ? _CaptureIntroduction(
+                            onStart: _startCapture,
+                            setupError: _engineController.state.setupError,
+                          )
+                        : _CompletedCapture(
+                            result: result,
+                            engineState: _engineController.state,
+                            onAnalyze: () => _engineController.analyze(result),
+                            onRetry: _engineController.retry,
+                            onStartAgain: _startCapture,
+                          ),
+                  ),
+                ),
+              ),
             ),
-          ),
+          ],
         ),
       ),
     );
@@ -118,9 +176,10 @@ class _AtlasThreeAngleCaptureHomePageState
 }
 
 final class _CaptureIntroduction extends StatelessWidget {
-  const _CaptureIntroduction({required this.onStart});
+  const _CaptureIntroduction({required this.onStart, this.setupError});
 
   final VoidCallback onStart;
+  final String? setupError;
 
   @override
   Widget build(BuildContext context) {
@@ -154,12 +213,16 @@ final class _CaptureIntroduction extends StatelessWidget {
         ),
         const SizedBox(height: 30),
         for (final role in AtlasCupCaptureRole.values) _IntroStep(role: role),
+        if (setupError case final message?) ...[
+          const SizedBox(height: 18),
+          _CaptureError(message: message),
+        ],
         const SizedBox(height: 28),
         SizedBox(
           width: double.infinity,
           child: FilledButton.icon(
             key: const ValueKey('start-three-angle-capture'),
-            onPressed: onStart,
+            onPressed: setupError == null ? onStart : null,
             icon: const Icon(Icons.photo_camera_outlined),
             label: const Text('Çekime başla'),
           ),
@@ -552,9 +615,18 @@ final class _CaptureError extends StatelessWidget {
 }
 
 final class _CompletedCapture extends StatelessWidget {
-  const _CompletedCapture({required this.result, required this.onStartAgain});
+  const _CompletedCapture({
+    required this.result,
+    required this.engineState,
+    required this.onAnalyze,
+    required this.onRetry,
+    required this.onStartAgain,
+  });
 
   final AtlasThreeAngleCupCaptureResult result;
+  final AtlasThreeAngleEngineState engineState;
+  final Future<bool> Function() onAnalyze;
+  final Future<bool> Function(AtlasCupCaptureRole role) onRetry;
   final VoidCallback onStartAgain;
 
   @override
@@ -587,12 +659,27 @@ final class _CompletedCapture extends StatelessWidget {
             ],
           ],
         ),
-        const SizedBox(height: 32),
+        const SizedBox(height: 28),
+        if (engineState.phase == AtlasThreeAngleEnginePhase.idle)
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              key: const ValueKey('analyze-three-angles'),
+              onPressed: onAnalyze,
+              icon: const Icon(Icons.analytics_outlined),
+              label: const Text('Üç açıyı analiz et'),
+            ),
+          ),
+        if (engineState.phase == AtlasThreeAngleEnginePhase.processing)
+          _AnalysisProgress(state: engineState),
+        if (engineState.result case final engineResult?)
+          _AnalysisResults(result: engineResult, onRetry: onRetry),
+        const SizedBox(height: 18),
         SizedBox(
           width: double.infinity,
-          child: FilledButton.icon(
+          child: OutlinedButton.icon(
             key: const ValueKey('start-new-three-angle-capture'),
-            onPressed: onStartAgain,
+            onPressed: engineState.isBusy ? null : onStartAgain,
             icon: const Icon(Icons.refresh),
             label: const Text('Yeni çekim'),
           ),
@@ -600,6 +687,179 @@ final class _CompletedCapture extends StatelessWidget {
       ],
     );
   }
+}
+
+final class _AnalysisProgress extends StatelessWidget {
+  const _AnalysisProgress({required this.state});
+
+  final AtlasThreeAngleEngineState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final role = state.activeRole!;
+    final retrying =
+        state.angleResults.length == AtlasCupCaptureRole.values.length;
+    return Semantics(
+      label: '${role.title} analiz ediliyor',
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.primaryContainer,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const LinearProgressIndicator(),
+              const SizedBox(height: 12),
+              Text(
+                '${role.title} analiz ediliyor',
+                key: const ValueKey('three-angle-analysis-progress'),
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                retrying
+                    ? 'Başarılı açı sonuçları korunuyor.'
+                    : '${state.angleResults.length} / 3 açı tamamlandı',
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onPrimaryContainer,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+final class _AnalysisResults extends StatelessWidget {
+  const _AnalysisResults({required this.result, required this.onRetry});
+
+  final AtlasThreeAngleEngineResult result;
+  final Future<bool> Function(AtlasCupCaptureRole role) onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Column(
+      key: const ValueKey('three-angle-analysis-results'),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Açı sonuçları',
+          style: Theme.of(
+            context,
+          ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          '${result.matchedRecordCount} fiziksel eşleşme · '
+          '${result.symbolCandidateCount} sembol adayı · '
+          '${result.technicalErrorCount} teknik hata',
+          key: const ValueKey('three-angle-technical-summary'),
+          style: TextStyle(color: colors.onSurfaceVariant),
+        ),
+        const SizedBox(height: 12),
+        for (final angle in result.angleResults) ...[
+          _AngleResultPanel(angle: angle, onRetry: onRetry),
+          if (angle.role != AtlasCupCaptureRole.handleLeft)
+            const SizedBox(height: 10),
+        ],
+      ],
+    );
+  }
+}
+
+final class _AngleResultPanel extends StatelessWidget {
+  const _AngleResultPanel({required this.angle, required this.onRetry});
+
+  final AtlasThreeAngleAngleResult angle;
+  final Future<bool> Function(AtlasCupCaptureRole role) onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final surface = angle.surfaceResult;
+    return DecoratedBox(
+      key: ValueKey('angle-result-${angle.role.name}'),
+      decoration: BoxDecoration(
+        color: angle.isTechnicalError
+            ? colors.errorContainer.withValues(alpha: 0.45)
+            : colors.surfaceContainerLow,
+        border: Border.all(
+          color: angle.isTechnicalError ? colors.error : colors.outlineVariant,
+        ),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    angle.role.title,
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                ),
+                Text(
+                  angle.outcome.label,
+                  key: ValueKey('angle-outcome-${angle.role.name}'),
+                  style: TextStyle(
+                    color: angle.isTechnicalError
+                        ? colors.error
+                        : colors.primary,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            if (surface != null) ...[
+              Text(
+                '${surface.patternResult.candidates.length} fiziksel aday · '
+                '${surface.matchedRecordCount} eşleşme · '
+                '${surface.symbolCandidateCount} sembol adayı',
+              ),
+              for (final candidate in surface.symbolCandidates)
+                Padding(
+                  padding: const EdgeInsets.only(top: 6),
+                  child: Text(
+                    '${candidate.symbolId} · revision '
+                    '${candidate.symbolRevision} · candidate '
+                    '${candidate.patternCandidateId}',
+                  ),
+                ),
+            ] else ...[
+              Text(angle.errorMessage!),
+              const SizedBox(height: 8),
+              TextButton.icon(
+                key: ValueKey('retry-angle-${angle.role.name}'),
+                onPressed: () => onRetry(angle.role),
+                icon: const Icon(Icons.refresh),
+                label: const Text('Tekrar işle'),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+extension on AtlasK6AggregateOutcome {
+  String get label => switch (this) {
+    AtlasK6AggregateOutcome.noMatch => 'Eşleşme yok',
+    AtlasK6AggregateOutcome.insufficientSymbolEvidence =>
+      'Sembol kanıtı yetersiz',
+    AtlasK6AggregateOutcome.symbolCandidatesAvailable => 'Sembol adayı var',
+    AtlasK6AggregateOutcome.technicalError => 'Teknik hata',
+  };
 }
 
 final class _CompletedThumbnail extends StatelessWidget {

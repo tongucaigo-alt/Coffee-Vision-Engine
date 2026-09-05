@@ -72,23 +72,29 @@ void main() {
       );
     });
 
-    test('controller composes only the approved public engine chain', () {
-      final source = File(
+    test('shared surface processor composes only the public engine chain', () {
+      final controllerSource = File(
         'lib/src/integration/atlas_k6_controller.dart',
       ).readAsStringSync();
+      final processorSource = File(
+        'lib/src/integration/atlas_k6_surface_processor.dart',
+      ).readAsStringSync();
 
-      expect(source, contains('analyzeFeatures'));
-      expect(source, contains('analyzePatterns'));
-      expect(source, contains('KnowledgeRecordCollectionMatcher'));
-      expect(source, contains('SymbolCandidateResolver'));
-      expect(source, contains('_resolveSymbols'));
-      expect(source, isNot(contains('analyzeDetailed')));
-      expect(source, isNot(contains('VisionPipelineResult')));
-      expect(source, isNot(contains('ConstraintEvaluator')));
-      expect(source, isNot(contains('KnowledgeRecordEvaluator')));
-      expect(source, isNot(contains('KnowledgeRecordMatchDecider')));
-      expect(source, isNot(contains("package:coffee_symbol/src/")));
-      expect(source, isNot(contains("package:coffee_symbol_dataset/src/")));
+      expect(controllerSource, contains('AtlasK6SurfaceProcessor'));
+      expect(processorSource, contains('analyzeFeatures'));
+      expect(processorSource, contains('analyzePatterns'));
+      expect(processorSource, contains('KnowledgeRecordCollectionMatcher'));
+      expect(processorSource, contains('SymbolCandidateResolver'));
+      expect(processorSource, contains('_resolveSymbols'));
+      for (final source in [controllerSource, processorSource]) {
+        expect(source, isNot(contains('analyzeDetailed')));
+        expect(source, isNot(contains('VisionPipelineResult')));
+        expect(source, isNot(contains('ConstraintEvaluator')));
+        expect(source, isNot(contains('KnowledgeRecordEvaluator')));
+        expect(source, isNot(contains('KnowledgeRecordMatchDecider')));
+        expect(source, isNot(contains("package:coffee_symbol/src/")));
+        expect(source, isNot(contains("package:coffee_symbol_dataset/src/")));
+      }
     });
 
     test('exact Knowledge release checksum matches the frozen baseline', () {
@@ -132,7 +138,7 @@ void main() {
       ]);
     });
 
-    test('three-angle workflow has no deferred product behavior', () {
+    test('three-angle workflow has no deferred fusion or product behavior', () {
       final sources = [
         File('lib/three_angle_main.dart'),
         ...Directory('lib/src/capture')
@@ -146,13 +152,28 @@ void main() {
         'showcoffeecameraflow',
         'image_picker',
         'gallery',
-        'analyzefeatures',
-        'analyzepatterns',
-        'knowledgerecordcollectionmatcher',
-        'symbolcandidateresolver',
+        'crossangle',
+        'fusion',
+        'consensus',
       ]) {
         expect(sources, isNot(contains(forbidden)), reason: forbidden);
       }
+    });
+
+    test('diagnostic fixtures are isolated from default entrypoints', () {
+      final defaultSources = [
+        File('lib/main.dart'),
+        File('lib/three_angle_main.dart'),
+      ].map((file) => file.readAsStringSync()).join('\n');
+      final diagnosticMain = File(
+        'lib/three_angle_diagnostic_main.dart',
+      ).readAsStringSync();
+      final assets = File('pubspec.yaml').readAsStringSync();
+
+      expect(defaultSources, isNot(contains('src/diagnostic/')));
+      expect(diagnosticMain, contains('ATLAS_THREE_ANGLE_DIAGNOSTIC_SCENARIO'));
+      expect(diagnosticMain, contains("defaultValue: 'disabled'"));
+      expect(assets, isNot(contains('diagnostic')));
     });
 
     test('contains no semantic, scoring, interpretation, or AI behavior', () {

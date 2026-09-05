@@ -44,14 +44,33 @@ Engine execution time.
 
 ## Verification
 
-The camera-first three-angle capture experience runs from a separate target:
+The guided three-angle capture and angle-local engine experience runs from a
+separate target:
 
 ```text
 flutter run -t lib/three_angle_main.dart
 ```
 
-It only collects three guided cup captures. It does not aggregate the images
-or claim Knowledge, Symbol, or interpretation output.
+It processes `top`, `handleRight`, and `handleLeft` sequentially through the
+same app-local surface processor. Each angle keeps its complete physical and
+Symbol-candidate result. It does not fuse, deduplicate, rank, select a winner,
+or claim interpretation output. The bundled definition-only Symbol fixture has
+no binding, so a non-empty Symbol result is not expected from real captures.
+
+Android diagnostic evidence uses a separate, visibly marked test-only target.
+The fixture is disabled unless one of these explicit scenarios is selected:
+
+```text
+flutter run -t lib/three_angle_diagnostic_main.dart \
+  --dart-define=ATLAS_THREE_ANGLE_DIAGNOSTIC_SCENARIO=mixed-outcomes
+
+flutter run -t lib/three_angle_diagnostic_main.dart \
+  --dart-define=ATLAS_THREE_ANGLE_DIAGNOSTIC_SCENARIO=technical-retry
+```
+
+These scenarios inject synthetic angle results at the app-local
+`processSurface` boundary. They do not inspect the captured image, create a
+canonical release, or prove real Symbol recognition.
 
 ```text
 dart format --output=none --set-exit-if-changed lib test

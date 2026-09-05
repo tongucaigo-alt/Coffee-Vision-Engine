@@ -2,19 +2,26 @@ import 'package:coffee_camera/coffee_camera.dart';
 import 'package:flutter/material.dart';
 
 import '../ui/atlas_three_angle_capture_page.dart';
+import '../integration/atlas_three_angle_engine_controller.dart';
 import 'atlas_capture_file_cleaner.dart';
 import 'atlas_three_angle_capture_controller.dart';
 import 'atlas_three_angle_capture_models.dart';
 
 final class AtlasThreeAngleCaptureApp extends StatelessWidget {
   const AtlasThreeAngleCaptureApp({
+    required this.processSurface,
     super.key,
     this.cameraLauncher,
     this.releaseCaptures,
+    this.diagnosticModeLabel,
+    this.setupErrorMessage,
   });
 
+  final AtlasThreeAngleSurfaceOperation processSurface;
   final AtlasThreeAngleCameraLauncher? cameraLauncher;
   final AtlasCaptureRelease? releaseCaptures;
+  final String? diagnosticModeLabel;
+  final String? setupErrorMessage;
 
   @override
   Widget build(BuildContext context) {
@@ -58,9 +65,12 @@ final class AtlasThreeAngleCaptureApp extends StatelessWidget {
         ),
       ),
       home: AtlasThreeAngleCaptureHomePage(
+        processSurface: processSurface,
         cameraLauncher: cameraLauncher ?? _launchCamera,
         releaseCaptures:
             releaseCaptures ?? const AtlasCaptureFileCleaner().release,
+        diagnosticModeLabel: diagnosticModeLabel,
+        setupErrorMessage: setupErrorMessage,
       ),
     );
   }

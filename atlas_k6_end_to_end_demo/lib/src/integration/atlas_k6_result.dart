@@ -126,6 +126,14 @@ final class AtlasK6SurfaceResult {
   );
 
   int get symbolCandidateCount => symbolCandidates.length;
+
+  AtlasK6AggregateOutcome get outcome {
+    if (matchedRecordCount == 0) return AtlasK6AggregateOutcome.noMatch;
+    if (symbolCandidateCount == 0) {
+      return AtlasK6AggregateOutcome.insufficientSymbolEvidence;
+    }
+    return AtlasK6AggregateOutcome.symbolCandidatesAvailable;
+  }
 }
 
 final class AtlasK6EndToEndResult {

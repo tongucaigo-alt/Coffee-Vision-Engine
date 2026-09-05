@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:coffee_camera/coffee_camera.dart';
 import 'package:coffee_knowledge/coffee_knowledge.dart';
 import 'package:coffee_knowledge_dataset/coffee_knowledge_dataset.dart';
@@ -11,25 +9,9 @@ import 'package:flutter/foundation.dart';
 
 import 'atlas_k6_result.dart';
 import 'atlas_k6_state.dart';
+import 'atlas_k6_surface_processor.dart';
 
 typedef AtlasCaptureOperation = Future<CoffeeCameraCaptureResult?> Function();
-typedef AtlasFeatureAnalyzer =
-    Future<VisionFeatureSet> Function(VisionImageInput input);
-typedef AtlasPatternAnalyzer =
-    Future<PatternAnalysisResult> Function(VisionFeatureSet featureSet);
-typedef AtlasKnowledgeMatcher =
-    List<KnowledgeMatchResult> Function({
-      required PatternCandidate candidate,
-      required Iterable<KnowledgeRecord> records,
-    });
-typedef AtlasFileReader = Future<Uint8List> Function(String path);
-typedef AtlasSymbolResolver =
-    List<SymbolCandidate> Function({
-      required KnowledgeDatasetReleaseRef knowledgeRelease,
-      required Iterable<KnowledgeMatchResult> knowledgeMatches,
-      required Iterable<SymbolDefinition> definitions,
-      required Iterable<SymbolEvidenceBinding> bindings,
-    });
 
 final class AtlasK6Controller extends ChangeNotifier {
   AtlasK6Controller({
@@ -45,44 +27,25 @@ final class AtlasK6Controller extends ChangeNotifier {
     AtlasKnowledgeMatcher? matchRecords,
     AtlasSymbolResolver? resolveSymbols,
     AtlasFileReader? readFile,
-  }) : _analyzeFeatures =
-           analyzeFeatures ??
-           (visionEngine ?? CoffeeVisionEngine()).analyzeFeatures,
-       _analyzePatterns =
-           analyzePatterns ??
-           (patternEngine ?? const PatternEngine()).analyzePatterns,
-       _matchRecords =
-           matchRecords ??
-           (knowledgeMatcher ?? const KnowledgeRecordCollectionMatcher()).match,
-       _resolveSymbols =
-           resolveSymbols ??
-           (symbolResolver ?? const SymbolCandidateResolver()).resolve,
-       _readFile = readFile ?? _readFileBytes {
-    if (dataset.datasetVersion != knowledgeRelease.releaseId) {
-      throw ArgumentError.value(
-        knowledgeRelease.releaseId,
-        'knowledgeRelease',
-        'must identify the supplied Knowledge dataset',
-      );
-    }
-    final declaredRelease = symbolDataset.knowledgeRelease;
-    if (declaredRelease != null && declaredRelease != knowledgeRelease) {
-      throw ArgumentError.value(
-        declaredRelease,
-        'symbolDataset',
-        'must target the supplied Knowledge release',
-      );
-    }
-  }
+  }) : _surfaceProcessor = AtlasK6SurfaceProcessor(
+         dataset: dataset,
+         knowledgeRelease: knowledgeRelease,
+         symbolDataset: symbolDataset,
+         visionEngine: visionEngine,
+         patternEngine: patternEngine,
+         knowledgeMatcher: knowledgeMatcher,
+         symbolResolver: symbolResolver,
+         analyzeFeatures: analyzeFeatures,
+         analyzePatterns: analyzePatterns,
+         matchRecords: matchRecords,
+         resolveSymbols: resolveSymbols,
+         readFile: readFile,
+       );
 
   final KnowledgeDatasetSnapshot dataset;
   final KnowledgeDatasetReleaseRef knowledgeRelease;
   final SymbolDatasetSnapshot symbolDataset;
-  final AtlasFeatureAnalyzer _analyzeFeatures;
-  final AtlasPatternAnalyzer _analyzePatterns;
-  final AtlasKnowledgeMatcher _matchRecords;
-  final AtlasSymbolResolver _resolveSymbols;
-  final AtlasFileReader _readFile;
+  final AtlasK6SurfaceProcessor _surfaceProcessor;
 
   AtlasK6State _state = const AtlasK6State.idle();
   Future<void>? _activeOperation;
@@ -189,7 +152,7 @@ final class AtlasK6Controller extends ChangeNotifier {
     if (cupResult == null) {
       _setState(AtlasK6State.processingCup(captureResult: capture), token);
       try {
-        cupResult = await _processSurface(
+        cupResult = await _surfaceProcessor.process(
           path: capture.cup.croppedCupPath ?? capture.cup.filePath,
           surfaceType: VisionSurfaceType.cup,
         );
@@ -219,7 +182,7 @@ final class AtlasK6Controller extends ChangeNotifier {
     AtlasK6SurfaceResult saucerResult;
     try {
       final saucer = capture.saucer!;
-      saucerResult = await _processSurface(
+      saucerResult = await _surfaceProcessor.process(
         path: saucer.croppedSaucerPath ?? saucer.filePath,
         surfaceType: VisionSurfaceType.saucer,
       );
@@ -250,50 +213,6 @@ final class AtlasK6Controller extends ChangeNotifier {
     );
   }
 
-  Future<AtlasK6SurfaceResult> _processSurface({
-    required String path,
-    required VisionSurfaceType surfaceType,
-  }) async {
-    final stopwatch = Stopwatch()..start();
-    try {
-      final bytes = await _readFile(path);
-      final featureSet = await _analyzeFeatures(
-        VisionImageInput(imageBytes: bytes, surfaceType: surfaceType),
-      );
-      final patternResult = await _analyzePatterns(featureSet);
-      final candidateResults = <AtlasK6CandidateResult>[];
-      final knowledgeMatches = <KnowledgeMatchResult>[];
-      for (final candidate in patternResult.candidates) {
-        final candidateResult = AtlasK6CandidateResult(
-          candidate: candidate,
-          matches: _matchRecords(
-            candidate: candidate,
-            records: dataset.activeRecords,
-          ),
-        );
-        candidateResults.add(candidateResult);
-        knowledgeMatches.addAll(candidateResult.matches);
-      }
-      final symbolCandidates = _resolveSymbols(
-        knowledgeRelease: knowledgeRelease,
-        knowledgeMatches: knowledgeMatches,
-        definitions: symbolDataset.definitions,
-        bindings: symbolDataset.bindings,
-      );
-      stopwatch.stop();
-      return AtlasK6SurfaceResult(
-        featureSet: featureSet,
-        patternResult: patternResult,
-        candidateResults: candidateResults,
-        symbolCandidates: symbolCandidates,
-        processingDuration: stopwatch.elapsed,
-      );
-    } catch (_) {
-      stopwatch.stop();
-      rethrow;
-    }
-  }
-
   void _setState(AtlasK6State next, int token) {
     if (!_isCurrent(token)) return;
     _state = next;
@@ -301,8 +220,4 @@ final class AtlasK6Controller extends ChangeNotifier {
   }
 
   bool _isCurrent(int token) => !_closed && token == _generation;
-
-  static Future<Uint8List> _readFileBytes(String path) {
-    return File(path).readAsBytes();
-  }
 }

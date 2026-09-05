@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:atlas_k6_end_to_end_demo/src/integration/atlas_k6_controller.dart';
+import 'package:atlas_k6_end_to_end_demo/src/integration/atlas_k6_surface_processor.dart';
 import 'package:atlas_k6_end_to_end_demo/src/ui/atlas_k6_home_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
