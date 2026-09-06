@@ -762,6 +762,18 @@ final class _AnalysisResults extends StatelessWidget {
           key: const ValueKey('three-angle-technical-summary'),
           style: TextStyle(color: colors.onSurfaceVariant),
         ),
+        if (result.symbolGroups.isNotEmpty) ...[
+          const SizedBox(height: 16),
+          Text(
+            'Sembol özeti',
+            style: Theme.of(
+              context,
+            ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 4),
+          for (final group in result.symbolGroups)
+            _SymbolGroupSummary(group: group),
+        ],
         const SizedBox(height: 12),
         for (final angle in result.angleResults) ...[
           _AngleResultPanel(angle: angle, onRetry: onRetry),
@@ -770,6 +782,60 @@ final class _AnalysisResults extends StatelessWidget {
         ],
       ],
     );
+  }
+}
+
+final class _SymbolGroupSummary extends StatelessWidget {
+  const _SymbolGroupSummary({required this.group});
+
+  final AtlasThreeAngleSymbolGroup group;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final name = _preferredSymbolName(group);
+    return Padding(
+      key: ValueKey(
+        'symbol-group-${group.symbolRef.symbolId}-'
+        '${group.symbolRef.revision}-${group.symbolRef.checksum}',
+      ),
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.hub_outlined, size: 20, color: colors.primary),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '$name · ${group.angleCount}/3 açıda · '
+                  '${group.occurrenceCount} aday',
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  group.isMultiAngle
+                      ? 'Birden fazla açıda gözlendi'
+                      : 'Tek açıda gözlendi',
+                  style: TextStyle(color: colors.onSurfaceVariant),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  static String _preferredSymbolName(AtlasThreeAngleSymbolGroup group) {
+    for (final language in const ['tr', 'en']) {
+      for (final name in group.definition.preferredNames) {
+        if (name.language == language) return name.value;
+      }
+    }
+    return group.symbolRef.symbolId;
   }
 }
 

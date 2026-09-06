@@ -83,6 +83,81 @@ final class AtlasThreeAngleSymbolOccurrence {
   int get symbolRevision => candidate.symbolRevision;
 }
 
+final class AtlasThreeAngleSymbolGroup {
+  factory AtlasThreeAngleSymbolGroup({
+    required SymbolDefinition definition,
+    required Iterable<AtlasThreeAngleSymbolOccurrence> occurrences,
+  }) {
+    final canonical = occurrences.toList(growable: false)
+      ..sort(_compareOccurrences);
+    if (canonical.isEmpty) {
+      throw ArgumentError.value(
+        occurrences,
+        'occurrences',
+        'must not be empty',
+      );
+    }
+    for (final occurrence in canonical) {
+      if (!identical(occurrence.candidate.definition, definition)) {
+        throw ArgumentError.value(
+          occurrence.candidate.definition,
+          'occurrences',
+          'must preserve one exact SymbolDefinition revision',
+        );
+      }
+    }
+    for (var index = 1; index < canonical.length; index++) {
+      final previous = canonical[index - 1];
+      final current = canonical[index];
+      if (previous.role == current.role &&
+          previous.patternCandidateId == current.patternCandidateId) {
+        throw ArgumentError.value(
+          occurrences,
+          'occurrences',
+          'must not contain duplicate occurrence identities',
+        );
+      }
+    }
+    final roles = <AtlasCupCaptureRole>[];
+    for (final occurrence in canonical) {
+      if (roles.isEmpty || roles.last != occurrence.role) {
+        roles.add(occurrence.role);
+      }
+    }
+    return AtlasThreeAngleSymbolGroup._(
+      definition: definition,
+      occurrences: List<AtlasThreeAngleSymbolOccurrence>.unmodifiable(
+        canonical,
+      ),
+      roles: List<AtlasCupCaptureRole>.unmodifiable(roles),
+    );
+  }
+
+  const AtlasThreeAngleSymbolGroup._({
+    required this.definition,
+    required this.occurrences,
+    required this.roles,
+  });
+
+  final SymbolDefinition definition;
+  final List<AtlasThreeAngleSymbolOccurrence> occurrences;
+  final List<AtlasCupCaptureRole> roles;
+
+  SymbolRevisionRef get symbolRef => definition.symbolRef;
+  int get occurrenceCount => occurrences.length;
+  int get angleCount => roles.length;
+  bool get isMultiAngle => angleCount > 1;
+
+  static int _compareOccurrences(
+    AtlasThreeAngleSymbolOccurrence first,
+    AtlasThreeAngleSymbolOccurrence second,
+  ) {
+    final role = first.role.index.compareTo(second.role.index);
+    if (role != 0) return role;
+    return first.patternCandidateId.compareTo(second.patternCandidateId);
+  }
+}
+
 final class AtlasThreeAngleEngineResult {
   factory AtlasThreeAngleEngineResult({
     required AtlasThreeAngleCupCaptureResult captureResult,
@@ -117,12 +192,30 @@ final class AtlasThreeAngleEngineResult {
               candidate: candidate,
             ),
     ];
+    final occurrencesBySymbol =
+        <SymbolRevisionRef, List<AtlasThreeAngleSymbolOccurrence>>{};
+    for (final occurrence in occurrences) {
+      occurrencesBySymbol
+          .putIfAbsent(
+            occurrence.candidate.definition.symbolRef,
+            () => <AtlasThreeAngleSymbolOccurrence>[],
+          )
+          .add(occurrence);
+    }
+    final groups = [
+      for (final entry in occurrencesBySymbol.entries)
+        AtlasThreeAngleSymbolGroup(
+          definition: entry.value.first.candidate.definition,
+          occurrences: entry.value,
+        ),
+    ]..sort(_compareSymbolGroups);
     return AtlasThreeAngleEngineResult._(
       captureResult: captureResult,
       angleResults: List<AtlasThreeAngleAngleResult>.unmodifiable(angles),
       symbolOccurrences: List<AtlasThreeAngleSymbolOccurrence>.unmodifiable(
         occurrences,
       ),
+      symbolGroups: List<AtlasThreeAngleSymbolGroup>.unmodifiable(groups),
     );
   }
 
@@ -130,11 +223,13 @@ final class AtlasThreeAngleEngineResult {
     required this.captureResult,
     required this.angleResults,
     required this.symbolOccurrences,
+    required this.symbolGroups,
   });
 
   final AtlasThreeAngleCupCaptureResult captureResult;
   final List<AtlasThreeAngleAngleResult> angleResults;
   final List<AtlasThreeAngleSymbolOccurrence> symbolOccurrences;
+  final List<AtlasThreeAngleSymbolGroup> symbolGroups;
 
   int get matchedRecordCount =>
       angleResults.fold(0, (total, angle) => total + angle.matchedRecordCount);
@@ -146,6 +241,21 @@ final class AtlasThreeAngleEngineResult {
 
   AtlasThreeAngleAngleResult resultFor(AtlasCupCaptureRole role) =>
       angleResults[role.index];
+
+  static int _compareSymbolGroups(
+    AtlasThreeAngleSymbolGroup first,
+    AtlasThreeAngleSymbolGroup second,
+  ) {
+    final symbolId = first.symbolRef.symbolId.compareTo(
+      second.symbolRef.symbolId,
+    );
+    if (symbolId != 0) return symbolId;
+    final revision = first.symbolRef.revision.compareTo(
+      second.symbolRef.revision,
+    );
+    if (revision != 0) return revision;
+    return first.symbolRef.checksum.compareTo(second.symbolRef.checksum);
+  }
 }
 
 enum AtlasThreeAngleEnginePhase { idle, processing, complete }

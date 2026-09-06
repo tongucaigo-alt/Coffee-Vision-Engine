@@ -201,6 +201,60 @@ void main() {
     expect(find.text('Sembol kanıtı yetersiz'), findsOneWidget);
     expect(find.text('Sembol adayı var'), findsOneWidget);
     expect(find.textContaining('test-symbol-001'), findsOneWidget);
+    expect(find.text('Test Symbol 1 · 1/3 açıda · 1 aday'), findsOneWidget);
+    expect(find.text('Tek açıda gözlendi'), findsOneWidget);
+  });
+
+  testWidgets(
+    'groups exact symbols across successful angles without hiding errors',
+    (tester) async {
+      var rightAttempts = 0;
+      await tester.pumpWidget(
+        _app(
+          processSurface: ({required role, required path}) async {
+            if (role == AtlasCupCaptureRole.handleRight &&
+                rightAttempts++ == 0) {
+              throw AtlasSurfaceProcessingException(
+                stage: AtlasSurfaceProcessingStage.knowledge,
+                cause: StateError('test-only failure'),
+              );
+            }
+            return _symbolSurfaceResult(
+              preferredNames: const {'en': 'Tree', 'tr': 'Ağaç'},
+            );
+          },
+        ),
+      );
+      await _completeCapture(tester);
+      await tester.tap(find.byKey(const ValueKey('analyze-three-angles')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Ağaç · 2/3 açıda · 2 aday'), findsOneWidget);
+      expect(find.text('Birden fazla açıda gözlendi'), findsOneWidget);
+      expect(find.text('Teknik hata'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('retry-angle-handleRight')),
+        findsOneWidget,
+      );
+    },
+  );
+
+  testWidgets('falls back to symbol id when tr and en names are absent', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _app(
+        processSurface: ({required role, required path}) async =>
+            role == AtlasCupCaptureRole.top
+            ? _symbolSurfaceResult(preferredNames: const {'de': 'Baum'})
+            : _emptySurfaceResult(),
+      ),
+    );
+    await _completeCapture(tester);
+    await tester.tap(find.byKey(const ValueKey('analyze-three-angles')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('test-symbol-001 · 1/3 açıda · 1 aday'), findsOneWidget);
   });
 
   testWidgets('shows active angle progress while processing', (tester) async {
@@ -397,12 +451,15 @@ AtlasK6SurfaceResult _insufficientSurfaceResult() {
   );
 }
 
-AtlasK6SurfaceResult _symbolSurfaceResult() {
+AtlasK6SurfaceResult _symbolSurfaceResult({
+  Map<String, String>? preferredNames,
+}) {
   final insufficient = _insufficientSurfaceResult();
   final release = createKnowledgeRelease();
   final symbols = createSymbolDataset(
     includeBindings: true,
     knowledgeRelease: release,
+    firstSymbolPreferredNames: preferredNames,
   );
   final candidates = const SymbolCandidateResolver().resolve(
     knowledgeRelease: release,

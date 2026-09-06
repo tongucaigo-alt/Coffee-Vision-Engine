@@ -23,6 +23,7 @@ SymbolDatasetSnapshot createSymbolDataset({
   int symbolCount = 1,
   KnowledgeDatasetReleaseRef? knowledgeRelease,
   String knowledgeRecordId = 'physical-pattern-001',
+  Map<String, String>? firstSymbolPreferredNames,
 }) {
   final release = knowledgeRelease ?? createKnowledgeRelease();
   final profile = CanonicalJsonProfileRef(
@@ -42,16 +43,27 @@ SymbolDatasetSnapshot createSymbolDataset({
       sourceId: 'test-source-${number.toString().padLeft(3, '0')}',
       revision: 1,
     );
+    final preferredNames = index == 0 && firstSymbolPreferredNames != null
+        ? firstSymbolPreferredNames.entries
+              .map(
+                (entry) => SourcedLocalizedText(
+                  language: entry.key,
+                  value: entry.value,
+                  sourceRefs: [source],
+                ),
+              )
+              .toList(growable: false)
+        : [
+            SourcedLocalizedText(
+              language: 'en',
+              value: 'Test Symbol $number',
+              sourceRefs: [source],
+            ),
+          ];
     return SymbolDefinition(
       symbolRef: symbolRef,
       canonicalJsonProfileRef: profile,
-      preferredNames: [
-        SourcedLocalizedText(
-          language: 'en',
-          value: 'Test Symbol $number',
-          sourceRefs: [source],
-        ),
-      ],
+      preferredNames: preferredNames,
       neutralDefinitions: [
         SourcedLocalizedText(
           language: 'en',

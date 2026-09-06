@@ -179,7 +179,8 @@ void main() {
         );
 
         await controller.analyze(_captureResult());
-        final occurrences = controller.state.result!.symbolOccurrences;
+        final result = controller.state.result!;
+        final occurrences = result.symbolOccurrences;
 
         expect(occurrences, hasLength(3));
         expect(
@@ -196,9 +197,160 @@ void main() {
           () => occurrences.add(occurrences.first),
           throwsUnsupportedError,
         );
+        expect(result.symbolGroups, hasLength(1));
+        final group = result.symbolGroups.single;
+        expect(
+          identical(
+            group.definition,
+            sharedSurface.symbolCandidates.single.definition,
+          ),
+          isTrue,
+        );
+        expect(group.occurrenceCount, 3);
+        expect(group.angleCount, 3);
+        expect(group.isMultiAngle, isTrue);
+        expect(group.roles, AtlasCupCaptureRole.values);
+        expect(() => result.symbolGroups.add(group), throwsUnsupportedError);
+        expect(
+          () => group.roles.add(AtlasCupCaptureRole.top),
+          throwsUnsupportedError,
+        );
         await controller.close();
       },
     );
+
+    test('preserves same-angle occurrences and orders them canonically', () {
+      final template = _surfaceWithSymbol().symbolCandidates.single;
+      final first = _candidateForDefinition(
+        template.definition,
+        patternCandidateId: 1,
+        identitySeed: 70,
+      );
+      final second = _candidateForDefinition(
+        template.definition,
+        patternCandidateId: 2,
+        identitySeed: 71,
+      );
+      final group = AtlasThreeAngleSymbolGroup(
+        definition: template.definition,
+        occurrences: [
+          AtlasThreeAngleSymbolOccurrence(
+            role: AtlasCupCaptureRole.handleRight,
+            candidate: first,
+          ),
+          AtlasThreeAngleSymbolOccurrence(
+            role: AtlasCupCaptureRole.top,
+            candidate: second,
+          ),
+          AtlasThreeAngleSymbolOccurrence(
+            role: AtlasCupCaptureRole.top,
+            candidate: first,
+          ),
+        ],
+      );
+
+      expect(group.occurrenceCount, 3);
+      expect(group.angleCount, 2);
+      expect(group.roles, [
+        AtlasCupCaptureRole.top,
+        AtlasCupCaptureRole.handleRight,
+      ]);
+      expect(
+        group.occurrences.map(
+          (occurrence) =>
+              '${occurrence.role.name}:'
+              '${occurrence.patternCandidateId}',
+        ),
+        ['top:1', 'top:2', 'handleRight:1'],
+      );
+      expect(
+        () => group.occurrences.add(group.occurrences.first),
+        throwsUnsupportedError,
+      );
+
+      final equalButDistinctDefinition = SymbolDefinition(
+        symbolRef: template.definition.symbolRef,
+        canonicalJsonProfileRef: template.definition.canonicalJsonProfileRef,
+        preferredNames: template.definition.preferredNames,
+        neutralDefinitions: template.definition.neutralDefinitions,
+      );
+      final inconsistentOccurrence = AtlasThreeAngleSymbolOccurrence(
+        role: AtlasCupCaptureRole.handleLeft,
+        candidate: _candidateForDefinition(
+          equalButDistinctDefinition,
+          patternCandidateId: 3,
+          identitySeed: 72,
+        ),
+      );
+      expect(
+        () => AtlasThreeAngleSymbolGroup(
+          definition: template.definition,
+          occurrences: [group.occurrences.first, inconsistentOccurrence],
+        ),
+        throwsArgumentError,
+      );
+    });
+
+    test('does not merge distinct symbol revisions or checksums', () async {
+      final first = _surfaceWithSymbol().symbolCandidates.single;
+      final secondDefinition = SymbolDefinition(
+        symbolRef: SymbolRevisionRef(
+          symbolId: first.symbolId,
+          revision: first.symbolRevision,
+          checksum: _testChecksum(90),
+        ),
+        canonicalJsonProfileRef: first.definition.canonicalJsonProfileRef,
+        preferredNames: first.definition.preferredNames,
+        neutralDefinitions: first.definition.neutralDefinitions,
+      );
+      final second = _candidateForDefinition(
+        secondDefinition,
+        patternCandidateId: 1,
+        identitySeed: 91,
+      );
+      final thirdDefinition = SymbolDefinition(
+        symbolRef: SymbolRevisionRef(
+          symbolId: first.symbolId,
+          revision: 2,
+          checksum: _testChecksum(92),
+        ),
+        canonicalJsonProfileRef: first.definition.canonicalJsonProfileRef,
+        preferredNames: first.definition.preferredNames,
+        neutralDefinitions: first.definition.neutralDefinitions,
+      );
+      final third = _candidateForDefinition(
+        thirdDefinition,
+        patternCandidateId: 1,
+        identitySeed: 93,
+      );
+      final surfaces = {
+        AtlasCupCaptureRole.top: _surfaceFromCandidates([first]),
+        AtlasCupCaptureRole.handleRight: _surfaceFromCandidates([second]),
+        AtlasCupCaptureRole.handleLeft: _surfaceFromCandidates([third]),
+      };
+      final controller = AtlasThreeAngleEngineController(
+        processSurface: ({required role, required path}) async =>
+            surfaces[role]!,
+      );
+
+      await controller.analyze(_captureResult());
+      final groups = controller.state.result!.symbolGroups;
+
+      expect(groups, hasLength(3));
+      expect(groups.map((group) => group.symbolRef.symbolId), [
+        first.symbolId,
+        first.symbolId,
+        first.symbolId,
+      ]);
+      expect(groups.map((group) => group.symbolRef.revision), [1, 1, 2]);
+      expect(groups.map((group) => group.symbolRef.checksum), [
+        first.definition.symbolRef.checksum,
+        secondDefinition.symbolRef.checksum,
+        thirdDefinition.symbolRef.checksum,
+      ]);
+      expect(groups.every((group) => group.angleCount == 1), isTrue);
+      await controller.close();
+    });
 
     test(
       'rejects concurrent work and blocks retry for successful angles',
@@ -337,3 +489,90 @@ AtlasK6SurfaceResult _surfaceWithSymbol() {
     processingDuration: Duration.zero,
   );
 }
+
+SymbolCandidate _candidateForDefinition(
+  SymbolDefinition definition, {
+  required int patternCandidateId,
+  required int identitySeed,
+}) {
+  final pattern = _patternCandidate(patternCandidateId);
+  final match = const KnowledgeRecordCollectionMatcher()
+      .match(candidate: pattern, records: createDataset().activeRecords)
+      .single;
+  final binding = SymbolEvidenceBinding(
+    bindingId: 'test-binding-$identitySeed',
+    revision: 1,
+    canonicalJsonProfileRef: definition.canonicalJsonProfileRef,
+    symbolRef: definition.symbolRef,
+    knowledgeTargetRef: KnowledgeTargetRef(
+      knowledgeRelease: createKnowledgeRelease(),
+      knowledgeRecordId: match.recordId,
+    ),
+    evidenceAssessmentRefs: [
+      EvidenceAssessmentRef(
+        assessmentId: 'test-assessment-$identitySeed',
+        revision: 1,
+        assessmentType: EvidenceAssessmentType.holdoutValidation,
+        checksum: _testChecksum(identitySeed),
+      ),
+    ],
+  );
+  return SymbolCandidate(
+    patternCandidateId: patternCandidateId,
+    definition: definition,
+    supports: [SymbolCandidateSupport(binding: binding, knowledgeMatch: match)],
+  );
+}
+
+AtlasK6SurfaceResult _surfaceFromCandidates(
+  List<SymbolCandidate> symbolCandidates,
+) {
+  final featureSet = createFeatureSet(VisionSurfaceType.cup);
+  final ids =
+      symbolCandidates
+          .map((candidate) => candidate.patternCandidateId)
+          .toSet()
+          .toList(growable: false)
+        ..sort();
+  final patterns = [for (final id in ids) _patternCandidate(id)];
+  final patternResult = PatternAnalysisResult(
+    surfaceType: PatternSurfaceType.cup,
+    candidates: patterns,
+  );
+  return AtlasK6SurfaceResult(
+    featureSet: featureSet,
+    patternResult: patternResult,
+    candidateResults: [
+      for (final pattern in patternResult.candidates)
+        AtlasK6CandidateResult(
+          candidate: pattern,
+          matches: [
+            for (final candidate in symbolCandidates)
+              if (candidate.patternCandidateId == pattern.id)
+                for (final support in candidate.supports)
+                  support.knowledgeMatch,
+          ],
+        ),
+    ],
+    symbolCandidates: symbolCandidates,
+    processingDuration: Duration.zero,
+  );
+}
+
+PatternCandidate _patternCandidate(int id) =>
+    PatternCandidate.withGeometryAndTopology(
+      id: id,
+      evidence: [PatternEvidence.connectedStructure(id)],
+      geometry: PatternGeometry(
+        left: 0.1,
+        top: 0.1,
+        right: 0.9,
+        bottom: 0.9,
+        centroidX: 0.51,
+        centroidY: 0.50,
+      ),
+      topology: PatternTopology(nodeCount: 62, directedEdgeCount: 0),
+    );
+
+String _testChecksum(int value) =>
+    'sha256:${value.toRadixString(16).padLeft(64, '0')}';
