@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://atlas.invalid/schema/source-use-assessment/1.0",
+  "title": "Atlas SourceUseAssessment 1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "recordType", "useAssessmentId", "revision", "canonicalJsonProfileRef", "targetRef", "sourceRef", "evidenceRole", "supportRelation", "independenceGroupId", "independenceRationale", "qualityDimensions", "assessmentOutcome", "limitations", "rationale"],
+  "properties": {
+    "schemaVersion": {"const": "1.0"},
+    "recordType": {"const": "atlas.sourceUseAssessment"},
+    "useAssessmentId": {"$ref": "#/$defs/id"},
+    "revision": {"$ref": "#/$defs/revision"},
+    "canonicalJsonProfileRef": {"$ref": "#/$defs/profile"},
+    "targetRef": {"$ref": "#/$defs/target"},
+    "sourceRef": {"$ref": "#/$defs/sourceRef"},
+    "evidenceRole": {"enum": ["primary", "secondary", "tertiary", "discovery"]},
+    "supportRelation": {"enum": ["supports", "contradicts", "contextualizes", "mentionsOnly"]},
+    "independenceGroupId": {"$ref": "#/$defs/id"},
+    "independenceRationale": {"$ref": "#/$defs/text"},
+    "qualityDimensions": {"$ref": "#/$defs/quality"},
+    "assessmentOutcome": {"enum": ["eligibleCore", "eligibleCorroborative", "discoveryOnly", "ineligible"]},
+    "limitations": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/text"}},
+    "rationale": {"$ref": "#/$defs/text"}
+  },
+  "$defs": {
+    "id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"},
+    "revision": {"type": "integer", "minimum": 1},
+    "checksum": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "text": {"type": "string", "minLength": 1, "pattern": "^\\S(?:.*\\S)?$"},
+    "profile": {"type": "object", "additionalProperties": false, "required": ["profileId", "revision", "checksum"], "properties": {"profileId": {"const": "atlas-canonical-json"}, "revision": {"const": 1}, "checksum": {"const": "sha256:16e9e10eb848828a863a7eca1c0b7e7c84e1a485065d00f938c6af356cd54ad7"}}},
+    "sourceRef": {"type": "object", "additionalProperties": false, "required": ["sourceId", "revision"], "properties": {"sourceId": {"$ref": "#/$defs/id"}, "revision": {"$ref": "#/$defs/revision"}, "locator": {"$ref": "#/$defs/text"}}},
+    "target": {"type": "object", "additionalProperties": false, "required": ["recordType", "recordId", "revision", "checksum"], "properties": {"recordType": {"$ref": "#/$defs/id"}, "recordId": {"$ref": "#/$defs/id"}, "revision": {"$ref": "#/$defs/revision"}, "checksum": {"$ref": "#/$defs/checksum"}, "targetPath": {"type": "string", "pattern": "^/"}}},
+    "quality": {"type": "object", "additionalProperties": false, "required": ["provenance", "attribution", "editorialControl", "methodTransparency", "sourceStability", "culturalProximity"], "properties": {"provenance": {"enum": ["verified", "partiallyVerified", "unverified"]}, "attribution": {"enum": ["identified", "organizational", "pseudonymous", "anonymous"]}, "editorialControl": {"enum": ["peerReviewed", "academicSupervision", "institutional", "professionalEditorial", "selfPublished", "none", "unknown"]}, "methodTransparency": {"enum": ["explicit", "partial", "absent", "notApplicable"]}, "sourceStability": {"enum": ["fixedEdition", "archivedSnapshot", "capturedMutable", "uncapturedMutable"]}, "culturalProximity": {"enum": ["directCommunityRecord", "recognizedSpecialist", "secondaryAnalysis", "unspecified"]}}}
+  }
+}

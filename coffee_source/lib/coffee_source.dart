@@ -19,3 +19,24 @@ export 'src/source_models.dart'
         SourceIdentifierType,
         SourceManifestationType;
 export 'src/source_record.dart' show SourceRecord;
+export 'src/source_assessment_models.dart'
+    show
+        AttributionQuality,
+        CulturalProximityQuality,
+        DomainTargetRef,
+        EditorialControlQuality,
+        MethodTransparencyQuality,
+        ProvenanceQuality,
+        QualityDimensions,
+        SourceAssessmentOutcome,
+        SourceEvidenceRole,
+        SourceStabilityQuality,
+        SourceSupportRelation,
+        SourceUseAssessment;
+export 'src/source_catalog_models.dart'
+    show
+        ContextRegistryReleaseRef,
+        GovernanceSnapshotRef,
+        SourceCatalogReleaseManifest,
+        SourceRecordReleaseRef,
+        SourceUseAssessmentReleaseRef;

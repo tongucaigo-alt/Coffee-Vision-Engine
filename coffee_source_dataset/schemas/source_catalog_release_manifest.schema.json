@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://atlas.invalid/schema/source-catalog-release-manifest/1.0",
+  "title": "Atlas SourceCatalogReleaseManifest 1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "recordType", "releaseId", "createdAtUtc", "canonicalJsonProfileRef", "governanceSnapshotRef", "contextRegistryReleaseRef", "sourceRecords", "useAssessments", "manifestChecksum"],
+  "properties": {
+    "schemaVersion": {"const": "1.0"},
+    "recordType": {"const": "atlas.sourceCatalogReleaseManifest"},
+    "releaseId": {"$ref": "#/$defs/id"},
+    "createdAtUtc": {"$ref": "#/$defs/timestamp"},
+    "canonicalJsonProfileRef": {"$ref": "#/$defs/profile"},
+    "governanceSnapshotRef": {"$ref": "#/$defs/governance"},
+    "contextRegistryReleaseRef": {"$ref": "#/$defs/context"},
+    "sourceRecords": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/sourceRecordRef"}},
+    "useAssessments": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/assessmentRef"}},
+    "manifestChecksum": {"$ref": "#/$defs/checksum"}
+  },
+  "$defs": {
+    "id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"},
+    "revision": {"type": "integer", "minimum": 1},
+    "checksum": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "timestamp": {"type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]{1,9})?Z$"},
+    "profile": {"type": "object", "additionalProperties": false, "required": ["profileId", "revision", "checksum"], "properties": {"profileId": {"const": "atlas-canonical-json"}, "revision": {"const": 1}, "checksum": {"const": "sha256:16e9e10eb848828a863a7eca1c0b7e7c84e1a485065d00f938c6af356cd54ad7"}}},
+    "governance": {"type": "object", "additionalProperties": false, "required": ["snapshotId", "checksum"], "properties": {"snapshotId": {"$ref": "#/$defs/id"}, "checksum": {"$ref": "#/$defs/checksum"}}},
+    "context": {"type": "object", "additionalProperties": false, "required": ["releaseId", "checksum"], "properties": {"releaseId": {"$ref": "#/$defs/id"}, "checksum": {"$ref": "#/$defs/checksum"}}},
+    "sourceRecordRef": {"type": "object", "additionalProperties": false, "required": ["sourceId", "revision", "checksum"], "properties": {"sourceId": {"$ref": "#/$defs/id"}, "revision": {"$ref": "#/$defs/revision"}, "checksum": {"$ref": "#/$defs/checksum"}}},
+    "assessmentRef": {"type": "object", "additionalProperties": false, "required": ["useAssessmentId", "revision", "checksum"], "properties": {"useAssessmentId": {"$ref": "#/$defs/id"}, "revision": {"$ref": "#/$defs/revision"}, "checksum": {"$ref": "#/$defs/checksum"}}}
+  }
+}

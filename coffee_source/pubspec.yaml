@@ -1,6 +1,6 @@
 name: coffee_source
 description: Immutable SourceRecord contracts for the Atlas Source Catalog.
-version: 0.0.1
+version: 0.1.0
 publish_to: none
 
 environment:

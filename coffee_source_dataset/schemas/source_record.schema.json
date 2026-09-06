@@ -1,0 +1,109 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://atlas.invalid/schema/source-record/1.0",
+  "title": "Atlas SourceRecord 1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "recordType", "sourceId", "revision", "canonicalJsonProfileRef", "sourceClass", "title", "creators", "publication", "languages", "identifiers", "access", "rights", "culturalCoverage", "integrity"],
+  "properties": {
+    "schemaVersion": {"const": "1.0"},
+    "recordType": {"const": "atlas.sourceRecord"},
+    "sourceId": {"$ref": "#/$defs/id"},
+    "revision": {"$ref": "#/$defs/revision"},
+    "canonicalJsonProfileRef": {"$ref": "#/$defs/profile"},
+    "sourceClass": {"enum": ["journalOrConferencePublication", "monographOrBook", "thesisOrDissertation", "institutionalPublication", "archivalMaterial", "referenceWork", "interview", "oralHistoryOrFieldRecord", "webPublication", "communityGeneratedContent"]},
+    "title": {"$ref": "#/$defs/text"},
+    "creators": {"type": "array", "items": {"$ref": "#/$defs/agent"}},
+    "publication": {"$ref": "#/$defs/publication"},
+    "languages": {"$ref": "#/$defs/languages"},
+    "identifiers": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/identifier"}},
+    "access": {"$ref": "#/$defs/access"},
+    "rights": {"$ref": "#/$defs/rights"},
+    "culturalCoverage": {"$ref": "#/$defs/coverage"},
+    "integrity": {"$ref": "#/$defs/integrity"}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"rights": {"properties": {"rightsStatus": {"const": "licensed"}}, "required": ["rightsStatus"]}}},
+      "then": {"properties": {"rights": {"required": ["licenseId"]}}}
+    },
+    {
+      "if": {"properties": {"rights": {"properties": {"rightsStatus": {"const": "permissionGranted"}}, "required": ["rightsStatus"]}}},
+      "then": {"properties": {"rights": {"required": ["permissionRef"]}}}
+    },
+    {
+      "if": {"properties": {"integrity": {"properties": {"manifestationType": {"const": "capturedMutable"}}, "required": ["manifestationType"]}}},
+      "then": {"properties": {"integrity": {"required": ["capturedAtUtc", "contentChecksum"]}}}
+    },
+    {
+      "if": {
+        "properties": {
+          "access": {
+            "properties": {"accessMode": {"const": "online"}},
+            "required": ["accessMode"]
+          },
+          "integrity": {
+            "properties": {
+              "manifestationType": {
+                "enum": ["capturedMutable", "uncapturedMutable"]
+              }
+            },
+            "required": ["manifestationType"]
+          }
+        },
+        "required": ["access", "integrity"]
+      },
+      "then": {"properties": {"access": {"required": ["accessedAtUtc"]}}}
+    }
+  ],
+  "$defs": {
+    "id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"},
+    "revision": {"type": "integer", "minimum": 1},
+    "checksum": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "text": {"type": "string", "minLength": 1, "pattern": "^\\S(?:.*\\S)?$"},
+    "timestamp": {"type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]{1,9})?Z$"},
+    "language": {"type": "string", "pattern": "^[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*$"},
+    "profile": {
+      "type": "object", "additionalProperties": false,
+      "required": ["profileId", "revision", "checksum"],
+      "properties": {
+        "profileId": {"const": "atlas-canonical-json"},
+        "revision": {"const": 1},
+        "checksum": {"const": "sha256:16e9e10eb848828a863a7eca1c0b7e7c84e1a485065d00f938c6af356cd54ad7"}
+      }
+    },
+    "agent": {
+      "type": "object", "additionalProperties": false,
+      "required": ["agentType", "displayName", "role"],
+      "properties": {"agentType": {"enum": ["person", "organization"]}, "displayName": {"$ref": "#/$defs/text"}, "role": {"$ref": "#/$defs/text"}}
+    },
+    "publication": {
+      "type": "object", "additionalProperties": false,
+      "properties": {"publicationDate": {"$ref": "#/$defs/text"}, "publisher": {"$ref": "#/$defs/text"}, "containerTitle": {"$ref": "#/$defs/text"}, "edition": {"$ref": "#/$defs/text"}, "volume": {"$ref": "#/$defs/text"}, "issue": {"$ref": "#/$defs/text"}, "pages": {"$ref": "#/$defs/text"}}
+    },
+    "languages": {
+      "type": "object", "additionalProperties": false, "required": ["consultedLanguage"],
+      "properties": {"consultedLanguage": {"$ref": "#/$defs/language"}, "originalLanguage": {"$ref": "#/$defs/language"}}
+    },
+    "identifier": {
+      "type": "object", "additionalProperties": false, "required": ["identifierType", "value"],
+      "properties": {"identifierType": {"enum": ["doi", "isbn", "issn", "url", "archiveId", "catalogId", "localAccessionId"]}, "value": {"$ref": "#/$defs/text"}}
+    },
+    "access": {
+      "type": "object", "additionalProperties": false, "required": ["accessMode"],
+      "properties": {"accessMode": {"$ref": "#/$defs/id"}, "accessedAtUtc": {"$ref": "#/$defs/timestamp"}, "repository": {"$ref": "#/$defs/text"}}
+    },
+    "rights": {
+      "type": "object", "additionalProperties": false, "required": ["rightsStatus"],
+      "properties": {"rightsStatus": {"enum": ["publicDomain", "licensed", "permissionGranted", "citationOnly", "restricted", "unknown"]}, "licenseId": {"$ref": "#/$defs/text"}, "permissionRef": {"$ref": "#/$defs/text"}}
+    },
+    "coverage": {
+      "type": "object", "additionalProperties": false, "required": ["contextIds", "basis"],
+      "properties": {"contextIds": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/id"}}, "basis": {"enum": ["sourceDeclared", "catalogerObserved", "unknown"]}, "note": {"$ref": "#/$defs/text"}}
+    },
+    "integrity": {
+      "type": "object", "additionalProperties": false, "required": ["manifestationType"],
+      "properties": {"manifestationType": {"enum": ["fixedEdition", "archivedSnapshot", "capturedMutable", "uncapturedMutable", "physicalRecord"]}, "capturedAtUtc": {"$ref": "#/$defs/timestamp"}, "contentChecksum": {"$ref": "#/$defs/checksum"}, "archivedIdentifier": {"$ref": "#/$defs/text"}}
+    }
+  }
+}

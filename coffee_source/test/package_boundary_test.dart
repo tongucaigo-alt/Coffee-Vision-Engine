@@ -50,7 +50,7 @@ void main() {
       );
     });
 
-    test('exposes only SourceRecord foundation contracts', () {
+    test('exposes approved Source and catalog contracts', () {
       final barrel = File('lib/coffee_source.dart').readAsStringSync();
       expect(SourceRecord.recordType, 'atlas.sourceRecord');
       for (final approved in [
@@ -69,40 +69,39 @@ void main() {
         'CulturalCoverageBasis',
         'IntegrityInfo',
         'SourceManifestationType',
+        'DomainTargetRef',
+        'SourceUseAssessment',
+        'QualityDimensions',
+        'SourceCatalogReleaseManifest',
       ]) {
         expect(barrel, contains(approved), reason: approved);
       }
     });
 
-    test(
-      'contains no assessment, release, JSON, I/O, or semantic behavior',
-      () {
-        final sources = _productionSources();
-        final executable = _withoutCommentsAndStrings(sources).toLowerCase();
-        for (final forbidden in [
-          "import 'dart:io'",
-          "import 'dart:convert'",
-          'sourceuseassessment',
-          'domaintargetref',
-          'sourcecatalogreleasemanifest',
-          'fromjson',
-          'tojson',
-          'jsondecode',
-          'jsonencode',
-          'file(',
-          'directory(',
-          'confidence',
-          'ranking',
-          'fortune',
-          'interpretation',
-          'symboldefinition',
-          'symbolevidencebinding',
-          'final bool enabled',
-        ]) {
-          expect(executable, isNot(contains(forbidden)), reason: forbidden);
-        }
-      },
-    );
+    test('contains no JSON, I/O, policy, or semantic behavior', () {
+      final sources = _productionSources();
+      final executable = _withoutCommentsAndStrings(sources).toLowerCase();
+      for (final forbidden in [
+        "import 'dart:io'",
+        "import 'dart:convert'",
+        'fromjson',
+        'tojson',
+        'jsondecode',
+        'jsonencode',
+        'file(',
+        'directory(',
+        'confidence',
+        'ranking',
+        'fortune',
+        'interpretation',
+        'symboldefinition',
+        'symbolevidencebinding',
+        'admissionpolicy',
+        'final bool enabled',
+      ]) {
+        expect(executable, isNot(contains(forbidden)), reason: forbidden);
+      }
+    });
   });
 }
 
