@@ -1,0 +1,32 @@
+project_id = "atlas-contribution-beta"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "storage", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54322
+major_version = 17
+
+[auth]
+enabled = true
+site_url = "http://localhost:8780"
+additional_redirect_urls = []
+enable_anonymous_sign_ins = true
+enable_signup = true
+
+[auth.email]
+enable_signup = false
+
+[auth.rate_limit]
+anonymous_users = 10
+
+[storage]
+enabled = true
+file_size_limit = "5MiB"
+
+[functions.contribution-api]
+verify_jwt = false

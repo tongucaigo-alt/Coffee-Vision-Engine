@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import '../config/coffee_camera_config.dart';
 import '../models/coffee_region_mask.dart';
 import '../models/target_geometry.dart';
+import 'camera_focus_region.dart';
 import 'scan_light_layout.dart';
 
 enum CaptureEffectProfile { cup, saucer }
@@ -400,10 +401,11 @@ class _TargetPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final target = targetGeometry ?? TargetGeometry.fromViewport(size, config);
-    final shade = Path()
-      ..fillType = PathFillType.evenOdd
-      ..addRect(Offset.zero & size)
-      ..addOval(target.bounds);
+    final focusRegion = CameraFocusRegion(
+      target: target,
+      handleGuide: isSaucer ? CameraHandleGuide.none : config.handleGuide,
+    );
+    final shade = focusRegion.shadePath(size);
     canvas.drawPath(shade, Paint()..color = config.theme.overlay);
 
     if (isSaucer && subjectDetected && !flash) {
@@ -430,6 +432,9 @@ class _TargetPainter extends CustomPainter {
       target.radius * (flash ? 1 : ringVisualScale),
       basePaint,
     );
+    if (!isSaucer && config.handleGuide != CameraHandleGuide.none) {
+      canvas.drawPath(focusRegion.handleOutline, basePaint);
+    }
 
     if (isSaucer && subjectDetected && !flash) {
       _drawSaucerEffect(canvas, target);

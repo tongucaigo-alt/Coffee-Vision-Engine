@@ -364,6 +364,8 @@ class CoffeeCameraEffectStyle {
   final double saucerReadyExpansionOpacity;
 }
 
+enum CameraHandleGuide { none, right, left }
+
 @immutable
 class CoffeeCameraConfig {
   const CoffeeCameraConfig({
@@ -383,12 +385,16 @@ class CoffeeCameraConfig {
     this.initialAutoCaptureEnabled = true,
     this.showQualityScore = true,
     this.requireSaucerCapture = false,
+    this.backgroundBlurSigma = 0,
+    this.handleGuide = CameraHandleGuide.none,
     this.saucerConfig = const SaucerCaptureConfig(),
     this.thresholds = const QualityThresholds(),
     this.strings = const CoffeeCameraStrings(),
     this.theme = const CoffeeCameraTheme(),
     this.effectStyle = const CoffeeCameraEffectStyle(),
-  });
+  }) : assert(
+         backgroundBlurSigma >= 0 && backgroundBlurSigma < double.infinity,
+       );
 
   final Duration analysisInterval;
   final Duration autoCaptureStableDuration;
@@ -406,6 +412,13 @@ class CoffeeCameraConfig {
   final bool initialAutoCaptureEnabled;
   final bool showQualityScore;
   final bool requireSaucerCapture;
+
+  /// Preview-only blur outside the cup and optional handle guide.
+  /// Zero preserves the existing unblurred camera presentation.
+  final double backgroundBlurSigma;
+
+  /// Visual alignment hint only; does not detect or validate handle direction.
+  final CameraHandleGuide handleGuide;
   final SaucerCaptureConfig saucerConfig;
   final QualityThresholds thresholds;
   final CoffeeCameraStrings strings;

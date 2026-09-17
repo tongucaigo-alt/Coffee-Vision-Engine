@@ -77,7 +77,11 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           home: CoffeeCameraScreen.flow(
-            config: const CoffeeCameraConfig(requireSaucerCapture: true),
+            config: const CoffeeCameraConfig(
+              requireSaucerCapture: true,
+              backgroundBlurSigma: 5,
+              handleGuide: CameraHandleGuide.right,
+            ),
             cameraService: service,
             motionService: _FakeMotionService(),
             imageProcessor: const _FakeImageProcessor(),
@@ -90,6 +94,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 50));
 
       expect(find.byKey(const Key('coffee-camera-target-overlay')), findsOne);
+      expect(find.byKey(const Key('coffee-camera-background-focus')), findsOne);
       expect(_effectsTicker(tester).enabled, isTrue);
       expect(find.byKey(const Key('coffee-camera-auto-switch')), findsOne);
       expect(
@@ -108,6 +113,10 @@ void main() {
       await tester.tap(find.text('Fotoğrafı onayla'));
       await tester.pump();
       await _pumpUntilFound(tester, find.text('2/2 Tabak çekimi'));
+      expect(
+        find.byKey(const Key('coffee-camera-background-focus')),
+        findsNothing,
+      );
       expect(find.text('2/2 Tabak çekimi'), findsOne);
       expect(find.byKey(const Key('coffee-camera-target-overlay')), findsOne);
       expect(_effectsTicker(tester).enabled, isTrue);

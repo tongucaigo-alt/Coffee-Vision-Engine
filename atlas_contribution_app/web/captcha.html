@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Atlas Katkı · Güvenli giriş</title>
+<style>body{font:18px system-ui;margin:32px;color:#17352e;background:#fafcfb}button{min-height:48px;padding:12px}#status{line-height:1.5}</style></head>
+<body><p id="status">Güvenli giriş hazırlanıyor.</p><div id="challenge"></div><button onclick="location.reload()">Tekrar dene</button>
+<script src="captcha-config.js"></script>
+<script>
+function complete(token) {
+  document.getElementById('status').textContent='Giriş doğrulandı.';
+  if (window.AtlasCaptcha) window.AtlasCaptcha.postMessage(JSON.stringify({token}));
+  else window.parent.postMessage({atlasCaptchaToken:token}, location.origin);
+}
+function ready() {
+  if (!window.ATLAS_TURNSTILE_SITE_KEY) { document.getElementById('status').textContent='Giriş kurulumu henüz tamamlanmadı.'; return; }
+  turnstile.render('#challenge',{sitekey:window.ATLAS_TURNSTILE_SITE_KEY,callback:complete,language:'tr',
+    'error-callback':()=>{document.getElementById('status').textContent='Bağlantı kurulamadı. Tekrar deneyebilirsin.';}});
+}
+</script><script src="https://challenges.cloudflare.com/turnstile/v0/api.js?onload=ready&render=explicit" async defer></script>
+</body></html>

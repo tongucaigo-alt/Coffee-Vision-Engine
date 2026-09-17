@@ -1,0 +1,16 @@
+{
+  "version": "contribution-labels-v1",
+  "status": "research-user-observation-only",
+  "labels": [
+    {"id":"bird","tr":"Kuş"}, {"id":"heart","tr":"Kalp"},
+    {"id":"fish","tr":"Balık"}, {"id":"snake","tr":"Yılan"},
+    {"id":"dog","tr":"Köpek"}, {"id":"butterfly","tr":"Kelebek"},
+    {"id":"tree","tr":"Ağaç"}, {"id":"horse","tr":"At"},
+    {"id":"eye","tr":"Göz"}, {"id":"crown","tr":"Taç"},
+    {"id":"ring","tr":"Yüzük"}, {"id":"road","tr":"Yol"},
+    {"id":"mountain","tr":"Dağ"}, {"id":"moon","tr":"Ay"},
+    {"id":"sun","tr":"Güneş"}, {"id":"anchor","tr":"Çapa"},
+    {"id":"house","tr":"Ev"}, {"id":"humanFigure","tr":"İnsan Figürü"},
+    {"id":"airplane","tr":"Uçak"}, {"id":"flower","tr":"Çiçek"}
+  ]
+}

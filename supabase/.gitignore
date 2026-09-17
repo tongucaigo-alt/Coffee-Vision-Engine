@@ -1,0 +1,6 @@
+node_modules/
+.temp/
+.branches/
+.env*
+!.env.example
+backups/

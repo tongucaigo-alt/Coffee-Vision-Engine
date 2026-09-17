@@ -15,6 +15,7 @@ import '../models/camera_capture_result.dart';
 import '../models/coffee_camera_capture_result.dart';
 import '../models/residue_analysis_result.dart';
 import '../models/target_geometry.dart';
+import 'camera_focus_region.dart';
 import 'camera_target_overlay.dart';
 import 'debug_analysis_panel.dart';
 import 'photo_preview.dart';
@@ -333,6 +334,15 @@ class _CoffeeCameraScreenState extends State<CoffeeCameraScreen>
           fit: StackFit.expand,
           children: [
             _cameraPreview(size),
+            if (isCupStep && widget.config.backgroundBlurSigma > 0)
+              CameraBackgroundFocus(
+                key: const Key('coffee-camera-background-focus'),
+                region: CameraFocusRegion(
+                  target: targetGeometry,
+                  handleGuide: widget.config.handleGuide,
+                ),
+                sigma: widget.config.backgroundBlurSigma,
+              ),
             IgnorePointer(
               child: TickerMode(
                 key: const Key('coffee-camera-effects-ticker'),
