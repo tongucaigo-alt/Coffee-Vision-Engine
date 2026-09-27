@@ -62,3 +62,21 @@ Future<CoffeeCameraCaptureResult?> showCoffeeCameraFlow(
     ),
   );
 }
+
+/// Captures only the optional saucer without creating or owning a cup photo.
+Future<CameraCaptureResult?> showSaucerCamera(
+  BuildContext context, {
+  CoffeeCameraConfig config = const CoffeeCameraConfig(),
+}) => Navigator.of(context).push<CameraCaptureResult>(
+  MaterialPageRoute<CameraCaptureResult>(
+    fullscreenDialog: true,
+    builder: (cameraContext) => CoffeeCameraScreen(
+      config: config,
+      saucerOnly: true,
+      captureTitle: 'Tabak · İsteğe bağlı',
+      captureInstruction: 'Tabağı hedef alana yerleştir.',
+      onApproved: (result) => Navigator.of(cameraContext).pop(result),
+      onCancelled: () => Navigator.of(cameraContext).pop(),
+    ),
+  ),
+);

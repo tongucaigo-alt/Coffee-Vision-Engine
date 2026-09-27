@@ -43,6 +43,7 @@ enum CameraExperiencePhase {
 class CoffeeCameraController extends ChangeNotifier {
   CoffeeCameraController({
     required this.config,
+    this.saucerOnly = false,
     CupDetector? detector,
     SaucerDetector? saucerDetector,
     SaucerResidueAnalyzer? saucerResidueAnalyzer,
@@ -60,6 +61,7 @@ class CoffeeCameraController extends ChangeNotifier {
              config.initialAutoCaptureEnabled &&
              (kDebugMode || config.enableReleaseAutoCapture),
        ) {
+    if (saucerOnly) _currentStep = CoffeeCaptureStep.saucer;
     _saucerReadyStabilizer = SaucerReadyStabilizer(config);
     _analysis = FrameAnalysisResult.initial(
       cupAnalysisAvailable: this.detector.isAvailable,
@@ -93,6 +95,7 @@ class CoffeeCameraController extends ChangeNotifier {
   }
 
   final CoffeeCameraConfig config;
+  final bool saucerOnly;
   final CupDetector detector;
   final SaucerDetector saucerDetector;
   final CameraService cameraService;
@@ -441,6 +444,16 @@ class CoffeeCameraController extends ChangeNotifier {
   }
 
   Future<CameraCaptureResult?> takeApprovedResult() async {
+    if (saucerOnly) {
+      if (_phase != CameraExperiencePhase.reviewing || _closed) return null;
+      final result = _draftResult;
+      if (result == null) return null;
+      _draftResult = null;
+      _phase = CameraExperiencePhase.completed;
+      _resetAutoCapture();
+      _notify();
+      return result;
+    }
     if (config.requireSaucerCapture) {
       throw StateError(
         'Use takeApprovedFlowResult when requireSaucerCapture is enabled.',
@@ -451,6 +464,8 @@ class CoffeeCameraController extends ChangeNotifier {
   }
 
   Future<CoffeeCameraCaptureResult?> takeApprovedFlowResult() async {
+    if (saucerOnly)
+      throw StateError("Use takeApprovedResult for saucer-only capture");
     if (_phase != CameraExperiencePhase.reviewing || _closed) return null;
     if (isCupStep) {
       final draft = _draftResult;

@@ -11,18 +11,62 @@ import 'package:uuid/uuid.dart';
 
 import '../local_store.dart';
 import '../models.dart';
+import '../research_export.dart';
 import 'review_models.dart';
 import 'review_capture_crop.dart';
 
 final class ReviewStore {
-  ReviewStore(this.directory);
+  ReviewStore(this.directory, {DraftStore? contributionStore})
+    : contributionStore =
+          contributionStore ??
+          DraftStore(
+            Directory(
+              path.join(directory.parent.path, 'offline-contributions'),
+            ),
+          );
   final Directory directory;
-  Future<void> _tail = Future.value();
+  final DraftStore contributionStore;
+  Future<List<Map<String, dynamic>>> Function(String groupId)?
+  additionalExposures;
+  Future<void> Function(String sessionId)? onDelete;
+  Future<Map<String, dynamic>> Function(String groupId)? aiExposureAudit;
+  static final Map<String, Future<void>> _tails = {};
 
   Future<T> _serial<T>(Future<T> Function() operation) {
-    final next = _tail.then((_) => operation());
-    _tail = next.then<void>((_) {}, onError: (Object _, StackTrace _) {});
+    final normalized = path.normalize(directory.absolute.path);
+    final key = Platform.isWindows ? normalized.toLowerCase() : normalized;
+    final next = (_tails[key] ?? Future<void>.value()).then((_) => operation());
+    late final Future<void> tail;
+    void clear() {
+      if (identical(_tails[key], tail)) _tails.remove(key);
+    }
+
+    tail = next.then<void>(
+      (_) => clear(),
+      onError: (Object _, StackTrace _) => clear(),
+    );
+    _tails[key] = tail;
     return next;
+  }
+
+  Future<T> withExportRead<T>(Future<T> Function() operation) =>
+      _serial(operation);
+
+  /// The linked review is a stricter override of the original contribution consent.
+  Future<Set<String>> blockedContributionRoots() async => {
+    for (final session in await sessions())
+      if (session.id.startsWith('linked-') &&
+          (session.deleted || session.researchConsentAtUtc == null))
+        session.id.substring(7),
+  };
+
+  Future<Set<String>> _liveContributionRoots() async {
+    final pending = (await contributionStore.pendingDeletes()).toSet();
+    return {
+      for (final row in await contributionStore.receipts())
+        if (row['local_only'] == true && !pending.contains(row['root_id']))
+          row['root_id'] as String,
+    };
   }
 
   File file(String name) {
@@ -122,6 +166,11 @@ final class ReviewStore {
         }
       }
     }
+    for (final exposure
+        in await additionalExposures?.call(session.groupId) ??
+            <Map<String, dynamic>>[]) {
+      found['ai:${exposure['resultId']}'] = exposure;
+    }
     final keys = found.keys.toList()..sort();
     return List.unmodifiable([
       for (final key in keys) immutableDocument(found[key]!),
@@ -147,7 +196,16 @@ final class ReviewStore {
                 jsonEncode(old.initialObservations))) {
       throw StateError('Initial observation history is immutable');
     }
-    if (old == null && all.where((s) => !s.deleted).length >= 30) {
+    if (old == null &&
+        all
+                .where(
+                  (s) =>
+                      !s.deleted &&
+                      s.id.startsWith('linked-') ==
+                          session.id.startsWith('linked-'),
+                )
+                .length >=
+            30) {
       throw StateError('Review capacity reached');
     }
     for (final p in session.photos) {
@@ -260,8 +318,11 @@ final class ReviewStore {
   }
 
   Future<void> delete(ReviewSession session) async {
+    await onDelete?.call(session.id);
     // Tombstone is durable before media cleanup and survives archive restoration.
-    await save(session.next(deleted: true, researchAllowed: false));
+    if (!session.deleted) {
+      await save(session.next(deleted: true, researchAllowed: false));
+    }
     final names = <String>{};
     await for (final entry in directory.list(followLinks: false)) {
       if (entry is! File ||
@@ -295,133 +356,200 @@ final class ReviewStore {
     }
   }
 
-  Future<({String name, String checksum, int count})> exportToDownloads({
+  Future<({String name, String checksum, int count, String location})>
+  exportToDownloads({
     MethodChannel channel = const MethodChannel('atlas.contribution/export'),
-  }) => _serial(() async {
-    final all = await sessions();
-    final permitted = all
-        .where((s) => !s.deleted && s.researchConsentAtUtc != null)
-        .toList();
-    if (permitted.isEmpty) throw StateError('No permitted reviews');
-    final temp = await Directory.systemTemp.createTemp('atlas-review-export-');
-    final name = 'atlas-reviews-${const Uuid().v4()}.zip';
-    final zip = File(path.join(temp.path, name));
-    final encoder = ZipFileEncoder();
-    var closed = false;
-    try {
-      encoder.create(zip.path);
-      final inventory = <Map<String, dynamic>>[];
-      Future<void> addBytes(String archivePath, List<int> bytes) async {
-        final staging = File(path.join(temp.path, '${const Uuid().v4()}.json'));
-        await staging.writeAsBytes(bytes, flush: true);
-        await encoder.addFile(staging, archivePath);
-        inventory.add({
-          'path': archivePath,
-          'checksum': 'sha256:${sha256.convert(bytes)}',
-          'bytes': bytes.length,
-        });
-      }
+    ExportDirectoryProvider? temporaryDirectory,
+  }) => guardExport(() async {
+    final snapshot = await contributionStore.withExportRead(
+      () => _serial(() async {
+        final all = await sessions();
+        final roots = await _liveContributionRoots();
+        final live = all
+            .where(
+              (s) =>
+                  !s.deleted &&
+                  (!s.id.startsWith('linked-') ||
+                      roots.contains(s.id.substring(7))),
+            )
+            .toList();
+        if (live.isEmpty) {
+          throw const ExportFailure(ExportFailureCode.noRecords);
+        }
+        final permitted = live
+            .where((s) => s.researchConsentAtUtc != null)
+            .toList();
+        if (permitted.isEmpty) {
+          throw const ExportFailure(ExportFailureCode.noPermission);
+        }
+        return (all: all, permitted: permitted, history: await _revisions());
+      }),
+    );
+    final all = snapshot.all;
+    final permitted = snapshot.permitted;
+    return withExportStaging(
+      prefix: 'atlas-review-export-',
+      temporaryDirectory: temporaryDirectory,
+      operation: (temp) async {
+        final name = 'atlas-reviews-${const Uuid().v4()}.zip';
+        final zip = File(path.join(temp.path, name));
+        final encoder = ZipFileEncoder();
+        var closed = false;
+        try {
+          encoder.create(zip.path);
+          final inventory = <Map<String, dynamic>>[];
+          Future<void> addBytes(String archivePath, List<int> bytes) async {
+            final staging = File(
+              path.join(temp.path, '${const Uuid().v4()}.json'),
+            );
+            await staging.writeAsBytes(bytes, flush: true);
+            await encoder.addFile(staging, archivePath);
+            inventory.add({
+              'path': archivePath,
+              'checksum': 'sha256:${sha256.convert(bytes)}',
+              'bytes': bytes.length,
+            });
+          }
 
-      final history = await _revisions();
-      String mediaKey(ReviewPhoto photo) =>
-          '${photo.id}:${photo.photo.checksum}';
-      for (final s in permitted) {
-        final knownPhotos = <String, ReviewPhoto>{
-          for (final revision in history)
-            if (revision.id == s.id && revision.groupId == s.groupId)
-              for (final photo in revision.photos) mediaKey(photo): photo,
-          for (final photo in s.photos) mediaKey(photo): photo,
-        };
-        final media = <String, ReviewPhoto>{
-          for (final photo in s.photos) mediaKey(photo): photo,
-        };
-        for (final snapshot in s.initialObservations) {
-          for (final reference in snapshot['photos'] as List) {
-            final key = '${reference['photoId']}:${reference['photoChecksum']}';
-            final photo = knownPhotos[key];
-            if (photo == null) {
-              throw const FormatException(
-                'Initial observation media is unavailable',
+          final history = snapshot.history;
+          String mediaKey(ReviewPhoto photo) =>
+              '${photo.id}:${photo.photo.checksum}';
+          for (final s in permitted) {
+            final knownPhotos = <String, ReviewPhoto>{
+              for (final revision in history)
+                if (revision.id == s.id && revision.groupId == s.groupId)
+                  for (final photo in revision.photos) mediaKey(photo): photo,
+              for (final photo in s.photos) mediaKey(photo): photo,
+            };
+            final media = <String, ReviewPhoto>{
+              for (final photo in s.photos) mediaKey(photo): photo,
+            };
+            for (final snapshot in s.initialObservations) {
+              for (final reference in snapshot['photos'] as List) {
+                final key =
+                    '${reference['photoId']}:${reference['photoChecksum']}';
+                final photo = knownPhotos[key];
+                if (photo == null) {
+                  throw const FormatException(
+                    'Initial observation media is unavailable',
+                  );
+                }
+                media[key] = photo;
+              }
+            }
+            final mediaPaths = <String, String>{
+              for (final photo in media.values)
+                mediaKey(
+                  photo,
+                ): s.photos.any((p) => mediaKey(p) == mediaKey(photo))
+                    ? 'reviews/${s.id}/${photo.id}.jpg'
+                    : 'reviews/${s.id}/historical-photos/${photo.id}/${photo.photo.checksum.substring(7)}.jpg',
+            };
+            await addBytes(
+              'reviews/${s.id}/record.json',
+              utf8.encode(jsonEncode(s.toJson())),
+            );
+            if (aiExposureAudit != null) {
+              await addBytes(
+                'reviews/${s.id}/ai-exposure-audit.json',
+                utf8.encode(jsonEncode(await aiExposureAudit!(s.groupId))),
               );
             }
-            media[key] = photo;
+            await addBytes(
+              'reviews/${s.id}/interpretation-input.json',
+              utf8.encode(jsonEncode(interpretationInput(s))),
+            );
+            await addBytes(
+              'reviews/${s.id}/initial-observations.json',
+              utf8.encode(
+                jsonEncode({
+                  'version': 'atlas-initial-observations-v1',
+                  'observationHistory': s.observationHistory,
+                  'snapshots': s.initialObservations,
+                  'media': [
+                    for (final photo in media.values)
+                      {
+                        'photoId': photo.id,
+                        'photoChecksum': photo.photo.checksum,
+                        'path': mediaPaths[mediaKey(photo)],
+                      },
+                  ],
+                }),
+              ),
+            );
+            if (s.preparedInput != null) {
+              await addBytes(
+                'reviews/${s.id}/prepared-input.json',
+                utf8.encode(jsonEncode(s.preparedInput)),
+              );
+            }
+            for (final p in media.values) {
+              Uint8List bytes;
+              try {
+                bytes = await readPhoto(p);
+              } on FileSystemException {
+                throw const ExportFailure(ExportFailureCode.integrity);
+              }
+              await addBytes(mediaPaths[mediaKey(p)]!, bytes);
+            }
+          }
+          final manifest = {
+            'version': 'atlas-review-export-v3',
+            'researchOnly': true,
+            'exportedAtUtc': DateTime.now().toUtc().toIso8601String(),
+            'recordCount': permitted.length,
+            'excludedIds': [
+              for (final s in all)
+                if (s.deleted || s.researchConsentAtUtc == null) s.id,
+            ],
+            'files': inventory,
+          };
+          final manifestFile = File(path.join(temp.path, 'manifest.json'));
+          await manifestFile.writeAsString(jsonEncode(manifest), flush: true);
+          await encoder.addFile(manifestFile, 'manifest.json');
+          await encoder.close();
+          closed = true;
+          final checksum = 'sha256:${await sha256.bind(zip.openRead()).first}';
+          final location = await contributionStore.withExportRead(
+            () => _serial(() async {
+              final current = {for (final s in await sessions()) s.id: s};
+              final roots = await _liveContributionRoots();
+              for (final exported in permitted) {
+                final latest = current[exported.id];
+                if (latest == null ||
+                    latest.deleted ||
+                    (latest.id.startsWith('linked-') &&
+                        !roots.contains(latest.id.substring(7)))) {
+                  throw const ExportFailure(ExportFailureCode.noRecords);
+                }
+                if (latest.researchConsentAtUtc == null) {
+                  throw const ExportFailure(ExportFailureCode.noPermission);
+                }
+                if (latest.revision != exported.revision) {
+                  throw const ExportFailure(ExportFailureCode.preparation);
+                }
+              }
+              return saveResearchExport(
+                channel: channel,
+                archive: zip,
+                fileName: name,
+              );
+            }),
+          );
+          return (
+            name: name,
+            checksum: checksum,
+            count: permitted.length,
+            location: location,
+          );
+        } finally {
+          if (!closed) {
+            try {
+              await encoder.close();
+            } catch (_) {}
           }
         }
-        final mediaPaths = <String, String>{
-          for (final photo in media.values)
-            mediaKey(photo): s.photos.any((p) => mediaKey(p) == mediaKey(photo))
-                ? 'reviews/${s.id}/${photo.id}.jpg'
-                : 'reviews/${s.id}/historical-photos/${photo.id}/${photo.photo.checksum.substring(7)}.jpg',
-        };
-        await addBytes(
-          'reviews/${s.id}/record.json',
-          utf8.encode(jsonEncode(s.toJson())),
-        );
-        await addBytes(
-          'reviews/${s.id}/interpretation-input.json',
-          utf8.encode(jsonEncode(interpretationInput(s))),
-        );
-        await addBytes(
-          'reviews/${s.id}/initial-observations.json',
-          utf8.encode(
-            jsonEncode({
-              'version': 'atlas-initial-observations-v1',
-              'observationHistory': s.observationHistory,
-              'snapshots': s.initialObservations,
-              'media': [
-                for (final photo in media.values)
-                  {
-                    'photoId': photo.id,
-                    'photoChecksum': photo.photo.checksum,
-                    'path': mediaPaths[mediaKey(photo)],
-                  },
-              ],
-            }),
-          ),
-        );
-        if (s.preparedInput != null) {
-          await addBytes(
-            'reviews/${s.id}/prepared-input.json',
-            utf8.encode(jsonEncode(s.preparedInput)),
-          );
-        }
-        for (final p in media.values) {
-          final bytes = await readPhoto(p);
-          await addBytes(mediaPaths[mediaKey(p)]!, bytes);
-        }
-      }
-      final manifest = {
-        'version': 'atlas-review-export-v3',
-        'researchOnly': true,
-        'exportedAtUtc': DateTime.now().toUtc().toIso8601String(),
-        'recordCount': permitted.length,
-        'excludedIds': [
-          for (final s in all)
-            if (s.deleted || s.researchConsentAtUtc == null) s.id,
-        ],
-        'files': inventory,
-      };
-      final manifestFile = File(path.join(temp.path, 'manifest.json'));
-      await manifestFile.writeAsString(jsonEncode(manifest), flush: true);
-      await encoder.addFile(manifestFile, 'manifest.json');
-      await encoder.close();
-      closed = true;
-      final checksum = 'sha256:${await sha256.bind(zip.openRead()).first}';
-      final location = await channel.invokeMethod<String>('saveToDownloads', {
-        'sourcePath': zip.path,
-        'fileName': name,
-      });
-      if (location == null || location.isEmpty) {
-        throw StateError('Export failed');
-      }
-      return (name: name, checksum: checksum, count: permitted.length);
-    } finally {
-      if (!closed) {
-        try {
-          await encoder.close();
-        } catch (_) {}
-      }
-      await temp.delete(recursive: true);
-    }
+      },
+    );
   });
 }

@@ -5,6 +5,7 @@ import 'dart:ui' as ui;
 import 'package:archive/archive.dart';
 import 'package:atlas_contribution_app/src/local_store.dart';
 import 'package:atlas_contribution_app/src/models.dart';
+import 'package:atlas_contribution_app/src/mvp/review_store.dart';
 import 'package:atlas_contribution_app/src/offline_contribution.dart';
 import 'package:atlas_contribution_app/src/photo_crop.dart';
 import 'package:coffee_camera/coffee_camera.dart';
@@ -313,6 +314,10 @@ void main() {
         final result = await OfflineContributionExporter(
           store,
           channel: channel,
+          temporaryDirectory: () async => directory,
+          reviewStore: ReviewStore(
+            Directory('${directory.path}/export-reviews'),
+          ),
         ).exportToDownloads();
         expect(result.recordCount, 1);
         final archive = ZipDecoder().decodeBytes(exported!);

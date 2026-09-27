@@ -8,6 +8,7 @@ import 'package:image/image.dart' as img;
 import 'package:atlas_contribution_app/src/gallery_import.dart';
 import 'package:atlas_contribution_app/src/local_store.dart';
 import 'package:atlas_contribution_app/src/models.dart';
+import 'package:atlas_contribution_app/src/mvp/review_store.dart';
 import 'package:atlas_contribution_app/src/offline_contribution.dart';
 import 'fixtures.dart';
 
@@ -239,6 +240,8 @@ void main() {
       await OfflineContributionExporter(
         store,
         channel: channel,
+        temporaryDirectory: () async => directory,
+        reviewStore: ReviewStore(Directory('${directory.path}/export-reviews')),
       ).exportToDownloads();
       final zip = ZipDecoder().decodeBytes(zipped!);
       final manifest = jsonDecode(

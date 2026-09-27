@@ -11,6 +11,24 @@ import 'photo_view.dart';
 import 'gallery_import.dart';
 import 'capture_settings.dart';
 import 'cropped_photo.dart';
+import 'atlas_design.dart';
+import 'annotation_sequence.dart';
+import 'research_export_notice.dart';
+import 'fortune_progress.dart';
+
+part 'contribution_design.dart';
+part 'photo_set_flow.dart';
+
+enum RecordPreparationStatus {
+  notRequested,
+  ready,
+  partial,
+  empty,
+  pending,
+  failed,
+}
+
+enum _SavePhase { idle, saving, analyzing, saved, failed }
 
 typedef CameraLauncher =
     Future<CameraCaptureResult?> Function(
@@ -38,16 +56,40 @@ class ContributionHome extends StatefulWidget {
     required this.service,
     this.onExport,
     this.onReview,
+    this.onAiSettings,
+    this.onRecorded,
+    this.onReadFortune,
+    this.onGenerateFortune,
+    this.aiDescription,
+    this.fortuneProgress,
     this.galleryPicker,
     this.cameraLauncher,
+    this.saucerLauncher,
+    this.modern = false,
+    this.onConfirmedRecorded,
+    this.recordState,
     super.key,
   });
   final DraftStore store;
   final ContributionBackend service;
   final Future<void> Function()? onExport;
   final Future<void> Function()? onReview;
+  final Future<void> Function()? onAiSettings;
+  final Future<void> Function(Map<String, dynamic>)? onRecorded;
+  final Future<void> Function(Map<String, dynamic>)? onReadFortune;
+  final Future<void> Function(Map<String, dynamic>)? onGenerateFortune;
+  final Future<String?> Function()? aiDescription;
+  final ValueNotifier<FortuneProgress>? fortuneProgress;
   final GalleryPicker? galleryPicker;
   final CameraLauncher? cameraLauncher;
+  final Future<CameraCaptureResult?> Function(BuildContext)? saucerLauncher;
+  final bool modern;
+  final Future<RecordPreparationStatus> Function(
+    Map<String, dynamic>,
+    Set<String>,
+  )?
+  onConfirmedRecorded;
+  final Future<String> Function(Map<String, dynamic>)? recordState;
   @override
   State<ContributionHome> createState() => _ContributionHomeState();
 }
@@ -58,6 +100,53 @@ class _ContributionHomeState extends State<ContributionHome>
   bool _loading = true, _busy = false, _resumePrompt = false;
   String? _error;
   int _uploaded = 0;
+  bool _stopRequested = false;
+  _SavePhase _savePhase = _SavePhase.idle;
+  String get _saveLabel => switch (_savePhase) {
+    _SavePhase.saving => 'Kaydediliyor…',
+    _SavePhase.analyzing => 'Telve inceleniyor…',
+    _SavePhase.saved => 'Kayıt tamamlandı',
+    _SavePhase.failed => 'Kaydı Yeniden Dene',
+    _SavePhase.idle => 'Gözlemleri Kaydet',
+  };
+
+  Widget _saveActions(bool enabled) => FutureBuilder<String?>(
+    future: widget.aiDescription?.call(),
+    builder: (context, snapshot) => Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (snapshot.data != null)
+          Text('${snapshot.data} · Yalnız metinsel özet gönderilir'),
+        if (widget.onGenerateFortune != null)
+          FilledButton(
+            onPressed: enabled && snapshot.data != null
+                ? () => _send(generate: true)
+                : null,
+            child: const Text('Kaydet ve Falını Oluştur'),
+          ),
+        TextButton(
+          onPressed: enabled ? () => _send() : null,
+          child: Text(
+            widget.onGenerateFortune == null ? _saveLabel : 'Yalnız Kaydet',
+          ),
+        ),
+        if (widget.onGenerateFortune != null &&
+            snapshot.connectionState == ConnectionState.done &&
+            snapshot.data == null)
+          const Text(
+            'Fal için Ayarlar’dan bir AI bağlantısı seç. Kaydını yine saklayabilirsin.',
+          ),
+      ],
+    ),
+  );
+
+  int _tab = 0;
+  bool _flowOpen = false, _sequenceRunning = false, _sameSample = false;
+  final Set<String> _usable = {};
+  void _change(VoidCallback action) {
+    if (mounted) setState(action);
+  }
+
   late final _gallery = GalleryImport(
     widget.store,
     widget.galleryPicker ?? AndroidGalleryPicker(),
@@ -121,7 +210,12 @@ class _ContributionHomeState extends State<ContributionHome>
 
   Future<void> _save(ContributionDraft next) async {
     await widget.store.save(next);
-    if (mounted) setState(() => _draft = next);
+    if (mounted) {
+      setState(() {
+        if (_draft?.id != next.id) _savePhase = _SavePhase.idle;
+        _draft = next;
+      });
+    }
   }
 
   Future<bool> _consent() async {
@@ -136,7 +230,9 @@ class _ContributionHomeState extends State<ContributionHome>
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      widget.service.isOffline
+                      widget.service.isOffline && widget.onReadFortune != null
+                          ? 'Fotoğrafların ve ilk gözlemlerin bu telefonda saklanır. Fal oluşturmayı seçersen yalnız metinsel özet seçtiğin AI sunucusuna iletilir. Araştırma paketini dışa aktarmayı sen yönetirsin.'
+                          : widget.service.isOffline
                           ? 'Fotoğrafların ve işaretlerin yalnız bu telefonda saklanacak. Paketi dışa aktardığında inceleme ve gelecekteki şekil tanıma çalışmaları için kullanılabilecek. Dışa aktarılan paketleri sen yönetirsin.'
                           : 'Fincan fotoğrafların ve işaretlerin Atlas ekibi tarafından incelenecek; ileride şekil tanıma sistemini geliştirmekte kullanılabilecek. Katkın herkese açık paylaşılmayacak. En fazla 180 gün saklanacak. Gönderdiklerim ekranından silebilirsin.',
                     ),
@@ -188,7 +284,9 @@ class _ContributionHomeState extends State<ContributionHome>
         createdAt: now,
         consentedAt: now,
         kind: widget.service.isOffline
-            ? ContributionKind.freeThreeAngle
+            ? (widget.modern
+                  ? ContributionKind.photoSet
+                  : ContributionKind.freeThreeAngle)
             : ContributionKind.threeAngle,
       ),
     );
@@ -211,7 +309,17 @@ class _ContributionHomeState extends State<ContributionHome>
         result,
         preserveDisplayCrop: widget.service.isOffline,
       );
-      await _save(_draft!.withPhoto(imported));
+      final photo = _draft!.isSet
+          ? imported.asSetPhoto(photoId: _draft!.photo(role)?.id, angle: role)
+          : imported;
+      await _save(_draft!.withPhoto(photo));
+      if (widget.modern) {
+        _usable.removeWhere(
+          (key) =>
+              !_draft!.photos.any((p) => '${p.localName}|${p.checksum}' == key),
+        );
+        _sameSample = false;
+      }
       try {
         await widget.store.releaseCapture(result);
         await widget.store.collectOrphans();
@@ -236,6 +344,7 @@ class _ContributionHomeState extends State<ContributionHome>
       context,
       MaterialPageRoute<void>(
         builder: (_) => AnnotationPage(
+          modern: widget.modern,
           photo: photo,
           image: FileImage(widget.store.file(photo.localName)),
           displayCrop: photo.visibleCrop,
@@ -246,6 +355,10 @@ class _ContributionHomeState extends State<ContributionHome>
   }
 
   Future<void> _pickGallery({bool replace = false}) async {
+    if (widget.modern && !replace) {
+      await _startSetGallery();
+      return;
+    }
     if (_busy || !widget.service.isOffline || _draft?.queued == true) return;
     if (!replace && _draft != null) {
       final discard = await showDialog<bool>(
@@ -308,12 +421,16 @@ class _ContributionHomeState extends State<ContributionHome>
     if (mounted && imported != null) await _annotate(imported.photos.single);
   }
 
-  Future<void> _send() async {
+  Future<void> _send({bool generate = false}) async {
     if (_busy || _draft?.reviewed != true) return;
     setState(() {
       _busy = true;
       _uploaded = 0;
+      _savePhase = _SavePhase.saving;
     });
+    widget.fortuneProgress?.value = const FortuneProgress(FortunePhase.saving);
+    _stopRequested = false;
+    var receiptSaved = false;
     try {
       await _save(_draft!.copy(queued: true));
       final row = await widget.service.submit(
@@ -323,24 +440,119 @@ class _ContributionHomeState extends State<ContributionHome>
           if (mounted) setState(() => _uploaded = count);
         },
       );
+      final confirmed = (_sameSample || _draft!.photos.length == 1)
+          ? Set<String>.of(_usable)
+          : <String>{};
       await widget.store.saveReceipt(row);
+      receiptSaved = true;
       await widget.store.clear();
+      var preparation = RecordPreparationStatus.notRequested;
+      // The receipt is durable before analysis starts. A later failure must
+      // never be presented as a failed save or trigger another submission.
+      try {
+        if (widget.onRecorded != null) {
+          _change(() => _savePhase = _SavePhase.analyzing);
+          await widget.onRecorded!(row);
+          if (((row['document'] as Map)['photos'] as List).isNotEmpty) {
+            preparation = RecordPreparationStatus.pending;
+          }
+        }
+        if (confirmed.length ==
+                ((row['document'] as Map)['photos'] as List).length &&
+            widget.onConfirmedRecorded != null) {
+          preparation = await widget.onConfirmedRecorded!(row, confirmed);
+        }
+      } catch (_) {
+        preparation = RecordPreparationStatus.failed;
+      }
+      final savedExplanation = switch (preparation) {
+        RecordPreparationStatus.ready =>
+          'Gözlemlerin kaydedildi ve telve incelemesi tamamlandı. Falını oluşturabilirsin.',
+        RecordPreparationStatus.partial =>
+          'Kayıt saklandı; bazı fotoğrafların analizi tamamlanamadı. Kullanılabilir verilerle devam edebilir veya incelemeden yeniden deneyebilirsin.',
+        RecordPreparationStatus.empty =>
+          'Kayıt saklandı. Fal için kullanılabilir gözlem veya fiziksel bulgu oluşmadı.',
+        RecordPreparationStatus.failed =>
+          'Kayıt saklandı; analiz tamamlanamadı. Kayıtlarım ekranındaki aynı kayıttan yeniden deneyebilirsin.',
+        RecordPreparationStatus.pending =>
+          'Gözlemlerin kaydedildi. Fotoğraf teyitlerini tamamlayıp yerel incelemeye devam edebilirsin.',
+        RecordPreparationStatus.notRequested =>
+          'Gözlemlerin telefonda saklandı.',
+      };
       if (mounted) {
-        setState(() => _draft = null);
+        setState(() {
+          _draft = null;
+          _savePhase = _SavePhase.saved;
+          _flowOpen = false;
+          _usable.clear();
+          _sameSample = false;
+        });
+        ScaffoldMessenger.of(context).clearSnackBars();
         showNotice(
           context,
           widget.service.isOffline
-              ? 'Telefona kaydedildi. İnternete gönderilmedi.'
+              ? savedExplanation
               : 'Gönderildi. Katkın için teşekkür ederiz.',
         );
+        if (generate &&
+            !_stopRequested &&
+            widget.onGenerateFortune != null &&
+            (preparation == RecordPreparationStatus.ready ||
+                preparation == RecordPreparationStatus.partial)) {
+          await widget.onGenerateFortune!(row);
+        } else if (!generate &&
+            !widget.modern &&
+            widget.onReadFortune != null &&
+            ((row['document'] as Map)['photos'] as List).isNotEmpty) {
+          final open = await showDialog<bool>(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              title: const Text('Kayıt tamamlandı'),
+              content: Text(savedExplanation),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx, false),
+                  child: const Text('Daha sonra'),
+                ),
+                FilledButton(
+                  onPressed: () => Navigator.pop(ctx, true),
+                  child: Text(
+                    preparation == RecordPreparationStatus.failed ||
+                            preparation == RecordPreparationStatus.pending ||
+                            preparation == RecordPreparationStatus.empty
+                        ? 'İncelemeyi Aç'
+                        : 'Fal oluştur',
+                  ),
+                ),
+              ],
+            ),
+          );
+          if (open == true) {
+            try {
+              await widget.onReadFortune!(row);
+            } catch (_) {
+              if (mounted) {
+                showNotice(
+                  context,
+                  'Kayıt korundu. Kayıtlarım ekranından yeniden deneyebilirsin.',
+                );
+              }
+            }
+          }
+        }
       }
     } catch (e) {
+      _change(
+        () => _savePhase = receiptSaved ? _SavePhase.saved : _SavePhase.failed,
+      );
       if (mounted) {
         showNotice(
           context,
-          e is ContributionFailure
+          receiptSaved
+              ? 'Kayıt saklandı; ekran güncellenemedi. Kayıtlarım üzerinden açabilirsin.'
+              : e is ContributionFailure
               ? e.message
-              : 'Gönderilemedi. Çalışman telefonda duruyor. Tekrar deneyebilirsin.',
+              : 'Kayıt tamamlanamadı. Çalışman telefonda duruyor. Tekrar deneyebilirsin.',
         );
       }
     } finally {
@@ -390,6 +602,7 @@ class _ContributionHomeState extends State<ContributionHome>
       context,
       MaterialPageRoute<void>(
         builder: (_) => ContributionHistory(
+          onReadFortune: widget.onReadFortune,
           store: widget.store,
           service: widget.service,
           canStart: _draft == null,
@@ -431,6 +644,31 @@ class _ContributionHomeState extends State<ContributionHome>
 
   @override
   Widget build(BuildContext context) {
+    if (widget.modern &&
+        _busy &&
+        _draft != null &&
+        widget.fortuneProgress != null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Fincanının Hikâyesi')),
+        body: ValueListenableBuilder<FortuneProgress>(
+          valueListenable: widget.fortuneProgress!,
+          builder: (_, progress, _) => FortuneScan(
+            progress: _stopRequested
+                ? const FortuneProgress(FortunePhase.cancelled)
+                : progress,
+            photos: _draft!.photos,
+            onCancel: () => setState(() {
+              _stopRequested = true;
+              widget.fortuneProgress!.value = const FortuneProgress(
+                FortunePhase.cancelled,
+              );
+            }),
+            imageFor: (p) => FileImage(widget.store.file(p.localName)),
+          ),
+        ),
+      );
+    }
+    if (widget.modern) return _buildAtlas();
     final draft = _draft;
     return Scaffold(
       appBar: AppBar(
@@ -449,6 +687,11 @@ class _ContributionHomeState extends State<ContributionHome>
           ? const Center(child: CircularProgressIndicator())
           : PageBody(
               children: [
+                if (widget.onAiSettings != null)
+                  OutlinedButton(
+                    onPressed: _busy ? null : widget.onAiSettings,
+                    child: const Text('AI Laboratuvarı'),
+                  ),
                 if (widget.onReview != null) ...[
                   FilledButton.icon(
                     onPressed: _busy ? null : widget.onReview,
@@ -465,11 +708,12 @@ class _ContributionHomeState extends State<ContributionHome>
                             setState(() => _busy = true);
                             try {
                               await widget.onExport!();
-                            } catch (_) {
+                            } catch (error) {
                               if (context.mounted) {
-                                showNotice(
+                                await showResearchExportFailure(
                                   context,
-                                  'Paket hazırlanamadı. Kayıtların telefonda duruyor.',
+                                  error,
+                                  openPermissions: widget.onReview,
                                 );
                               }
                             } finally {
@@ -529,8 +773,10 @@ class _ContributionHomeState extends State<ContributionHome>
                     ),
                   ),
                   const SizedBox(height: 24),
-                  const Text(
-                    'Bu denemede fal yorumu verilmez. Katkıların şekil araştırmasına yardımcı olur.',
+                  Text(
+                    widget.onReadFortune != null
+                        ? 'Gözlemlerini kaydettikten sonra seçtiğin AI ile fal deneyebilirsin. Fotoğrafların telefonda kalır.'
+                        : 'Bu denemede fal yorumu verilmez. Katkıların şekil araştırmasına yardımcı olur.',
                   ),
                 ] else if (_resumePrompt) ...[
                   const SizedBox(height: 24),
@@ -760,6 +1006,13 @@ class ContributionHistory extends StatefulWidget {
     required this.canStart,
     required this.onRepeat,
     required this.onEdit,
+    this.onReadFortune,
+    this.modern = false,
+    this.embedded = false,
+    this.onlyRoot,
+    this.currentDraft,
+    this.onContinue,
+    this.recordState,
     super.key,
   });
   final DraftStore store;
@@ -767,11 +1020,20 @@ class ContributionHistory extends StatefulWidget {
   final bool canStart;
   final Future<void> Function(String) onRepeat;
   final Future<void> Function(Map<String, dynamic>) onEdit;
+  final Future<void> Function(Map<String, dynamic>)? onReadFortune;
+  final bool modern, embedded;
+  final String? onlyRoot;
+  final ContributionDraft? currentDraft;
+  final Future<void> Function()? onContinue;
+  final Future<String> Function(Map<String, dynamic>)? recordState;
   @override
   State<ContributionHistory> createState() => _ContributionHistoryState();
 }
 
 class _ContributionHistoryState extends State<ContributionHistory> {
+  int _filter = 0;
+  final Map<String, String> _recordStates = {};
+  void _changeFilter(int filter) => setState(() => _filter = filter);
   List<Map<String, dynamic>> _rows = [];
   bool _busy = false;
   String? _message;
@@ -792,6 +1054,20 @@ class _ContributionHistoryState extends State<ContributionHistory> {
     }
     final deleted = await widget.store.pendingDeletes();
     _rows = _rows.where((r) => !deleted.contains(r['root_id'])).toList();
+    if (widget.onlyRoot != null) {
+      _rows = _rows.where((r) => r['root_id'] == widget.onlyRoot).toList();
+    }
+    if (widget.recordState != null) {
+      for (final row in _rows) {
+        try {
+          _recordStates[row['root_id'] as String] = await widget.recordState!(
+            row,
+          );
+        } catch (_) {
+          _recordStates[row['root_id'] as String] = 'Fal durumu okunamadı';
+        }
+      }
+    }
     if (mounted) setState(() => _busy = false);
   }
 
@@ -849,127 +1125,167 @@ class _ContributionHistoryState extends State<ContributionHistory> {
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(
-      title: Text(widget.service.isOffline ? 'Kayıtlarım' : 'Gönderdiklerim'),
-      actions: [
-        IconButton(
-          tooltip: 'Yenile',
-          onPressed: _busy ? null : _refresh,
-          icon: const Icon(LucideIcons.refreshCw),
-        ),
-      ],
-    ),
-    body: PageBody(
-      children: [
-        if (_busy) const LinearProgressIndicator(),
-        if (_message != null) Text(_message!),
-        if (!_busy && _rows.isEmpty)
-          Text(
-            widget.service.isOffline
-                ? 'Henüz tamamlanmış kaydın yok.'
-                : 'Henüz gönderilmiş katkın yok.',
-          ),
-        for (var i = 0; i < _rows.length; i++) ...[
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Text(
-                    '${(_rows[i]['document'] as Map)['kind'] == 'gallerySingle' ? 'Galeri fotoğrafı' : 'Fincan'} ${_rows.length - i}',
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                  Text(
-                    (_rows[i]['submitted_at'] as String? ?? '')
-                        .split('T')
-                        .first,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    ((_rows[i]['document'] as Map)['photos'] as List)
-                        .expand((p) => (p['regions'] as List))
-                        .map(
-                          (r) =>
-                              contributionLabels[r['label']] ?? 'Emin değilim',
-                        )
-                        .toSet()
-                        .join(' · '),
-                  ),
-                  OutlinedButton(
-                    onPressed: _busy
-                        ? null
-                        : () => _act(() async {
-                            final photos = ContributionDraft.fromJson(
-                              Map<String, dynamic>.from(_rows[i]['document']),
-                            ).photos;
-                            final images = <String, ImageProvider>{};
-                            for (final p in photos) {
-                              images[p.fileKey] = MemoryImage(
-                                await widget.service.readPhoto(
-                                  _rows[i]['id'] as String,
-                                  p,
-                                ),
-                              );
-                            }
-                            if (!context.mounted) return;
-                            await Navigator.push(
-                              context,
-                              MaterialPageRoute<void>(
-                                builder: (_) => Scaffold(
-                                  appBar: AppBar(
-                                    title: const Text('Fotoğraflarım'),
-                                  ),
-                                  body: PageBody(
-                                    children: [
-                                      for (final p
-                                          in ContributionDraft.fromJson(
-                                            Map<String, dynamic>.from(
-                                              _rows[i]['document'],
-                                            ),
-                                          ).photos)
-                                        MarkedPhoto(
-                                          photo: p,
-                                          image: images[p.fileKey]!,
-                                        ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            );
-                          }),
-                    child: const Text('Fotoğrafları gör'),
-                  ),
-                  if (widget.canStart) ...[
-                    OutlinedButton(
-                      onPressed: _busy
-                          ? null
-                          : () => _act(() => widget.onEdit(_rows[i])),
-                      child: const Text('İşaretleri düzenle'),
-                    ),
-                    if ((_rows[i]['document'] as Map)['kind'] !=
-                        'gallerySingle')
-                      TextButton(
-                        onPressed: _busy
-                            ? null
-                            : () => widget.onRepeat(
-                                _rows[i]['group_id'] as String,
-                              ),
-                        child: const Text('Aynı fincanı tekrar çek'),
-                      ),
-                  ],
-                  TextButton(
-                    onPressed: _busy ? null : () => _remove(_rows[i]),
-                    child: const Text('Katkımı sil'),
-                  ),
-                ],
-              ),
+  Widget build(BuildContext context) => widget.modern && widget.onlyRoot == null
+      ? (widget.embedded
+            ? _atlasHistory()
+            : Scaffold(
+                appBar: AppBar(title: const Text('Kayıtlarım')),
+                body: _atlasHistory(),
+              ))
+      : Scaffold(
+          appBar: AppBar(
+            title: Text(
+              widget.service.isOffline ? 'Kayıtlarım' : 'Gönderdiklerim',
             ),
+            actions: [
+              IconButton(
+                tooltip: 'Yenile',
+                onPressed: _busy ? null : _refresh,
+                icon: const Icon(LucideIcons.refreshCw),
+              ),
+            ],
           ),
-          const SizedBox(height: 12),
-        ],
-      ],
-    ),
-  );
+          body: PageBody(
+            children: [
+              if (_busy) const LinearProgressIndicator(),
+              if (_message != null) Text(_message!),
+              if (!_busy && _rows.isEmpty)
+                Text(
+                  widget.service.isOffline
+                      ? 'Henüz tamamlanmış kaydın yok.'
+                      : 'Henüz gönderilmiş katkın yok.',
+                ),
+              for (var i = 0; i < _rows.length; i++) ...[
+                if (widget.modern) ...[
+                  for (final p in ContributionDraft.fromJson(
+                    Map<String, dynamic>.from(_rows[i]['document'] as Map),
+                  ).photos)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: MarkedPhoto(
+                        photo: p,
+                        image: FileImage(widget.store.file(p.localName)),
+                        displayCrop: p.visibleCrop,
+                      ),
+                    ),
+                  Text(
+                    _recordStates[_rows[i]['root_id']] ?? 'Telefona kaydedildi',
+                  ),
+                  const SizedBox(height: 12),
+                ],
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Text(
+                          '${(_rows[i]['document'] as Map)['kind'] == 'gallerySingle' ? 'Galeri fotoğrafı' : 'Fincan'} ${_rows.length - i}',
+                          style: Theme.of(context).textTheme.titleLarge,
+                        ),
+                        Text(
+                          (_rows[i]['submitted_at'] as String? ?? '')
+                              .split('T')
+                              .first,
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          ((_rows[i]['document'] as Map)['photos'] as List)
+                              .expand((p) => (p['regions'] as List))
+                              .map(
+                                (r) =>
+                                    contributionLabels[r['label']] ??
+                                    'Emin değilim',
+                              )
+                              .toSet()
+                              .join(' · '),
+                        ),
+                        OutlinedButton(
+                          onPressed: _busy
+                              ? null
+                              : () => _act(() async {
+                                  final photos = ContributionDraft.fromJson(
+                                    Map<String, dynamic>.from(
+                                      _rows[i]['document'],
+                                    ),
+                                  ).photos;
+                                  final images = <String, ImageProvider>{};
+                                  for (final p in photos) {
+                                    images[p.fileKey] = MemoryImage(
+                                      await widget.service.readPhoto(
+                                        _rows[i]['id'] as String,
+                                        p,
+                                      ),
+                                    );
+                                  }
+                                  if (!context.mounted) return;
+                                  await Navigator.push(
+                                    context,
+                                    MaterialPageRoute<void>(
+                                      builder: (_) => Scaffold(
+                                        appBar: AppBar(
+                                          title: const Text('Fotoğraflarım'),
+                                        ),
+                                        body: PageBody(
+                                          children: [
+                                            for (final p
+                                                in ContributionDraft.fromJson(
+                                                  Map<String, dynamic>.from(
+                                                    _rows[i]['document'],
+                                                  ),
+                                                ).photos)
+                                              MarkedPhoto(
+                                                photo: p,
+                                                image: images[p.fileKey]!,
+                                              ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                }),
+                          child: const Text('Fotoğrafları gör'),
+                        ),
+                        if (widget.onReadFortune != null &&
+                            ((_rows[i]['document'] as Map)['photos'] as List)
+                                .isNotEmpty)
+                          FilledButton(
+                            onPressed: _busy
+                                ? null
+                                : () => _act(
+                                    () => widget.onReadFortune!(_rows[i]),
+                                  ),
+                            child: const Text('Fal oluştur'),
+                          ),
+                        if (widget.canStart) ...[
+                          OutlinedButton(
+                            onPressed: _busy
+                                ? null
+                                : () => _act(() => widget.onEdit(_rows[i])),
+                            child: const Text('İşaretleri düzenle'),
+                          ),
+                          if ((_rows[i]['document'] as Map)['kind'] !=
+                              'gallerySingle')
+                            TextButton(
+                              onPressed: _busy
+                                  ? null
+                                  : () => widget.onRepeat(
+                                      _rows[i]['group_id'] as String,
+                                    ),
+                              child: const Text('Aynı fincanı tekrar çek'),
+                            ),
+                        ],
+                        TextButton(
+                          onPressed: _busy ? null : () => _remove(_rows[i]),
+                          child: const Text('Katkımı sil'),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+              ],
+            ],
+          ),
+        );
 }

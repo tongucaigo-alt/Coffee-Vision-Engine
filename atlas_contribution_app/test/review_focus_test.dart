@@ -8,6 +8,7 @@ import 'package:atlas_contribution_app/src/mvp/review_controller.dart';
 import 'package:atlas_contribution_app/src/mvp/review_models.dart';
 import 'package:atlas_contribution_app/src/mvp/review_store.dart';
 import 'package:atlas_contribution_app/src/photo_crop.dart';
+import 'package:atlas_contribution_app/src/research_export.dart';
 import 'package:coffee_camera/coffee_camera.dart';
 import 'package:coffee_camera/src/quality/quality_checker.dart';
 import 'package:flutter/services.dart';
@@ -212,7 +213,10 @@ void main() {
         () => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
             .setMockMethodCallHandler(channel, null),
       );
-      await store.exportToDownloads(channel: channel);
+      await store.exportToDownloads(
+        channel: channel,
+        temporaryDirectory: () async => temp,
+      );
       final archive = ZipDecoder().decodeBytes(zipBytes!);
       final record = jsonDecode(
         utf8.decode(
@@ -230,7 +234,13 @@ void main() {
       await controller.save(session.next(researchAllowed: false));
       await expectLater(
         store.exportToDownloads(channel: channel),
-        throwsStateError,
+        throwsA(
+          isA<ExportFailure>().having(
+            (e) => e.code,
+            'code',
+            ExportFailureCode.noPermission,
+          ),
+        ),
       );
       expect(
         jsonEncode((await store.sessions()).single.initialObservations),

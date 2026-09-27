@@ -15,7 +15,12 @@ String cameraCaptureInstruction(CaptureRole role) => role == CaptureRole.top
 
 CoffeeCameraConfig cameraConfigForRole(CaptureRole role) => CoffeeCameraConfig(
   backgroundBlurSigma: 5,
-  theme: const CoffeeCameraTheme(overlay: Color(0x55000000)),
+  theme: const CoffeeCameraTheme(
+    overlay: Color(0x55000000),
+    background: Color(0xff1e100a),
+    foreground: Color(0xfffaf7f2),
+    mutedForeground: Color(0xffdfd5c4),
+  ),
   handleGuide: switch (role) {
     CaptureRole.handleRight => CameraHandleGuide.right,
     CaptureRole.handleLeft => CameraHandleGuide.left,

@@ -12,6 +12,7 @@ import 'package:uuid/uuid.dart';
 
 import '../models.dart';
 import 'review_models.dart';
+import 'regional_summary.dart';
 
 const mvpKnowledgeChecksum =
     'sha256:18b65abeca6971cc98153f0c5781bcdffecb2869fc4fabb205d004f9fb372895';
@@ -216,6 +217,7 @@ final class ReviewEngine {
                 'candidateRelationCount': global.candidateRelationCount,
                 'selectedRelationCount': global.selectedRelationCount,
               },
+        'regionalSummary': summarizeRegions(features),
         'patterns': [
           for (final p in patterns.candidates)
             {

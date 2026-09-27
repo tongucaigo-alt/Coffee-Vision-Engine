@@ -50,12 +50,30 @@ Map<String, Object> preparePhoto(Uint8List bytes) {
 class DraftStore {
   DraftStore(this.directory);
   final Directory directory;
-  Future<void> _writes = Future<void>.value();
+  Future<void> Function(String rootId)? onDeleteRoot;
+  static final Map<String, Future<void>> _writes = {};
   Future<T> _mutate<T>(Future<T> Function() operation) {
-    final next = _writes.then((_) => operation());
-    _writes = next.then<void>((_) {}, onError: (Object _, StackTrace _) {});
+    final normalized = path.normalize(directory.absolute.path);
+    final key = Platform.isWindows ? normalized.toLowerCase() : normalized;
+    final next = (_writes[key] ?? Future<void>.value()).then(
+      (_) => operation(),
+    );
+    late final Future<void> tail;
+    void clear() {
+      if (identical(_writes[key], tail)) _writes.remove(key);
+    }
+
+    tail = next.then<void>(
+      (_) => clear(),
+      onError: (Object _, StackTrace _) => clear(),
+    );
+    _writes[key] = tail;
     return next;
   }
+
+  /// Export commits use the same queue as withdrawal and receipt changes.
+  Future<T> withExportRead<T>(Future<T> Function() operation) =>
+      _mutate(operation);
 
   File file(String name) {
     if (!RegExp(r'^[a-zA-Z0-9_-]+\.(jpg|json|bak|pending)$').hasMatch(name)) {
@@ -124,6 +142,9 @@ class DraftStore {
   Future<void> saveGalleryPending(ContributionDraft? draft) =>
       _mutate(() => _atomic('gallery.json', {'draft': draft?.toJson()}));
 
+  Future<void> saveSetGalleryPending(Map<String, dynamic>? operation) =>
+      _mutate(() => _atomic('gallery.json', operation ?? {'draft': null}));
+
   Future<ContributionPhoto> importGallery(Uint8List input) async {
     final data = await compute(preparePhoto, input);
     final name = '${const Uuid().v4()}.jpg';
@@ -183,6 +204,7 @@ class DraftStore {
   });
 
   Future<void> acknowledgeDelete(String rootId) => _mutate(() async {
+    await onDeleteRoot?.call(rootId);
     final rows = (await receipts())
         .where((r) => r['root_id'] != rootId)
         .toList();

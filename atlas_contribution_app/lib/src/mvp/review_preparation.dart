@@ -1,9 +1,10 @@
 import '../models.dart';
 import 'review_models.dart';
+import 'regional_summary.dart';
 
 const initialObservationVersion = 'atlas-initial-observation-v2';
 const reviewPreparationVersion = 'atlas-review-preparation-v1';
-const reviewPayloadVersion = 'atlas-fortune-context-v1';
+const reviewPayloadVersion = 'atlas-fortune-context-v2';
 
 /// Seals the first observation of this exact photo set before any named
 /// suggestion is shown. Subsequent edits remain in the ordinary review history.
@@ -79,7 +80,7 @@ ReviewSession captureInitialObservations(
           'photoChecksum': p.photo.checksum,
           'surface': p.surface.name,
           'declaredRole': p.declaredRole?.name,
-          'origin': p.photo.role == null ? 'gallery' : 'camera',
+          'origin': p.photo.origin,
           'photoDecision': p.photo.decision.name,
           'observationCoordinateSpace': 'orientedFullPhotoNormalized',
           'displayCrop': p.visibleCrop.toJson(),
@@ -151,6 +152,9 @@ Map<String, dynamic> prepareReviewInput(
           },
     ];
     observationCount += observations.length;
+    validateRegionalSummary(
+      analysisState == 'complete' ? (analysis?['regionalSummary']) : null,
+    );
     photos.add({
       'photoNumber': index + 1,
       'surface': p.surface.name,
@@ -160,6 +164,9 @@ Map<String, dynamic> prepareReviewInput(
       'physicalMeasurementsStatus': measurementsStatus,
       'physicalMeasurementScope': 'wholeImageContentNotUserRegion',
       'globalPhysicalMeasurements': measurements,
+      'regionalSummary': analysisState == 'complete'
+          ? (analysis?['regionalSummary'])
+          : null,
     });
   }
   final hasInput = observationCount > 0 || physicalPhotoCount > 0;

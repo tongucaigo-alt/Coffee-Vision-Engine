@@ -18,9 +18,19 @@ import 'review_capture_settings.dart';
 import 'review_gallery.dart';
 import 'review_models.dart';
 import 'review_store.dart';
+import '../research_export.dart';
+import '../research_export_notice.dart';
+import '../ai/ai_runtime.dart';
+import '../ai/ai_pages.dart';
 
 class ReviewHub extends StatefulWidget {
-  const ReviewHub({required this.store, required this.captureStore, super.key});
+  const ReviewHub({
+    required this.store,
+    required this.captureStore,
+    this.ai,
+    super.key,
+  });
+  final AiRuntime? ai;
   final ReviewStore store;
   final DraftStore captureStore;
   @override
@@ -53,10 +63,31 @@ class _ReviewHubState extends State<ReviewHub> {
   }
 
   Future<void> _open(ReviewSession session) async {
+    if (widget.ai != null && session.id.startsWith('linked-')) {
+      final rows = (await widget.captureStore.receipts())
+          .where((r) => 'linked-${r['root_id']}' == session.id)
+          .toList();
+      if (rows.isEmpty) {
+        await widget.ai!.bridge.reconcile();
+        await _load();
+        return;
+      }
+      session = await widget.ai!.bridge.importReceipt(rows.first);
+      if (!mounted) return;
+      await Navigator.push(
+        context,
+        MaterialPageRoute<void>(
+          builder: (_) => AiFortunePage(runtime: widget.ai!, session: session),
+        ),
+      );
+      await _load();
+      return;
+    }
     await Navigator.push(
       context,
       MaterialPageRoute<void>(
         builder: (_) => ReviewPage(
+          ai: widget.ai,
           controller: ReviewController(store: widget.store, session: session),
           captureStore: widget.captureStore,
         ),
@@ -152,7 +183,14 @@ class _ReviewHubState extends State<ReviewHub> {
     );
     if (yes != true) return;
     try {
-      await widget.store.delete(s);
+      if (widget.ai != null && s.id.startsWith('linked-')) {
+        final root = s.id.substring(7);
+        await widget.captureStore.queueDelete(root);
+        await widget.captureStore.acknowledgeDelete(root);
+        await widget.captureStore.collectOrphans();
+      } else {
+        await widget.store.delete(s);
+      }
       await _load();
     } catch (_) {
       if (mounted) {
@@ -194,6 +232,9 @@ class _ReviewHubState extends State<ReviewHub> {
           ),
           const Divider(),
         ],
+        const Text(
+          'İzin verdiğin incelemelerin fotoğraflarını, ilk gözlemlerini ve fiziksel analizini ZIP olarak kaydeder.',
+        ),
         OutlinedButton.icon(
           onPressed: _busy
               ? null
@@ -204,14 +245,37 @@ class _ReviewHubState extends State<ReviewHub> {
                     if (context.mounted) {
                       showNotice(
                         context,
-                        '${result.count} izinli inceleme İndirilenler klasöründe: ${result.name}',
+                        '${result.count} izinli inceleme ${exportDestinationLabel(result.location)} kaydedildi: ${result.name}',
                       );
                     }
-                  } catch (_) {
+                  } catch (error) {
                     if (context.mounted) {
-                      showNotice(
+                      await showResearchExportFailure(
                         context,
-                        'Paket hazırlanamadı veya dışa aktarma izni olan kayıt yok.',
+                        error,
+                        openPermissions: () async {
+                          final candidates = _sessions
+                              .where((s) => !s.deleted)
+                              .toList();
+                          final selected = await showDialog<ReviewSession>(
+                            context: context,
+                            builder: (ctx) => SimpleDialog(
+                              title: const Text('İzin verilecek inceleme'),
+                              children: [
+                                for (final s in candidates)
+                                  SimpleDialogOption(
+                                    onPressed: () => Navigator.pop(ctx, s),
+                                    child: Text(
+                                      'İnceleme · ${s.createdAtUtc.split('T').first} · ${s.photos.length} fotoğraf',
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          );
+                          if (selected != null && mounted) {
+                            await _open(selected);
+                          }
+                        },
                       );
                     }
                   } finally {
@@ -230,9 +294,11 @@ class ReviewPage extends StatefulWidget {
   const ReviewPage({
     required this.controller,
     required this.captureStore,
+    this.ai,
     super.key,
   });
   final ReviewController controller;
+  final AiRuntime? ai;
   final DraftStore captureStore;
   @override
   State<ReviewPage> createState() => _ReviewPageState();
@@ -567,7 +633,7 @@ class _ReviewPageState extends State<ReviewPage> {
           body: PageBody(
             children: [
               const Text(
-                'Bu içerik telefonda hazırlandı. Henüz bir AI servisine gönderilmedi.',
+                'Bu içerik telefonda hazırlandı. AI gönderimi yalnız Fal oluştur eylemiyle başlatılır; gönderim geçmişi fal ekranındadır.',
               ),
               const SizedBox(height: 16),
               SelectableText(
@@ -849,12 +915,30 @@ class _ReviewPageState extends State<ReviewPage> {
                 icon: const Icon(LucideIcons.fileJson),
                 label: const Text('Teknik ayrıntılar'),
               ),
+            if (widget.ai != null)
+              FilledButton(
+                onPressed: busy
+                    ? null
+                    : () => _act(() async {
+                        await Navigator.push(
+                          context,
+                          MaterialPageRoute<void>(
+                            builder: (_) => AiFortunePage(
+                              runtime: widget.ai!,
+                              session: session,
+                            ),
+                          ),
+                        );
+                        await _reload();
+                      }),
+                child: const Text('Fal oluştur'),
+              ),
             CheckboxListTile(
               contentPadding: EdgeInsets.zero,
               controlAffinity: ListTileControlAffinity.leading,
               value: session.researchConsentAtUtc != null,
               title: const Text(
-                'Araştırma için dışa aktarmaya izin veriyorum.',
+                'Bu inceleme ve bağlı çekim kaydı için araştırma amaçlı dışa aktarmaya izin veriyorum.',
               ),
               onChanged: busy
                   ? null

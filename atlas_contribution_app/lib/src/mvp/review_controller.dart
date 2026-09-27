@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 
 import 'review_engine.dart';
+import 'regional_summary.dart';
 import 'review_models.dart';
 import 'review_preparation.dart';
 import 'review_store.dart';
@@ -37,7 +38,7 @@ final class ReviewController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> analyze({String? retryPhotoId}) {
+  Future<void> analyze({String? retryPhotoId, bool enrich = false}) {
     if (_closed || busy || !_session.ready) {
       throw StateError('Review not ready');
     }
@@ -45,7 +46,7 @@ final class ReviewController extends ChangeNotifier {
         !_session.photos.any((p) => p.id == retryPhotoId && p.failed)) {
       throw StateError('Only failed photos may be retried');
     }
-    final run = _completeReview(retryPhotoId);
+    final run = _completeReview(retryPhotoId, enrich);
     _running = run;
     notifyListeners();
     return run.whenComplete(() {
@@ -54,7 +55,7 @@ final class ReviewController extends ChangeNotifier {
     });
   }
 
-  Future<void> _completeReview(String? retryPhotoId) async {
+  Future<void> _completeReview(String? retryPhotoId, bool enrich) async {
     try {
       final exposures = await store.knownGroupExposures(_session);
       if (_closed) return;
@@ -72,7 +73,13 @@ final class ReviewController extends ChangeNotifier {
       // Use the durably captured photos, including normalized skip decisions.
       final targets = _session.orderedPhotos
           .where(
-            (p) => retryPhotoId == null ? !p.analyzed : p.id == retryPhotoId,
+            (p) => retryPhotoId == null
+                ? (!p.analyzed ||
+                      (enrich &&
+                          !p.failed &&
+                          p.analysis?['regionalSummary']?['version'] !=
+                              regionalSummaryVersion))
+                : p.id == retryPhotoId,
           )
           .toList();
       if (targets.isNotEmpty) {

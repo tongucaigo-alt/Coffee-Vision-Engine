@@ -4,7 +4,10 @@ import 'dart:io';
 import 'package:archive/archive.dart';
 import 'package:atlas_contribution_app/src/local_store.dart';
 import 'package:atlas_contribution_app/src/models.dart';
+import 'package:atlas_contribution_app/src/mvp/review_store.dart';
+import 'package:atlas_contribution_app/src/research_export.dart';
 import 'package:atlas_contribution_app/src/offline_contribution.dart';
+import 'package:atlas_contribution_app/src/ai/ai_store.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -72,6 +75,8 @@ void main() {
       final result = await OfflineContributionExporter(
         store,
         channel: channel,
+        temporaryDirectory: () async => directory,
+        reviewStore: ReviewStore(Directory('${directory.path}/export-reviews')),
       ).exportToDownloads();
       expect(result.recordCount, 1);
       expect(result.location, startsWith('content://downloads/'));
@@ -95,6 +100,60 @@ void main() {
       expect(manifest['recordCount'], 1);
       expect(manifest['researchOnly'], true);
       expect(manifest['files'], hasLength(4));
+
+      final ai = AiStore(Directory('${directory.path}/ai'));
+      final privateResult = {
+        'id': 'private-result',
+        'sessionId': 'private-session',
+        'groupId': draft.groupId,
+        'answers': [
+          {'text': 'private-fortune-text', 'profileName': 'private-profile'},
+        ],
+      };
+      await ai.saveResult(privateResult);
+      await ai.expose(privateResult);
+      final exporter = OfflineContributionExporter(
+        store,
+        channel: channel,
+        temporaryDirectory: () async => directory,
+        reviewStore: ReviewStore(Directory('${directory.path}/export-reviews')),
+        exposureAudit: ai.researchAudit,
+      );
+      await exporter.exportToDownloads();
+      final withAudit = ZipDecoder().decodeBytes(exported!);
+      final auditText = utf8.decode(
+        withAudit.files
+                .singleWhere((f) => f.name.endsWith('/ai-exposure-audit.json'))
+                .content
+            as List<int>,
+      );
+      expect(
+        jsonDecode(auditText)['currentObservations'],
+        'potentiallyAiInfluenced',
+      );
+      for (final secret in [
+        'private-result',
+        'private-session',
+        'private-fortune-text',
+        'private-profile',
+      ]) {
+        expect(auditText, isNot(contains(secret)));
+      }
+      expect(
+        withAudit.files.any((f) => f.name.contains('state.json')),
+        isFalse,
+      );
+      await store.queueDelete(draft.rootId);
+      await expectLater(
+        exporter.exportToDownloads(),
+        throwsA(
+          isA<ExportFailure>().having(
+            (e) => e.code,
+            'code',
+            ExportFailureCode.noRecords,
+          ),
+        ),
+      );
 
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
           .setMockMethodCallHandler(channel, null);

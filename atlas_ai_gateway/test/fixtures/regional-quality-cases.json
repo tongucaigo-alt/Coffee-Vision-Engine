@@ -1,0 +1,7 @@
+[
+  {"id":"supported-pale-band","text":"Fincanın üst bölümündeki daha açık dağılım, kendine alan açmayı çağrıştırabilir.","error":null},
+  {"id":"unsupported-opposite-band","text":"Fincanın alt bölümündeki daha açık dağılım kendine alan açmayı çağrıştırabilir.","error":"unsupported_visual_claim"},
+  {"id":"seeing","text":"Fincanında bir kuş görüyorum.","error":"unsupported_visual_claim"},
+  {"id":"absence","text":"Fincanda hiçbir sembol yok.","error":"unsupported_absence_claim"},
+  {"id":"metaphor","text":"Belki bu düşünceye başka bir açıdan bakmak kalbine iyi gelebilir.","error":null}
+]

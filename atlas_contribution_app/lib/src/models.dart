@@ -58,7 +58,9 @@ const contributionLabels = <String, String>{
 
 enum PhotoDecision { unreviewed, marked, uncertain, notSeen, skipped }
 
-enum ContributionKind { threeAngle, gallerySingle, freeThreeAngle }
+enum ContributionKind { threeAngle, gallerySingle, freeThreeAngle, photoSet }
+
+enum PhotoSurface { cup, saucer }
 
 final class RegionBox {
   RegionBox(this.x, this.y, this.width, this.height) {
@@ -132,11 +134,20 @@ final class ContributionPhoto {
     required this.byteLength,
     required this.capturedAt,
     this.importedAt,
+    this.id,
+    this.surface = PhotoSurface.cup,
+    this.declaredRole,
     this.displayCrop,
     this.decision = PhotoDecision.unreviewed,
     Iterable<RegionAnnotation> regions = const [],
   }) : regions = List.unmodifiable(regions) {
-    if ((role == null) != (importedAt != null) ||
+    if (id != null) {
+      if (!RegExp(r"^[a-zA-Z0-9_-]+$").hasMatch(id!) ||
+          (capturedAt == null) == (importedAt == null) ||
+          (surface == PhotoSurface.saucer && declaredRole != null)) {
+        throw ArgumentError("Invalid set photo");
+      }
+    } else if ((role == null) != (importedAt != null) ||
         (role == null && capturedAt != null) ||
         (role != null && capturedAt == null)) {
       throw ArgumentError('Invalid photo origin');
@@ -152,8 +163,32 @@ final class ContributionPhoto {
   final CaptureRole? role;
   final String localName, checksum, originalChecksum;
   final String? capturedAt, importedAt;
-  String get title => role?.title ?? 'Galeri fotoğrafı';
-  String get fileKey => role?.name ?? 'gallery';
+  final String? id;
+  final PhotoSurface surface;
+  final CaptureRole? declaredRole;
+  CaptureRole? get angle => id == null ? role : declaredRole;
+  String get origin => importedAt != null ? 'gallery' : 'camera';
+  String get title => surface == PhotoSurface.saucer
+      ? 'Tabak'
+      : angle?.title ??
+            (id == null ? 'Galeri fotoğrafı' : 'Fincan · Açı belirtilmedi');
+  String get fileKey => id ?? role?.name ?? 'gallery';
+  ContributionPhoto asSetPhoto({
+    String? photoId,
+    PhotoSurface? type,
+    CaptureRole? angle,
+    bool clearAngle = false,
+  }) {
+    final json = toJson();
+    json['id'] = photoId ?? id ?? localName.replaceAll('.jpg', '');
+    json['surface'] = (type ?? surface).name;
+    json['origin'] = origin;
+    json['declaredRole'] = (clearAngle || type == PhotoSurface.saucer)
+        ? null
+        : (angle ?? this.angle)?.name;
+    return ContributionPhoto.fromJson(json);
+  }
+
   final int width, height, byteLength;
   final PhotoDecision decision;
   final List<RegionAnnotation> regions;
@@ -168,6 +203,9 @@ final class ContributionPhoto {
     PhotoDecision state,
   ) => ContributionPhoto(
     role: role,
+    id: id,
+    surface: surface,
+    declaredRole: declaredRole,
     localName: localName,
     checksum: checksum,
     originalChecksum: originalChecksum,
@@ -182,7 +220,12 @@ final class ContributionPhoto {
   );
   Map<String, dynamic> toJson() => {
     'role': role?.name,
-    if (role == null) 'origin': 'gallery',
+    if (id != null) ...{
+      'id': id,
+      'surface': surface.name,
+      'declaredRole': declaredRole?.name,
+    },
+    if (id != null || role == null) 'origin': origin,
     if (importedAt != null) 'importedAtUtc': importedAt,
     'localName': localName,
     'checksum': checksum,
@@ -201,6 +244,11 @@ final class ContributionPhoto {
         role: j['role'] == null
             ? null
             : CaptureRole.values.byName(j['role'] as String),
+        id: j['id'] as String?,
+        surface: PhotoSurface.values.byName(j['surface'] as String? ?? 'cup'),
+        declaredRole: j['declaredRole'] == null
+            ? null
+            : CaptureRole.values.byName(j['declaredRole'] as String),
         localName: j['localName'] as String,
         checksum: j['checksum'] as String,
         originalChecksum: j['originalChecksum'] as String,
@@ -235,7 +283,24 @@ final class ContributionDraft {
     this.supersedesId,
     Iterable<ContributionPhoto> photos = const [],
     this.queued = false,
+    this.galleryStart = false,
+    this.cupSelectionDone = false,
+    this.saucerDecided = false,
   }) : photos = List.unmodifiable(photos) {
+    if (kind == ContributionKind.photoSet) {
+      final angles = cups
+          .map((p) => p.angle == CaptureRole.top ? CaptureRole.free : p.angle)
+          .whereType<CaptureRole>()
+          .toList();
+      if (cups.length > 3 ||
+          saucers.length > 1 ||
+          this.photos.any((p) => p.id == null) ||
+          this.photos.map((p) => p.id).toSet().length != this.photos.length ||
+          angles.toSet().length != angles.length) {
+        throw ArgumentError('Invalid photo set');
+      }
+      return;
+    }
     if (kind == ContributionKind.gallerySingle) {
       if (this.photos.length > 1 || this.photos.any((p) => p.role != null)) {
         throw ArgumentError('Gallery session requires one unposed photo');
@@ -255,28 +320,57 @@ final class ContributionDraft {
   }
   final String id, rootId, groupId, createdAt, consentedAt;
   final ContributionKind kind;
-  bool get isGallery => kind == ContributionKind.gallerySingle;
+  final bool galleryStart, cupSelectionDone, saucerDecided;
+  bool get isSet => kind == ContributionKind.photoSet;
+  bool get isGallery =>
+      kind == ContributionKind.gallerySingle || (isSet && galleryStart);
+  List<ContributionPhoto> get cups =>
+      photos.where((p) => p.surface == PhotoSurface.cup).toList();
+  List<ContributionPhoto> get saucers =>
+      photos.where((p) => p.surface == PhotoSurface.saucer).toList();
+  String get photoSummary =>
+      '${cups.length} fincan${saucers.isEmpty ? '' : ' · ${saucers.length} tabak'}';
+  bool get cupsComplete => isGallery ? cups.isNotEmpty : cups.length == 3;
   List<CaptureRole> get captureRoles => switch (kind) {
     ContributionKind.threeAngle => legacyCaptureRoles,
     ContributionKind.freeThreeAngle => freeCaptureRoles,
     ContributionKind.gallerySingle => const [],
+    ContributionKind.photoSet => galleryStart ? const [] : freeCaptureRoles,
   };
   int get requiredPhotos => isGallery ? 1 : 3;
   final String? supersedesId;
   final int revision;
   final bool queued;
   final List<ContributionPhoto> photos;
-  bool get complete => photos.length == requiredPhotos;
+  bool get complete => isSet
+      ? cupsComplete && cupSelectionDone && saucerDecided
+      : photos.length == requiredPhotos;
   bool get reviewed =>
       complete && photos.every((p) => p.decision != PhotoDecision.unreviewed);
   ContributionPhoto? photo(CaptureRole role) {
     for (final p in photos) {
-      if (p.role == role) return p;
+      if (p.surface == PhotoSurface.cup && p.angle == role) return p;
     }
     return null;
   }
 
   ContributionDraft withPhoto(ContributionPhoto next) {
+    if (isSet) {
+      if (next.id == null) throw ArgumentError('Set photo requires identity');
+      final exists = photos.any((p) => p.id == next.id);
+      final updated = [
+        for (final p in photos)
+          if (p.id == next.id) next else p,
+        if (!exists) next,
+      ];
+      return copy(
+        photos: [
+          ...updated.where((p) => p.surface == PhotoSurface.cup),
+          ...updated.where((p) => p.surface == PhotoSurface.saucer),
+        ],
+        queued: false,
+      );
+    }
     if (!isGallery && !captureRoles.contains(next.role)) {
       throw ArgumentError('Photo role does not belong to this draft');
     }
@@ -291,23 +385,36 @@ final class ContributionDraft {
     );
   }
 
-  ContributionDraft copy({Iterable<ContributionPhoto>? photos, bool? queued}) =>
-      ContributionDraft(
-        id: id,
-        rootId: rootId,
-        groupId: groupId,
-        createdAt: createdAt,
-        consentedAt: consentedAt,
-        kind: kind,
-        revision: revision,
-        supersedesId: supersedesId,
-        photos: photos ?? this.photos,
-        queued: queued ?? this.queued,
-      );
+  ContributionDraft copy({
+    Iterable<ContributionPhoto>? photos,
+    bool? queued,
+    bool? cupSelectionDone,
+    bool? saucerDecided,
+  }) => ContributionDraft(
+    id: id,
+    rootId: rootId,
+    groupId: groupId,
+    createdAt: createdAt,
+    consentedAt: consentedAt,
+    kind: kind,
+    galleryStart: galleryStart,
+    cupSelectionDone: cupSelectionDone ?? this.cupSelectionDone,
+    saucerDecided: saucerDecided ?? this.saucerDecided,
+    revision: revision,
+    supersedesId: supersedesId,
+    photos: photos ?? this.photos,
+    queued: queued ?? this.queued,
+  );
   Map<String, dynamic> toJson() => {
     'id': id,
     if (kind != ContributionKind.threeAngle) 'kind': kind.name,
-    if (isGallery) 'recordVersion': 2,
+    if (kind == ContributionKind.gallerySingle) 'recordVersion': 2,
+    if (isSet) ...{
+      'recordVersion': 4,
+      'galleryStart': galleryStart,
+      'cupSelectionDone': cupSelectionDone,
+      'saucerDecided': saucerDecided,
+    },
     if (kind == ContributionKind.freeThreeAngle) 'recordVersion': 3,
     if (isGallery) 'physicalIndependence': 'unverified',
     'rootId': rootId,
@@ -327,6 +434,7 @@ final class ContributionDraft {
         : switch ((j['kind'], j['recordVersion'])) {
             ('gallerySingle', 2) => ContributionKind.gallerySingle,
             ('freeThreeAngle', 3) => ContributionKind.freeThreeAngle,
+            ('photoSet', 4) => ContributionKind.photoSet,
             _ => throw const FormatException('Unsupported contribution kind'),
           };
     if (j['labelVersion'] != labelVersion ||
@@ -336,6 +444,9 @@ final class ContributionDraft {
     return ContributionDraft(
       id: j['id'] as String,
       kind: kind,
+      galleryStart: j['galleryStart'] as bool? ?? false,
+      cupSelectionDone: j['cupSelectionDone'] as bool? ?? false,
+      saucerDecided: j['saucerDecided'] as bool? ?? false,
       rootId: j['rootId'] as String,
       groupId: j['groupId'] as String,
       revision: j['revision'] as int,

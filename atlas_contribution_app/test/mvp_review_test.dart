@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:atlas_contribution_app/src/gallery_import.dart';
 import 'package:atlas_contribution_app/src/models.dart';
+import 'package:atlas_contribution_app/src/research_export.dart';
 import 'package:atlas_contribution_app/src/mvp/review_controller.dart';
 import 'package:atlas_contribution_app/src/mvp/review_engine.dart';
 import 'package:atlas_contribution_app/src/mvp/review_gallery.dart';
@@ -775,7 +776,10 @@ void main() {
         () => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
             .setMockMethodCallHandler(channel, null),
       );
-      final result = await store.exportToDownloads(channel: channel);
+      final result = await store.exportToDownloads(
+        channel: channel,
+        temporaryDirectory: () async => temp,
+      );
       expect(result.count, 1);
       final archive = ZipDecoder().decodeBytes(archiveBytes!);
       expect(
@@ -798,8 +802,17 @@ void main() {
       expect(exported['snapshots'], s.initialObservations);
       await store.save(s.next(researchAllowed: false));
       await expectLater(
-        store.exportToDownloads(channel: channel),
-        throwsStateError,
+        store.exportToDownloads(
+          channel: channel,
+          temporaryDirectory: () async => temp,
+        ),
+        throwsA(
+          isA<ExportFailure>().having(
+            (e) => e.code,
+            'code',
+            ExportFailureCode.noPermission,
+          ),
+        ),
       );
     },
   );
@@ -843,7 +856,10 @@ void main() {
         () => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
             .setMockMethodCallHandler(channel, null),
       );
-      await store.exportToDownloads(channel: channel);
+      await store.exportToDownloads(
+        channel: channel,
+        temporaryDirectory: () async => temp,
+      );
       final archive = ZipDecoder().decodeBytes(archiveBytes!);
       final snapshots =
           jsonDecode(
@@ -871,15 +887,33 @@ void main() {
       }
       await store.file(original.photo.localName).writeAsBytes([1, 2, 3]);
       await expectLater(
-        store.exportToDownloads(channel: channel),
-        throwsFormatException,
+        store.exportToDownloads(
+          channel: channel,
+          temporaryDirectory: () async => temp,
+        ),
+        throwsA(
+          isA<ExportFailure>().having(
+            (e) => e.code,
+            'code',
+            ExportFailureCode.integrity,
+          ),
+        ),
       );
       await store.delete(s);
       expect(await store.file(original.photo.localName).exists(), false);
       expect(await store.file(replacement.photo.localName).exists(), false);
       await expectLater(
-        store.exportToDownloads(channel: channel),
-        throwsStateError,
+        store.exportToDownloads(
+          channel: channel,
+          temporaryDirectory: () async => temp,
+        ),
+        throwsA(
+          isA<ExportFailure>().having(
+            (e) => e.code,
+            'code',
+            ExportFailureCode.noRecords,
+          ),
+        ),
       );
     },
   );

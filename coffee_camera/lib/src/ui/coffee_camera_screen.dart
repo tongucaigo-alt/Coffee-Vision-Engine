@@ -33,6 +33,7 @@ class CoffeeCameraScreen extends StatefulWidget {
     this.motionService,
     this.imageProcessor,
     this.onSaucerResidueAnalysis,
+    this.saucerOnly = false,
     this.captureTitle,
     this.captureInstruction,
   }) : onCompleted = null,
@@ -49,7 +50,8 @@ class CoffeeCameraScreen extends StatefulWidget {
     this.motionService,
     this.imageProcessor,
     this.onSaucerResidueAnalysis,
-  }) : onApproved = null,
+  }) : saucerOnly = false,
+       onApproved = null,
        captureTitle = null,
        captureInstruction = null,
        flowMode = true;
@@ -61,6 +63,7 @@ class CoffeeCameraScreen extends StatefulWidget {
   final CupDetector? detector;
   final SaucerDetector? saucerDetector;
   final bool flowMode;
+  final bool saucerOnly;
   final ValueChanged<ResidueAnalysisResult>? onSaucerResidueAnalysis;
   final String? captureTitle;
   final String? captureInstruction;
@@ -106,6 +109,7 @@ class _CoffeeCameraScreenState extends State<CoffeeCameraScreen>
         lifecycleState == null || lifecycleState == AppLifecycleState.resumed;
     _controller = CoffeeCameraController(
       config: widget.config,
+      saucerOnly: widget.saucerOnly,
       detector: widget.detector,
       saucerDetector: widget.saucerDetector,
       cameraService: widget.cameraService,
@@ -186,6 +190,13 @@ class _CoffeeCameraScreenState extends State<CoffeeCameraScreen>
     if (_closing || _approvalInFlight) return;
     _approvalInFlight = true;
     try {
+      if (widget.saucerOnly) {
+        final result = await _controller.takeApprovedResult();
+        if (result == null) return;
+        _closing = true;
+        widget.onApproved!(result);
+        return;
+      }
       final result = await _controller.takeApprovedFlowResult();
       if (result == null) return;
       _closing = true;

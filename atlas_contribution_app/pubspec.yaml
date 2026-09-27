@@ -80,7 +80,9 @@ dev_dependencies:
 # The following section is specific to Flutter packages.
 flutter:
   assets:
+    - assets/brand/
     - assets/contribution-labels-v1.json
+    - assets/fortune-prompt-v1.json
     - assets/labels/
     - assets/mvp/knowledge_dataset.json
 
@@ -88,6 +90,13 @@ flutter:
   # included with your application, so that you can use the icons in
   # the material Icons class.
   uses-material-design: true
+  fonts:
+    - family: Plus Jakarta Sans
+      fonts:
+        - asset: assets/brand/PlusJakartaSans.ttf
+    - family: Literata
+      fonts:
+        - asset: assets/brand/Literata.ttf
 
   # To add assets to your application, add an assets section, like this:
   # assets:

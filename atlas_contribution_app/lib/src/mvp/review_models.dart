@@ -93,10 +93,10 @@ final class ReviewPhoto {
       throw const FormatException('Invalid review photo');
     }
     if (surface == ReviewSurface.saucer &&
-        (declaredRole != null || photo.role != null)) {
-      throw const FormatException('Saucer must be unposed gallery input');
+        (declaredRole != null || (photo.id == null && photo.role != null))) {
+      throw const FormatException('Saucer cannot have a cup angle');
     }
-    if (photo.role != null && declaredRole != photo.role) {
+    if (photo.id == null && photo.role != null && declaredRole != photo.role) {
       throw const FormatException('Camera role mismatch');
     }
     if (analysis != null &&
@@ -429,6 +429,8 @@ String preparationSourceFingerprint(
         'usableConfirmedAtUtc': p.usableConfirmedAtUtc,
         'photoDecision': p.photo.decision.name,
         'regions': p.photo.regions.map((r) => r.toJson()).toList(),
+        if (p.analysis?['regionalSummary'] != null)
+          'regionalSummary': p.analysis!['regionalSummary'],
         'analysisRunId': p.analysis?['runId'],
         'analysisOutcome': p.analysis?['outcome'],
         'analysisErrorStage': p.analysis?['errorStage'],
@@ -519,7 +521,9 @@ Map<String, dynamic> interpretationInput(ReviewSession session) {
           'declaredRole': p.declaredRole?.name,
           'photoDecision': p.photo.decision.name,
           'outcome': p.analysis?['outcome'] ?? 'notAnalyzed',
-          'analysisRunId': p.analysis?['runId'],
+          if (p.analysis?['regionalSummary'] != null)
+          'regionalSummary': p.analysis!['regionalSummary'],
+        'analysisRunId': p.analysis?['runId'],
           'visionFeatureSetRef': p.analysis?['visionFeatureSetRef'],
           'knowledgeRelease': p.analysis?['knowledgeRelease'],
           'symbolAvailability':

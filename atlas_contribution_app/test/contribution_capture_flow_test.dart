@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:atlas_contribution_app/src/annotation_page.dart';
+import 'package:atlas_contribution_app/src/atlas_design.dart';
 import 'package:atlas_contribution_app/src/contribution_home.dart';
 import 'package:atlas_contribution_app/src/cropped_photo.dart';
 import 'package:atlas_contribution_app/src/local_store.dart';
@@ -44,6 +45,19 @@ class _CameraRequest {
   _CameraRequest(this.config, this.title, this.instruction);
   final CoffeeCameraConfig config;
   final String title, instruction;
+}
+
+class _FailingCaptureStore extends _CaptureStore {
+  _FailingCaptureStore(super.directory, super.current);
+  bool failSecond = true;
+  @override
+  Future<void> save(ContributionDraft draft) async {
+    if (draft.photos.length == 2 && failSecond) {
+      failSecond = false;
+      throw const FileSystemException('Synthetic durable write failure');
+    }
+    await super.save(draft);
+  }
 }
 
 class _FakeCamera {
@@ -108,16 +122,18 @@ ContributionDraft _draft(ContributionKind kind) {
 Future<void> _mount(
   WidgetTester tester,
   _CaptureStore store,
-  _FakeCamera camera,
-) async {
+  _FakeCamera camera, {
+  bool modern = false,
+}) async {
   tester.view.physicalSize = const Size(412, 915);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
   await tester.pumpWidget(
     MaterialApp(
-      theme: contributionTheme(),
+      theme: modern ? atlasTheme() : contributionTheme(),
       home: ContributionHome(
+        modern: modern,
         store: store,
         service: OfflineContributionService(store),
         galleryPicker: FakeGallery(),
@@ -182,6 +198,49 @@ void _expectRequest(_CameraRequest request, int step, CameraHandleGuide guide) {
 }
 
 void main() {
+  testWidgets(
+    'photo set camera sequence stops for optional saucer and persists skip',
+    (tester) async {
+      late Directory temp;
+      late List<CameraCaptureResult> captures;
+      await tester.runAsync(() async {
+        temp = await Directory.systemTemp.createTemp('atlas-set-camera-');
+        captures = [
+          for (var i = 0; i < 3; i++) await _generatedCapture(temp, i),
+        ];
+      });
+      addTearDown(() => _removeFixture(temp));
+      final store = _CaptureStore(temp, _draft(ContributionKind.photoSet));
+      final camera = _FakeCamera(captures);
+      await _mount(tester, store, camera, modern: true);
+      await _tapAndWait(
+        tester,
+        find.text('Kaldığın Yerden Devam Et'),
+        () => store.current!.cupSelectionDone,
+      );
+      expect(camera.requests, hasLength(3));
+      expect(store.current!.saucerDecided, false);
+      expect(store.current!.complete, false);
+      expect(
+        find.text('Tabak fotoğrafı da eklemek ister misin?'),
+        findsOneWidget,
+      );
+      await tester.ensureVisible(find.text('Tabaksız devam et'));
+      await tester.tap(find.text('Tabaksız devam et'));
+      await tester.pumpAndSettle();
+      expect(store.current!.complete, true);
+      expect(store.current!.photos.every((p) => p.id != null), true);
+      expect(camera.requests.map((r) => r.config.handleGuide), [
+        CameraHandleGuide.none,
+        CameraHandleGuide.right,
+        CameraHandleGuide.left,
+      ]);
+      expect(find.byType(NavigationBar), findsNothing);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+
   testWidgets(
     'new offline consent routes all three captures through focused camera',
     (tester) async {
@@ -398,4 +457,174 @@ void main() {
     expect(find.text('Kulp solda çek'), findsOneWidget);
     await tester.pumpWidget(const SizedBox());
   });
+  testWidgets(
+    'modern flow durably saves three consecutive angles, requires confirmation and preserves skips',
+    (tester) async {
+      late Directory temp;
+      late List<CameraCaptureResult> captures;
+      await tester.runAsync(() async {
+        temp = await Directory.systemTemp.createTemp('atlas-modern-flow-');
+        captures = [
+          for (var i = 0; i < 4; i++) await _generatedCapture(temp, i),
+        ];
+      });
+      addTearDown(() => _removeFixture(temp));
+      final store = _CaptureStore(
+        temp,
+        _draft(ContributionKind.freeThreeAngle),
+      );
+      final camera = _FakeCamera(captures);
+      await _mount(tester, store, camera, modern: true);
+      await _tapAndWait(
+        tester,
+        find.text('Kaldığın Yerden Devam Et'),
+        () => store.current!.photos.length == 3,
+      );
+      expect(find.byType(NavigationBar), findsNothing);
+      expect(store.current!.photos.map((p) => p.role), freeCaptureRoles);
+      for (var i = 0; i < 3; i++) {
+        _expectRequest(
+          camera.requests[i],
+          i + 1,
+          [
+            CameraHandleGuide.none,
+            CameraHandleGuide.right,
+            CameraHandleGuide.left,
+          ][i],
+        );
+      }
+      final next = find.widgetWithText(
+        OutlinedButton,
+        'Fotoğrafları Onayla · Şekilleri İncele',
+      );
+      expect(tester.widget<OutlinedButton>(next).onPressed, isNull);
+      for (var i = 0; i < 4; i++) {
+        final check = find.byType(CheckboxListTile).at(i);
+        await tester.ensureVisible(check);
+        await tester.tap(check);
+        await tester.pumpAndSettle();
+      }
+      await tester.ensureVisible(next);
+      await tester.tap(next);
+      await tester.pumpAndSettle();
+      expect(find.text('Sen ne görüyorsun?'), findsOneWidget);
+      expect(find.byType(NavigationBar), findsNothing);
+      await _tapAndWait(
+        tester,
+        find.byTooltip('Kalanları Atla'),
+        () => store.current!.reviewed,
+      );
+      expect(
+        store.current!.photos.every((p) => p.decision == PhotoDecision.skipped),
+        true,
+      );
+      // A replacement invalidates the replaced confirmation and the group declaration.
+      await _tapAndWait(
+        tester,
+        find.byTooltip('Kulp sağda yeniden çek'),
+        () =>
+            camera.requests.length == 4 &&
+            store.current!.photos[1].decision == PhotoDecision.unreviewed,
+      );
+      expect(camera.requests.last.config.handleGuide, CameraHandleGuide.right);
+      expect(
+        tester
+            .widget<CheckboxListTile>(find.byType(CheckboxListTile).at(1))
+            .value,
+        false,
+      );
+      expect(
+        tester
+            .widget<CheckboxListTile>(find.byType(CheckboxListTile).at(3))
+            .value,
+        false,
+      );
+      expect(store.current!.photos[1].decision, PhotoDecision.unreviewed);
+      expect(store.current!.photos.first.decision, PhotoDecision.skipped);
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+
+  testWidgets('modern capture cancellation resumes only the missing angles', (
+    tester,
+  ) async {
+    late Directory temp;
+    late List<CameraCaptureResult> captures;
+    await tester.runAsync(() async {
+      temp = await Directory.systemTemp.createTemp('atlas-modern-cancel-');
+      captures = [for (var i = 0; i < 3; i++) await _generatedCapture(temp, i)];
+    });
+    addTearDown(() => _removeFixture(temp));
+    final store = _CaptureStore(temp, _draft(ContributionKind.freeThreeAngle));
+    final camera = _FakeCamera([captures[0], null, captures[1], captures[2]]);
+    await _mount(tester, store, camera, modern: true);
+    await _tapAndWait(
+      tester,
+      find.text('Kaldığın Yerden Devam Et'),
+      () => camera.requests.length == 2,
+    );
+    expect(store.current!.photos, hasLength(1));
+    final first = store.current!.photos.first;
+    await _tapAndWait(
+      tester,
+      find.text('Çekime Devam Et'),
+      () => store.current!.complete,
+    );
+    expect(store.current!.photos.first, same(first));
+    expect(camera.requests.map((r) => r.config.handleGuide), [
+      CameraHandleGuide.none,
+      CameraHandleGuide.right,
+      CameraHandleGuide.right,
+      CameraHandleGuide.left,
+    ]);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+  });
+  testWidgets(
+    'modern capture stops on durable save failure and retries without losing first photo',
+    (tester) async {
+      late Directory temp;
+      late List<CameraCaptureResult> captures;
+      await tester.runAsync(() async {
+        temp = await Directory.systemTemp.createTemp(
+          'atlas-modern-write-failure-',
+        );
+        captures = [
+          for (var i = 0; i < 4; i++) await _generatedCapture(temp, i),
+        ];
+      });
+      addTearDown(() => _removeFixture(temp));
+      final store = _FailingCaptureStore(
+        temp,
+        _draft(ContributionKind.freeThreeAngle),
+      );
+      final camera = _FakeCamera(captures);
+      await _mount(tester, store, camera, modern: true);
+      await _tapAndWait(
+        tester,
+        find.text('Kaldığın Yerden Devam Et'),
+        () => !store.failSecond,
+      );
+      expect(store.current!.photos, hasLength(1));
+      expect(camera.requests, hasLength(2));
+      final first = store.current!.photos.first;
+      expect(
+        find.text('Fotoğraf kaydedilemedi. Önceki çekimlerin duruyor.'),
+        findsOneWidget,
+      );
+      await _tapAndWait(
+        tester,
+        find.text('Çekime Devam Et'),
+        () => store.current!.complete,
+      );
+      expect(store.current!.photos.first, same(first));
+      expect(camera.requests.map((r) => r.config.handleGuide), [
+        CameraHandleGuide.none,
+        CameraHandleGuide.right,
+        CameraHandleGuide.right,
+        CameraHandleGuide.left,
+      ]);
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
 }

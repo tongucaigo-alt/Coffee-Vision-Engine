@@ -12,6 +12,44 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets(
+    'standalone saucer approves without a cup and retains saucer crop',
+    (tester) async {
+      final service = _FakeCameraService(['missing-saucer-only.png']);
+      CameraCaptureResult? approved;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: CoffeeCameraScreen(
+            saucerOnly: true,
+            captureTitle: 'Tabak · İsteğe bağlı',
+            cameraService: service,
+            motionService: _FakeMotionService(),
+            imageProcessor: const _FakeImageProcessor(),
+            onApproved: (value) => approved = value,
+            onCancelled: () {},
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+      expect(find.text('Tabak · İsteğe bağlı'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('coffee-camera-shutter')));
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 100)),
+      );
+      await tester.pump();
+      await _pumpUntilFound(tester, find.text('Fotoğrafı onayla'));
+      await tester.tap(find.text('Fotoğrafı onayla'));
+      await tester.pump();
+      expect(approved?.filePath, 'missing-saucer-only.png');
+      expect(approved?.croppedCupPath, isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 50)),
+      );
+    },
+  );
+
   testWidgets('single capture preserves optional app context through review', (
     tester,
   ) async {

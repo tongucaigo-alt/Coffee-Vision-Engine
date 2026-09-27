@@ -8,6 +8,8 @@ import 'package:path/path.dart' as path;
 
 import 'local_store.dart';
 import 'models.dart';
+import 'mvp/review_store.dart';
+import 'research_export.dart';
 import 'service.dart';
 
 class OfflineContributionService implements ContributionBackend {
@@ -100,125 +102,205 @@ class OfflineExportResult {
 }
 
 class OfflineContributionExporter {
-  OfflineContributionExporter(this.store, {MethodChannel? channel})
-    : _channel = channel ?? const MethodChannel('atlas.contribution/export');
+  OfflineContributionExporter(
+    this.store, {
+    MethodChannel? channel,
+    this.exposureAudit,
+    ReviewStore? reviewStore,
+    this.temporaryDirectory,
+  }) : _channel = channel ?? const MethodChannel('atlas.contribution/export'),
+       reviewStore =
+           reviewStore ??
+           ReviewStore(
+             Directory(path.join(store.directory.parent.path, 'mvp-reviews')),
+             contributionStore: store,
+           );
 
   final DraftStore store;
   final MethodChannel _channel;
+  final ReviewStore reviewStore;
+  final ExportDirectoryProvider? temporaryDirectory;
+  final Future<Map<String, dynamic>> Function(String groupId)? exposureAudit;
 
-  Future<OfflineExportResult> exportToDownloads() async {
-    final rows =
-        (await store.receipts())
-            .where((row) => row['local_only'] == true)
-            .toList()
-          ..sort((a, b) => (a['id'] as String).compareTo(b['id'] as String));
-    if (rows.isEmpty) {
-      throw const ContributionFailure(
-        'Dışa aktarılacak tamamlanmış kayıt yok.',
-      );
-    }
-
-    final temporary = await Directory.systemTemp.createTemp(
-      'atlas-katki-export-',
-    );
-    final stamp = DateTime.now().toUtc().toIso8601String().replaceAll(':', '-');
-    final fileName = 'atlas-katki-$stamp.zip';
-    final zip = File(path.join(temporary.path, fileName));
-    final metadataFiles = <File>[];
-    final inventory = <Map<String, Object>>[];
-    final encoder = ZipFileEncoder();
-    var encoderClosed = false;
-    try {
-      encoder.create(zip.path);
-      for (final row in rows) {
-        final draft = ContributionDraft.fromJson(
-          Map<String, dynamic>.from(row['document'] as Map),
-        );
-        final folder = 'records/${draft.id}';
-        final record = File(path.join(temporary.path, '${draft.id}.json'));
-        final recordBytes = utf8.encode(jsonEncode(row));
-        await record.writeAsBytes(recordBytes, flush: true);
-        metadataFiles.add(record);
-        await encoder.addFile(record, '$folder/record.json');
-        inventory.add({
-          'path': '$folder/record.json',
-          'sha256': 'sha256:${sha256.convert(recordBytes)}',
-          'bytes': recordBytes.length,
-        });
-        for (final photo in draft.photos) {
-          final source = store.file(photo.localName);
-          final bytes = await source.readAsBytes();
-          final digest = 'sha256:${sha256.convert(bytes)}';
-          if (bytes.length != photo.byteLength || digest != photo.checksum) {
-            throw const ContributionFailure(
-              'Bir fotoğraf doğrulanamadı. Paket oluşturulmadı.',
-            );
-          }
-          final archivePath = '$folder/${photo.fileKey}.jpg';
-          await encoder.addFile(source, archivePath);
-          inventory.add({
-            'path': archivePath,
-            'sha256': digest,
-            'bytes': bytes.length,
-          });
-        }
-      }
-      inventory.sort(
-        (a, b) => (a['path'] as String).compareTo(b['path'] as String),
-      );
-      final manifest = File(path.join(temporary.path, 'manifest.json'));
-      final manifestBytes = utf8.encode(
-        jsonEncode({
-          'format': 'atlas-contribution-offline-export',
-          'version':
-              rows.any((row) {
-                final document = row['document'] as Map;
-                return document['kind'] == 'freeThreeAngle' ||
-                    (document['photos'] as List).any(
-                      (photo) => (photo as Map)['displayCrop'] != null,
-                    );
-              })
-              ? 3
-              : 2,
-          'exportedAtUtc': DateTime.now().toUtc().toIso8601String(),
-          'recordCount': rows.length,
-          'labelVersion': labelVersion,
-          'researchOnly': true,
-          'files': inventory,
-        }),
-      );
-      await manifest.writeAsBytes(manifestBytes, flush: true);
-      metadataFiles.add(manifest);
-      await encoder.addFile(manifest, 'manifest.json');
-      await encoder.close();
-      encoderClosed = true;
-      final checksum = 'sha256:${await sha256.bind(zip.openRead()).first}';
-      final location = await _channel.invokeMethod<String>('saveToDownloads', {
-        'sourcePath': zip.path,
-        'fileName': fileName,
-      });
-      if (location == null || location.isEmpty) {
-        throw const ContributionFailure('Paket telefona kaydedilemedi.');
-      }
-      return OfflineExportResult(
-        fileName: fileName,
-        checksum: checksum,
-        recordCount: rows.length,
-        location: location,
-      );
-    } finally {
-      if (!encoderClosed) {
-        try {
-          await encoder.close();
-        } catch (_) {
-          // The incomplete archive is deleted below.
-        }
-      }
-      for (final file in metadataFiles) {
-        if (await file.exists()) await file.delete();
-      }
-      if (await zip.exists()) await zip.delete();
-      if (await temporary.exists()) await temporary.delete(recursive: true);
-    }
+  Future<List<Map<String, dynamic>>> _currentRows() async {
+    final pendingDeletes = (await store.pendingDeletes()).toSet();
+    return (await store.receipts())
+        .where(
+          (row) =>
+              row['local_only'] == true &&
+              !pendingDeletes.contains(row['root_id']),
+        )
+        .toList()
+      ..sort((a, b) => (a['id'] as String).compareTo(b['id'] as String));
   }
+
+  Future<OfflineExportResult> exportToDownloads() => guardExport(() async {
+    await reviewStore.initialize();
+    final rows = await store.withExportRead(
+      () => reviewStore.withExportRead(() async {
+        final current = await _currentRows();
+        if (current.isEmpty) {
+          throw const ExportFailure(ExportFailureCode.noRecords);
+        }
+        final blocked = await reviewStore.blockedContributionRoots();
+        final allowed = current
+            .where((r) => !blocked.contains(r['root_id']))
+            .toList();
+        if (allowed.isEmpty) {
+          throw const ExportFailure(ExportFailureCode.noPermission);
+        }
+        return allowed;
+      }),
+    );
+    return withExportStaging(
+      prefix: 'atlas-katki-export-',
+      temporaryDirectory: temporaryDirectory,
+      operation: (temporary) async {
+        final stamp = DateTime.now().toUtc().toIso8601String().replaceAll(
+          ':',
+          '-',
+        );
+        final fileName = 'atlas-katki-$stamp.zip';
+        final zip = File(path.join(temporary.path, fileName));
+        final metadataFiles = <File>[];
+        final inventory = <Map<String, Object>>[];
+        final encoder = ZipFileEncoder();
+        var encoderClosed = false;
+        try {
+          encoder.create(zip.path);
+          for (final row in rows) {
+            final draft = ContributionDraft.fromJson(
+              Map<String, dynamic>.from(row['document'] as Map),
+            );
+            final folder = 'records/${draft.id}';
+            final record = File(path.join(temporary.path, '${draft.id}.json'));
+            final recordBytes = utf8.encode(jsonEncode(row));
+            await record.writeAsBytes(recordBytes, flush: true);
+            metadataFiles.add(record);
+            await encoder.addFile(record, '$folder/record.json');
+            inventory.add({
+              'path': '$folder/record.json',
+              'sha256': 'sha256:${sha256.convert(recordBytes)}',
+              'bytes': recordBytes.length,
+            });
+            if (exposureAudit != null) {
+              final bytes = utf8.encode(
+                jsonEncode(await exposureAudit!(draft.groupId)),
+              );
+              final audit = File(
+                path.join(temporary.path, '${draft.id}-ai-audit.json'),
+              );
+              await audit.writeAsBytes(bytes, flush: true);
+              metadataFiles.add(audit);
+              await encoder.addFile(audit, '$folder/ai-exposure-audit.json');
+              inventory.add({
+                'path': '$folder/ai-exposure-audit.json',
+                'sha256': 'sha256:${sha256.convert(bytes)}',
+                'bytes': bytes.length,
+              });
+            }
+            for (final photo in draft.photos) {
+              final source = store.file(photo.localName);
+              Uint8List bytes;
+              try {
+                bytes = await source.readAsBytes();
+              } on FileSystemException {
+                throw const ExportFailure(ExportFailureCode.integrity);
+              }
+              final digest = 'sha256:${sha256.convert(bytes)}';
+              if (bytes.length != photo.byteLength ||
+                  digest != photo.checksum) {
+                throw const ExportFailure(ExportFailureCode.integrity);
+              }
+              final archivePath = '$folder/${photo.fileKey}.jpg';
+              // Stage the verified bytes so a later source replacement cannot change the ZIP.
+              final verified = File(
+                path.join(temporary.path, '${draft.id}-${photo.fileKey}.jpg'),
+              );
+              await verified.writeAsBytes(bytes, flush: true);
+              await encoder.addFile(verified, archivePath);
+              inventory.add({
+                'path': archivePath,
+                'sha256': digest,
+                'bytes': bytes.length,
+              });
+            }
+          }
+          inventory.sort(
+            (a, b) => (a['path'] as String).compareTo(b['path'] as String),
+          );
+          final manifest = File(path.join(temporary.path, 'manifest.json'));
+          final manifestBytes = utf8.encode(
+            jsonEncode({
+              'format': 'atlas-contribution-offline-export',
+              'version':
+                  rows.any(
+                    (row) => (row['document'] as Map)['kind'] == 'photoSet',
+                  )
+                  ? 4
+                  : rows.any((row) {
+                      final document = row['document'] as Map;
+                      return document['kind'] == 'freeThreeAngle' ||
+                          (document['photos'] as List).any(
+                            (photo) => (photo as Map)['displayCrop'] != null,
+                          );
+                    })
+                  ? 3
+                  : 2,
+              'exportedAtUtc': DateTime.now().toUtc().toIso8601String(),
+              'recordCount': rows.length,
+              'labelVersion': labelVersion,
+              'researchOnly': true,
+              'files': inventory,
+            }),
+          );
+          await manifest.writeAsBytes(manifestBytes, flush: true);
+          metadataFiles.add(manifest);
+          await encoder.addFile(manifest, 'manifest.json');
+          await encoder.close();
+          encoderClosed = true;
+          final checksum = 'sha256:${await sha256.bind(zip.openRead()).first}';
+          final location = await store.withExportRead(
+            () => reviewStore.withExportRead(() async {
+              final current = {
+                for (final row in await _currentRows()) row['id']: row,
+              };
+              final blocked = await reviewStore.blockedContributionRoots();
+              for (final row in rows) {
+                final latest = current[row['id']];
+                if (latest == null) {
+                  throw const ExportFailure(ExportFailureCode.noRecords);
+                }
+                if (blocked.contains(row['root_id'])) {
+                  throw const ExportFailure(ExportFailureCode.noPermission);
+                }
+                if (jsonEncode(latest) != jsonEncode(row)) {
+                  throw const ExportFailure(ExportFailureCode.preparation);
+                }
+              }
+              return saveResearchExport(
+                channel: _channel,
+                archive: zip,
+                fileName: fileName,
+              );
+            }),
+          );
+          return OfflineExportResult(
+            fileName: fileName,
+            checksum: checksum,
+            recordCount: rows.length,
+            location: location,
+          );
+        } finally {
+          if (!encoderClosed) {
+            try {
+              await encoder.close();
+            } catch (_) {
+              // The incomplete archive is deleted below.
+            }
+          }
+        }
+      },
+    );
+  });
 }

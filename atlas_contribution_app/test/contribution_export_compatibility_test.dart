@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:archive/archive.dart';
 import 'package:atlas_contribution_app/src/local_store.dart';
 import 'package:atlas_contribution_app/src/models.dart';
+import 'package:atlas_contribution_app/src/mvp/review_store.dart';
 import 'package:atlas_contribution_app/src/offline_contribution.dart';
 import 'package:atlas_contribution_app/src/photo_crop.dart';
 import 'package:atlas_contribution_app/src/service.dart';
@@ -42,6 +43,7 @@ Future<ContributionDraft> _saveOfflineRecord(
     ContributionKind.freeThreeAngle => freeCaptureRoles,
     ContributionKind.threeAngle => legacyCaptureRoles,
     ContributionKind.gallerySingle => <CaptureRole?>[null],
+    ContributionKind.photoSet => throw ArgumentError('Use photo-set fixtures'),
   };
   final photos = <ContributionPhoto>[];
   final now = DateTime.now().toUtc().toIso8601String();
@@ -188,7 +190,12 @@ void main() {
         () => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
             .setMockMethodCallHandler(channel, null),
       );
-      final exporter = OfflineContributionExporter(store, channel: channel);
+      final exporter = OfflineContributionExporter(
+        store,
+        channel: channel,
+        temporaryDirectory: () async => directory,
+        reviewStore: ReviewStore(Directory('${directory.path}/export-reviews')),
+      );
       final result = await exporter.exportToDownloads();
       expect(result.recordCount, 3);
       expect(result.checksum, 'sha256:${sha256.convert(exports.last)}');
@@ -296,6 +303,8 @@ void main() {
       await OfflineContributionExporter(
         store,
         channel: channel,
+        temporaryDirectory: () async => directory,
+        reviewStore: ReviewStore(Directory('${directory.path}/export-reviews')),
       ).exportToDownloads();
       expect(
         _archiveJson(
