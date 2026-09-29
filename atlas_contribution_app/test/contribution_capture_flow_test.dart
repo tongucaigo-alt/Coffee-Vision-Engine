@@ -1,4 +1,7 @@
+import 'suitability_fixture.dart';
 import 'dart:io';
+import 'dart:async';
+import 'package:atlas_contribution_app/src/fortune_progress.dart';
 
 import 'package:atlas_contribution_app/src/annotation_page.dart';
 import 'package:atlas_contribution_app/src/atlas_design.dart';
@@ -20,6 +23,21 @@ import 'gallery_import_test.dart' show FakeGallery;
 // Keep real media import/crop validation, while isolating the widget from
 // unrelated draft-file and Android cache-directory transactions.
 class _CaptureStore extends DraftStore {
+  bool accepted = false;
+  bool failClear = false;
+  @override
+  Future<void> clear() async {
+    if (failClear) throw const FileSystemException('Synthetic clear failure');
+    current = null;
+  }
+
+  @override
+  Future<bool> hasLocalAcceptance() async => accepted;
+  @override
+  Future<void> acceptLocalUse() async {
+    accepted = true;
+  }
+
   _CaptureStore(super.directory, [this.current]);
   ContributionDraft? current;
   final released = <CameraCaptureResult>[];
@@ -73,6 +91,7 @@ class _FakeCamera {
     requests.add(_CameraRequest(config, captureTitle, captureInstruction));
     final response = responses.removeAt(0);
     if (response is Exception) throw response;
+    if (response is Future<CameraCaptureResult?>) return await response;
     return response as CameraCaptureResult?;
   }
 }
@@ -133,7 +152,11 @@ Future<void> _mount(
     MaterialApp(
       theme: modern ? atlasTheme() : contributionTheme(),
       home: ContributionHome(
+        photoSuitability: SupportedSuitability(),
         modern: modern,
+        fortuneProgress: ValueNotifier(
+          const FortuneProgress(FortunePhase.saving),
+        ),
         store: store,
         service: OfflineContributionService(store),
         galleryPicker: FakeGallery(),
@@ -153,7 +176,8 @@ Future<void> _tapAndWait(
   Finder finder,
   bool Function() completed,
 ) async {
-  await tester.ensureVisible(finder);
+  await Scrollable.ensureVisible(tester.element(finder), alignment: .5);
+  await tester.pumpAndSettle();
   await tester.runAsync(() => tester.tap(finder));
   // Route completion needs frames, while file/codec work needs real async I/O.
   // Let both advance instead of waiting in runAsync with a frozen route.
@@ -198,6 +222,97 @@ void _expectRequest(_CameraRequest request, int step, CameraHandleGuide guide) {
 }
 
 void main() {
+  testWidgets('pending real camera workflow never displays fortune scan', (
+    tester,
+  ) async {
+    late Directory temp;
+    await tester.runAsync(() async {
+      temp = await Directory.systemTemp.createTemp('atlas-camera-phase-');
+    });
+    addTearDown(() => _removeFixture(temp));
+    final pending = Completer<CameraCaptureResult?>();
+    final store = _CaptureStore(temp, _draft(ContributionKind.freeThreeAngle));
+    final camera = _FakeCamera([pending.future]);
+    await _mount(tester, store, camera, modern: true);
+    final next = find.text('Kaldığın Yerden Devam Et');
+    await tester.ensureVisible(next);
+    await tester.tap(next);
+    await tester.pump();
+    expect(camera.requests, hasLength(1));
+    expect(find.byType(FortuneScan), findsNothing);
+    pending.complete(null);
+    await tester.pumpAndSettle();
+    expect(store.current!.photos, isEmpty);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  for (final gallery in [false, true]) {
+    testWidgets(
+      'camera entry stays visible with ${gallery ? "gallery" : "camera"} draft and never silently clears it',
+      (tester) async {
+        late Directory temp;
+        await tester.runAsync(() async {
+          temp = await Directory.systemTemp.createTemp('atlas-start-choice-');
+        });
+        addTearDown(() => _removeFixture(temp));
+        var photo = testPhoto(CaptureRole.free);
+        if (gallery) {
+          photo = ContributionPhoto.fromJson({
+            ...photo.toJson(),
+            'role': null,
+            'capturedAt': null,
+            'origin': 'gallery',
+            'importedAtUtc': DateTime.now().toUtc().toIso8601String(),
+          });
+        }
+        await tester.runAsync(
+          () =>
+              File('${temp.path}/${photo.localName}').writeAsBytes(testImage()),
+        );
+        final original = _draft(
+          gallery
+              ? ContributionKind.gallerySingle
+              : ContributionKind.freeThreeAngle,
+        ).withPhoto(photo);
+        final store = _CaptureStore(temp, original)..accepted = true;
+        final camera = _FakeCamera([null]);
+        await _mount(tester, store, camera, modern: true);
+        final start = find.text('Fincanını Tara');
+        expect(start, findsOneWidget);
+        await tester.ensureVisible(start);
+        await tester.tap(start);
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Vazgeç'));
+        await tester.pumpAndSettle();
+        expect(store.current, same(original));
+        expect(camera.requests, isEmpty);
+        await tester.tap(start);
+        await tester.pumpAndSettle();
+        store.failClear = true;
+        await tester.tap(find.text('Taslağı sil ve yeni çekim başlat'));
+        await tester.pumpAndSettle();
+        expect(store.current, same(original));
+        expect(camera.requests, isEmpty);
+        store.failClear = false;
+        await tester.tap(start);
+        await tester.pumpAndSettle();
+        await _tapAndWait(
+          tester,
+          find.text('Taslağı sil ve yeni çekim başlat'),
+          () => camera.requests.isNotEmpty,
+        );
+        expect(store.current!.isGallery, isFalse);
+        expect(store.current!.photos, isEmpty);
+        expect(find.byType(FortuneScan), findsNothing);
+        expect(
+          camera.requests.single.config.handleGuide,
+          CameraHandleGuide.none,
+        );
+        await tester.pumpWidget(const SizedBox());
+      },
+    );
+  }
+
   testWidgets(
     'photo set camera sequence stops for optional saucer and persists skip',
     (tester) async {
@@ -493,12 +608,9 @@ void main() {
           ][i],
         );
       }
-      final next = find.widgetWithText(
-        OutlinedButton,
-        'Fotoğrafları Onayla · Şekilleri İncele',
-      );
-      expect(tester.widget<OutlinedButton>(next).onPressed, isNull);
-      for (var i = 0; i < 4; i++) {
+      final next = find.widgetWithText(FilledButton, 'Şekilleri İncele');
+      expect(tester.widget<FilledButton>(next).onPressed, isNull);
+      for (var i = 0; i < 1; i++) {
         final check = find.byType(CheckboxListTile).at(i);
         await tester.ensureVisible(check);
         await tester.tap(check);
@@ -518,10 +630,31 @@ void main() {
         store.current!.photos.every((p) => p.decision == PhotoDecision.skipped),
         true,
       );
+      expect(find.text('İşaretleri Gözden Geçir'), findsOneWidget);
+      expect(find.byType(FortuneScan), findsNothing);
+      tester.view.physicalSize = const Size(360, 640);
+      tester.platformDispatcher.textScaleFactorTestValue = 1.8;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      final footer = tester.getRect(find.text('İşaretleri Gözden Geçir'));
+      expect(footer.top, greaterThan(250));
+      final decisions = store.current!.photos.map((p) => p.decision).toList();
+      await tester.tap(find.text('İşaretleri Gözden Geçir'));
+      await tester.pumpAndSettle();
+      expect(find.text('Sen ne görüyorsun?'), findsOneWidget);
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+      expect(store.current!.photos.map((p) => p.decision).toList(), decisions);
+      tester.platformDispatcher.clearTextScaleFactorTestValue();
+      tester.view.physicalSize = const Size(412, 915);
+      await tester.pumpAndSettle();
       // A replacement invalidates the replaced confirmation and the group declaration.
       await _tapAndWait(
         tester,
-        find.byTooltip('Kulp sağda yeniden çek'),
+        find.byWidgetPredicate(
+          (w) => w is IconButton && w.tooltip == 'Kulp sağda yeniden çek',
+        ),
         () =>
             camera.requests.length == 4 &&
             store.current!.photos[1].decision == PhotoDecision.unreviewed,
@@ -529,13 +662,13 @@ void main() {
       expect(camera.requests.last.config.handleGuide, CameraHandleGuide.right);
       expect(
         tester
-            .widget<CheckboxListTile>(find.byType(CheckboxListTile).at(1))
+            .widget<CheckboxListTile>(find.byType(CheckboxListTile).first)
             .value,
         false,
       );
       expect(
         tester
-            .widget<CheckboxListTile>(find.byType(CheckboxListTile).at(3))
+            .widget<CheckboxListTile>(find.byType(CheckboxListTile).first)
             .value,
         false,
       );

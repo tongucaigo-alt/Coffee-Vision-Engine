@@ -46,6 +46,34 @@ class AiStore {
     return next;
   }
 
+  Future<Set<String>> starredIds() async =>
+      Set<String>.from((await read())['starredResultIds'] as List? ?? []);
+  Future<void> setStarred(String resultId, bool starred) => change((d) {
+    final ids = Set<String>.from(d['starredResultIds'] as List? ?? []);
+    final result = (d['results'] as List)
+        .where((r) => r['id'] == resultId)
+        .firstOrNull;
+    if (result == null || result['state'] != 'completed') {
+      throw const AiFailure('Yalnız tamamlanmış bir fal yıldızlanabilir.');
+    }
+    if (starred && !ids.contains(resultId) && ids.length >= 20) {
+      throw const AiFailure(
+        '20 fal yıldızlı. Yeni bir fal için önce bir yıldızı kaldır.',
+      );
+    }
+    if (starred) {
+      ids.add(resultId);
+    } else {
+      ids.remove(resultId);
+    }
+    d['starredResultIds'] = ids.toList();
+    d['starsVersion'] = 1;
+  });
+  Future<bool> hasStarredSession(String sessionId) async {
+    final ids = await starredIds();
+    return (await results(sessionId)).any((r) => ids.contains(r['id']));
+  }
+
   Future<List<AiProfile>> profiles() async =>
       ((await read())['profiles'] as List)
           .map((p) => AiProfile.fromJson(Map<String, dynamic>.from(p as Map)))
@@ -124,6 +152,11 @@ class AiStore {
   }
 
   Future<void> deleteSession(String id) => change((d) {
+    final removed = (d['results'] as List)
+        .where((r) => r['sessionId'] == id)
+        .map((r) => r['id'])
+        .toSet();
+    (d['starredResultIds'] as List?)?.removeWhere(removed.contains);
     (d['results'] as List).removeWhere((r) => r['sessionId'] == id);
     // Minimal exposure history remains alongside existing research tombstones;
     // no narrative, profile, input or media is retained here.

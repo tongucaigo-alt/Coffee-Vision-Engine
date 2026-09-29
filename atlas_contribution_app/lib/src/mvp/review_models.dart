@@ -4,13 +4,16 @@ import 'package:crypto/crypto.dart';
 
 import '../models.dart';
 import '../photo_crop.dart';
+import '../photo_suitability.dart';
 
 const legacyReviewVersion = 'atlas-local-review-v1';
 const observationReviewVersion = 'atlas-local-review-v2';
-const reviewVersion = 'atlas-local-review-v3';
+const previousReviewVersion = 'atlas-local-review-v3';
+const reviewVersion = 'atlas-local-review-v4';
 const supportedReviewVersions = [
   legacyReviewVersion,
   observationReviewVersion,
+  previousReviewVersion,
   reviewVersion,
 ];
 const reviewConsentVersion = 'atlas-local-review-consent-v1';
@@ -77,11 +80,15 @@ final class ReviewPhoto {
     this.declaredRole,
     this.displayCrop,
     this.usableConfirmedAtUtc,
+    Map<String, dynamic>? suitability,
     Map<String, dynamic> quality = const {},
     Map<String, dynamic>? analysis,
     Iterable<CandidateFeedback> feedback = const [],
     this.observationExposureRunId,
-  }) : quality = immutableDocument(quality),
+  }) : suitability = suitability == null
+           ? null
+           : immutableDocument(suitability),
+       quality = immutableDocument(quality),
        analysis = analysis == null ? null : immutableDocument(analysis),
        feedback = List.unmodifiable(feedback) {
     safeReviewId(id);
@@ -134,6 +141,7 @@ final class ReviewPhoto {
       ? displayCrop!
       : PhotoCrop.full;
   final String? usableConfirmedAtUtc, observationExposureRunId;
+  final Map<String, dynamic>? suitability;
   final Map<String, dynamic> quality;
   final Map<String, dynamic>? analysis;
   final List<CandidateFeedback> feedback;
@@ -146,6 +154,7 @@ final class ReviewPhoto {
   ReviewPhoto update({
     ContributionPhoto? photo,
     String? confirmedAt,
+    Map<String, dynamic>? suitability,
     Map<String, dynamic>? analysis,
     Iterable<CandidateFeedback>? feedback,
     bool exposed = false,
@@ -156,6 +165,7 @@ final class ReviewPhoto {
     declaredRole: declaredRole,
     displayCrop: displayCrop,
     usableConfirmedAtUtc: confirmedAt ?? usableConfirmedAtUtc,
+    suitability: suitability ?? this.suitability,
     quality: quality,
     analysis: analysis ?? this.analysis,
     feedback: feedback ?? (analysis == null ? this.feedback : const []),
@@ -171,6 +181,7 @@ final class ReviewPhoto {
     'declaredRole': declaredRole?.name,
     if (displayCrop != null) 'displayCrop': displayCrop!.toJson(),
     'usableConfirmedAtUtc': usableConfirmedAtUtc,
+    if (suitability != null) 'suitability': suitability,
     'quality': quality,
     'analysis': analysis,
     'feedback': feedback.map((f) => f.toJson()).toList(),
@@ -191,6 +202,9 @@ final class ReviewPhoto {
             Map<String, dynamic>.from(j['displayCrop'] as Map),
           ),
     usableConfirmedAtUtc: j['usableConfirmedAtUtc'] as String?,
+    suitability: j['suitability'] == null
+        ? null
+        : immutableDocument(Map<String, dynamic>.from(j['suitability'] as Map)),
     quality: Map<String, dynamic>.from(j['quality'] as Map),
     analysis: j['analysis'] == null
         ? null
@@ -288,7 +302,11 @@ final class ReviewSession {
       !deleted &&
       sameSampleDeclared &&
       photos.any((p) => p.surface == ReviewSurface.cup) &&
-      photos.every((p) => p.usableConfirmedAtUtc != null);
+      photos.every(
+        (p) =>
+            p.usableConfirmedAtUtc != null ||
+            suitabilityAccepted(p.suitability, p.photo),
+      );
   List<ReviewPhoto> get orderedPhotos {
     final result = photos.toList();
     int order(ReviewPhoto p) => p.surface == ReviewSurface.saucer
@@ -427,6 +445,7 @@ String preparationSourceFingerprint(
         'surface': p.surface.name,
         'declaredRole': p.declaredRole?.name,
         'usableConfirmedAtUtc': p.usableConfirmedAtUtc,
+        if (p.suitability != null) 'suitability': p.suitability,
         'photoDecision': p.photo.decision.name,
         'regions': p.photo.regions.map((r) => r.toJson()).toList(),
         if (p.analysis?['regionalSummary'] != null)
@@ -522,8 +541,8 @@ Map<String, dynamic> interpretationInput(ReviewSession session) {
           'photoDecision': p.photo.decision.name,
           'outcome': p.analysis?['outcome'] ?? 'notAnalyzed',
           if (p.analysis?['regionalSummary'] != null)
-          'regionalSummary': p.analysis!['regionalSummary'],
-        'analysisRunId': p.analysis?['runId'],
+            'regionalSummary': p.analysis!['regionalSummary'],
+          'analysisRunId': p.analysis?['runId'],
           'visionFeatureSetRef': p.analysis?['visionFeatureSetRef'],
           'knowledgeRelease': p.analysis?['knowledgeRelease'],
           'symbolAvailability':

@@ -56,13 +56,6 @@ class OfflineContributionService implements ContributionBackend {
     if (!draft.reviewed) {
       throw const ContributionFailure('Önce fotoğrafları gözden geçir.');
     }
-    final existing = await store.receipts();
-    final roots = existing.map((row) => row['root_id']).toSet();
-    if (!roots.contains(draft.rootId) && roots.length >= 30) {
-      throw const ContributionFailure(
-        'Bu telefonda 30 kayıt tamamlandı. Yeni kayıt sınırına ulaşıldı.',
-      );
-    }
     for (var i = 0; i < draft.photos.length; i++) {
       final photo = draft.photos[i];
       final bytes = await read(photo);
@@ -80,8 +73,11 @@ class OfflineContributionService implements ContributionBackend {
       'root_id': draft.rootId,
       'group_id': draft.groupId,
       'submitted_at': now.toIso8601String(),
-      'expires_at': now.add(const Duration(days: 180)).toIso8601String(),
+      'expires_at': null,
+      'retention': 'manual',
       'local_only': true,
+      if (await store.hasLocalAcceptance())
+        'localUseVersion': DraftStore.localAcceptanceVersion,
       'document': draft.copy(queued: false).toJson(),
     };
   }

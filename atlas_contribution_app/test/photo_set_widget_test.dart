@@ -1,3 +1,4 @@
+import 'suitability_fixture.dart';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -40,7 +41,7 @@ void main() {
         Set<String>? confirmed;
         await tester.pumpWidget(
           MaterialApp(
-            home: ContributionHome(
+            home: ContributionHome(photoSuitability: SupportedSuitability(),
               modern: true,
               store: store,
               service: service,
@@ -73,21 +74,21 @@ void main() {
           await tester.ensureVisible(find.text('Tabaksız devam et'));
           await tester.tap(find.text('Tabaksız devam et'));
           await tester.pumpAndSettle();
-          expect(find.byType(CheckboxListTile), findsOneWidget);
+          expect(find.byType(CheckboxListTile), findsNothing);
         } else {
           expect(find.text('3 fincan · 1 tabak'), findsOneWidget);
-          expect(find.byType(CheckboxListTile), findsNWidgets(5));
+          expect(find.byType(CheckboxListTile), findsOneWidget);
         }
-        for (var i = 0; i < (count == 1 ? 1 : 5); i++) {
+        for (var i = 0; i < (count == 1 ? 0 : 1); i++) {
           final check = find.byType(CheckboxListTile).at(i);
           await tester.ensureVisible(check);
           await tester.tap(check);
           await tester.pump();
         }
         await tester.ensureVisible(
-          find.text('Fotoğrafları Onayla · Şekilleri İncele'),
+          find.text('Şekilleri İncele'),
         );
-        await tester.tap(find.text('Fotoğrafları Onayla · Şekilleri İncele'));
+        await tester.tap(find.text('Şekilleri İncele'));
         await tester.pumpAndSettle();
         await tester.tap(find.text('Atla'));
         await tester.pumpAndSettle();

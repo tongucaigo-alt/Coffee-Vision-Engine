@@ -4,6 +4,101 @@ extension _AtlasHomePresentation on _ContributionHomeState {
   bool get _atlasBusy => _busy || _sequenceRunning;
   String _photoIdentity(ContributionPhoto p) => '${p.localName}|${p.checksum}';
 
+  Future<void> _startNewCamera() async {
+    if (_atlasBusy || _startChoiceOpen) return;
+    _startChoiceOpen = true;
+    try {
+      final draft = _draft;
+      if (draft != null && draft.photos.isNotEmpty) {
+        final choice = await showDialog<String>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('Yarım kalan çalışman var'),
+            content: Text(
+              '${draft.photoSummary} içeren taslağına devam edebilir veya bu taslağı silerek yeni çekime başlayabilirsin. Kayıtlı falların korunur.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Vazgeç'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, 'continue'),
+                child: const Text('Mevcut çalışmaya devam et'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, 'new'),
+                child: const Text('Taslağı sil ve yeni çekim başlat'),
+              ),
+            ],
+          ),
+        );
+        if (!mounted || choice == null) return;
+        if (choice == 'continue') {
+          await _startAtlas();
+          return;
+        }
+      }
+      if (_atlasBusy) return;
+      if (_draft != null) {
+        await widget.store.clear();
+        if (!mounted) return;
+        _change(() {
+          _draft = null;
+          _usable.clear();
+          _sameSample = false;
+          _savePhase = _SavePhase.idle;
+          _error = null;
+        });
+      }
+      await _startAtlas();
+    } catch (_) {
+      if (mounted) {
+        showNotice(
+          context,
+          'Yeni çekim başlatılamadı. Mevcut kayıtların korunuyor; tekrar dene.',
+        );
+      }
+    } finally {
+      _startChoiceOpen = false;
+    }
+  }
+
+  Widget _atlasFlowActions() => ConstrainedBox(
+    constraints: BoxConstraints(
+      maxHeight: MediaQuery.sizeOf(context).height * .4,
+    ),
+    child: SingleChildScrollView(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (_draft!.reviewed && _usable.length == _draft!.photos.length) ...[
+            OutlinedButton.icon(
+              onPressed: _atlasBusy ? null : _atlasAnnotations,
+              icon: const Icon(Icons.draw_outlined),
+              label: const Text('İşaretleri Gözden Geçir'),
+            ),
+            const SizedBox(height: 8),
+            _saveActions(
+              !_atlasBusy && (_draft!.photos.length == 1 || _sameSample),
+            ),
+          ] else
+            FilledButton.icon(
+              onPressed:
+                  _atlasBusy ||
+                      !_draft!.complete ||
+                      !(_draft!.photos.length == 1 || _sameSample)
+                  ? null
+                  : _atlasAnnotations,
+              icon: const Icon(Icons.draw_outlined),
+              label: const Text('Şekilleri İncele'),
+            ),
+        ],
+      ),
+    ),
+  );
+
   Future<void> _startAtlas() async {
     if (_atlasBusy) return;
     if (_draft == null) await _new();
@@ -45,6 +140,23 @@ extension _AtlasHomePresentation on _ContributionHomeState {
   Future<void> _atlasAnnotations() async {
     final draft = _draft;
     if (_atlasBusy || draft == null || draft.queued) return;
+    _change(() => _busy = true);
+    try {
+      for (final p in draft.photos) {
+        if (!mounted) return;
+        final assessment = await ensurePhotoSuitability(
+          context,
+          _suitability,
+          widget.store.file(p.localName),
+          p,
+        );
+        if (assessment == null) return;
+        _usable.add(_photoIdentity(p));
+      }
+    } finally {
+      _change(() => _busy = false);
+    }
+    if (!mounted) return;
     await Navigator.push(
       context,
       MaterialPageRoute<void>(
@@ -152,7 +264,12 @@ extension _AtlasHomePresentation on _ContributionHomeState {
               : Text(_tab == 1 ? 'Kayıtlarım' : 'Ayarlar'),
         ),
         bottomNavigationBar: inFlow
-            ? null
+            ? SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                  child: _atlasFlowActions(),
+                ),
+              )
             : NavigationBar(
                 selectedIndex: _tab,
                 onDestinationSelected: _atlasBusy
@@ -188,6 +305,7 @@ extension _AtlasHomePresentation on _ContributionHomeState {
                 embedded: true,
                 currentDraft: _draft,
                 recordState: widget.recordState,
+                recordStarred: widget.recordStarred,
                 onContinue: _startAtlas,
                 onReadFortune: widget.onReadFortune,
                 onEdit: _atlasEdit,
@@ -233,11 +351,7 @@ extension _AtlasHomePresentation on _ContributionHomeState {
         textAlign: TextAlign.center,
       ),
       const SizedBox(height: 20),
-      const AtlasNotice(
-        'Fotoğrafların AI’ya gönderilmez; yalnız metinsel özet paylaşılır.',
-        icon: Icons.shield_outlined,
-      ),
-      const SizedBox(height: 24),
+
       if (_draft != null) ...[
         Card(
           child: Padding(
@@ -261,12 +375,12 @@ extension _AtlasHomePresentation on _ContributionHomeState {
             ),
           ),
         ),
-      ] else
-        FilledButton.icon(
-          onPressed: _atlasBusy || _error != null ? null : _startAtlas,
-          icon: const Icon(Icons.camera_alt, color: Color(0xff22c55e)),
-          label: const Text('Fincanını Tara'),
-        ),
+      ],
+      FilledButton.icon(
+        onPressed: _atlasBusy || _error != null ? null : _startNewCamera,
+        icon: const Icon(Icons.camera_alt, color: Color(0xff22c55e)),
+        label: const Text('Fincanını Tara'),
+      ),
       const SizedBox(height: 12),
       OutlinedButton.icon(
         onPressed: _atlasBusy ? null : _atlasGallery,
@@ -284,7 +398,7 @@ extension _AtlasHomePresentation on _ContributionHomeState {
   Widget _atlasSettings() => PageBody(
     children: [
       const AtlasNotice(
-        'Fotoğrafların ve gözlemlerin bu telefonda saklanır. Araştırma paketini dışa aktarmayı sen yönetirsin.',
+        'Fotoğrafların ve gözlemlerin bu telefonda saklanır. Fal hizmetine yalnız metinsel özet gönderilir. Araştırma paylaşımını kayıt bazında sen yönetirsin. Yıldızsız kayıtlar da otomatik silinmez.',
       ),
       const SizedBox(height: 20),
       if (widget.onAiSettings != null) ...[
@@ -321,10 +435,6 @@ extension _AtlasHomePresentation on _ContributionHomeState {
   Widget _atlasDraft() {
     final draft = _draft!;
     if (draft.isSet) return _photoSetDraft();
-    final confirmed =
-        draft.isGallery ||
-        (_sameSample &&
-            draft.photos.every((p) => _usable.contains(_photoIdentity(p))));
     return PageBody(
       children: [
         Text(
@@ -373,23 +483,6 @@ extension _AtlasHomePresentation on _ContributionHomeState {
                     height: 190,
                   ),
                   const SizedBox(height: 8),
-                  if (!draft.isGallery)
-                    CheckboxListTile(
-                      contentPadding: EdgeInsets.zero,
-                      value: _usable.contains(_photoIdentity(p)),
-                      title: const Text(
-                        'Telve net ve kullanılabilir görünüyor',
-                      ),
-                      onChanged: _atlasBusy || draft.queued
-                          ? null
-                          : (v) => _change(() {
-                              if (v == true) {
-                                _usable.add(_photoIdentity(p));
-                              } else {
-                                _usable.remove(_photoIdentity(p));
-                              }
-                            }),
-                    ),
                   Text(_decisionText(p)),
                 ],
               ),
@@ -414,19 +507,6 @@ extension _AtlasHomePresentation on _ContributionHomeState {
                   : (v) => _change(() => _sameSample = v == true),
             ),
           const SizedBox(height: 12),
-          OutlinedButton.icon(
-            onPressed: _atlasBusy || draft.queued || !confirmed
-                ? null
-                : _atlasAnnotations,
-            icon: const Icon(Icons.draw_outlined),
-            label: Text(
-              draft.reviewed
-                  ? 'İşaretleri Gözden Geçir'
-                  : 'Fotoğrafları Onayla · Şekilleri İncele',
-            ),
-          ),
-          const SizedBox(height: 12),
-          _saveActions(!_atlasBusy && draft.reviewed && confirmed),
           if (!draft.reviewed)
             const Padding(
               padding: EdgeInsets.only(top: 8),
@@ -464,9 +544,9 @@ extension _AtlasHistoryPresentation on _ContributionHistoryState {
           spacing: 8,
           runSpacing: 8,
           children: [
-            for (var i = 0; i < 3; i++)
+            for (var i = 0; i < 4; i++)
               ChoiceChip(
-                label: Text(['Tümü', 'Kayıtlı', 'Taslaklar'][i]),
+                label: Text(['Tümü', 'Kayıtlı', 'Taslaklar', 'Yıldızlılar'][i]),
                 selected: _filter == i,
                 selectedColor: const Color(0xffeaf2ec),
                 onSelected: (_) => _changeFilter(i),
@@ -483,7 +563,8 @@ extension _AtlasHistoryPresentation on _ContributionHistoryState {
             children: [
               if (_busy) const LinearProgressIndicator(),
               if (_message != null) AtlasNotice(_message!),
-              if (_filter != 1 && widget.currentDraft != null) ...[
+              if ((_filter == 0 || _filter == 2) &&
+                  widget.currentDraft != null) ...[
                 Card(
                   child: ListTile(
                     contentPadding: const EdgeInsets.all(16),
@@ -498,13 +579,14 @@ extension _AtlasHistoryPresentation on _ContributionHistoryState {
                 const SizedBox(height: 12),
               ],
               if (_filter != 2)
-                for (final row in _rows) ...[
-                  _atlasRecordCard(row),
-                  const SizedBox(height: 12),
-                ],
+                for (final row in _rows.where(
+                  (r) => _filter != 3 || _starredRoots.contains(r['root_id']),
+                )) ...[_atlasRecordCard(row), const SizedBox(height: 12)],
               if (!_busy &&
                   (_filter == 2
                       ? widget.currentDraft == null
+                      : _filter == 3
+                      ? !_rows.any((r) => _starredRoots.contains(r['root_id']))
                       : _rows.isEmpty &&
                             (_filter == 1 || widget.currentDraft == null)))
                 const Padding(
@@ -549,6 +631,7 @@ extension _AtlasHistoryPresentation on _ContributionHistoryState {
                       modern: true,
                       onlyRoot: row['root_id'] as String,
                       recordState: widget.recordState,
+                      recordStarred: widget.recordStarred,
                     ),
                   ),
                 );
@@ -590,7 +673,10 @@ extension _AtlasHistoryPresentation on _ContributionHistoryState {
                 ],
               ),
               const SizedBox(height: 12),
-              Text(status, style: const TextStyle(color: atlasSage)),
+              Text(
+                '${_starredRoots.contains(row['root_id']) ? '★ · ' : ''}$status',
+                style: const TextStyle(color: atlasSage),
+              ),
             ],
           ),
         ),

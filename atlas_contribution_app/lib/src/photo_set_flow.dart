@@ -163,9 +163,6 @@ extension _PhotoSetFlow on _ContributionHomeState {
   Widget _photoSetDraft() {
     final draft = _draft!;
     final disabled = _atlasBusy || draft.queued;
-    final confirmed =
-        (draft.photos.length == 1 || _sameSample) &&
-        draft.photos.every((p) => _usable.contains(_photoIdentity(p)));
     final selecting = !draft.cupSelectionDone;
     return PageBody(
       children: [
@@ -289,24 +286,7 @@ extension _PhotoSetFlow on _ContributionHomeState {
                       ],
                     ],
                   ),
-                  if (draft.complete)
-                    CheckboxListTile(
-                      contentPadding: EdgeInsets.zero,
-                      value: _usable.contains(_photoIdentity(p)),
-                      title: const Text(
-                        'Telve net ve kullanılabilir görünüyor',
-                      ),
-                      onChanged: disabled
-                          ? null
-                          : (v) => _change(() {
-                              if (v == true) {
-                                _usable.add(_photoIdentity(p));
-                              } else {
-                                _usable.remove(_photoIdentity(p));
-                              }
-                            }),
-                    ),
-                  Text(_decisionText(p)),
+                  if (draft.complete) Text(_decisionText(p)),
                 ],
               ),
             ),
@@ -374,17 +354,6 @@ extension _PhotoSetFlow on _ContributionHomeState {
                   ? null
                   : (v) => _change(() => _sameSample = v == true),
             ),
-          OutlinedButton.icon(
-            onPressed: disabled || !confirmed ? null : _atlasAnnotations,
-            icon: const Icon(Icons.draw_outlined),
-            label: Text(
-              draft.reviewed
-                  ? 'İşaretleri Gözden Geçir'
-                  : 'Fotoğrafları Onayla · Şekilleri İncele',
-            ),
-          ),
-          const SizedBox(height: 12),
-          _saveActions(!disabled && draft.reviewed && confirmed),
           const Text(
             'Şekil bulman gerekmiyor. İnceleme ekranından atlayabilirsin.',
           ),

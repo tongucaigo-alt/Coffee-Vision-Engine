@@ -10,6 +10,7 @@ import 'src/research_export.dart';
 import 'src/atlas_design.dart';
 import 'src/models.dart';
 import 'src/fortune_progress.dart';
+import 'src/photo_suitability.dart';
 import 'src/mvp/review_controller.dart';
 import 'src/mvp/review_models.dart';
 import 'src/mvp/review_page.dart';
@@ -24,6 +25,7 @@ Future<void> main() async {
     Directory(
       '${(await getApplicationSupportDirectory()).path}/offline-contributions',
     ),
+    manualRetention: true,
   );
   await store.initialize();
   final ai = aiLabEnabled ? await AiRuntime.create(store) : null;
@@ -89,6 +91,7 @@ class OfflineContributionApp extends StatelessWidget {
                       runtime: ai!,
                       session: session,
                       autoGenerate: true,
+                      simple: true,
                     ),
                   ),
                 );
@@ -109,11 +112,16 @@ class OfflineContributionApp extends StatelessWidget {
                   row,
                   fresh: true,
                 );
-                final now = DateTime.now().toUtc().toIso8601String();
-                final next = session.next(
-                  sameSample: true,
-                  photos: session.photos.map((p) => p.update(confirmedAt: now)),
+                final checker = PhotoSuitability(
+                  Directory('${store.directory.parent.path}/photo-suitability'),
                 );
+                final photos = <ReviewPhoto>[];
+                for (final p in session.photos) {
+                  photos.add(
+                    p.update(suitability: await checker.read(p.photo)),
+                  );
+                }
+                final next = session.next(sameSample: true, photos: photos);
                 final controller = ReviewController(
                   store: ai!.reviews,
                   session: session,
@@ -147,6 +155,11 @@ class OfflineContributionApp extends StatelessWidget {
                   controller.dispose();
                 }
               },
+        recordStarred: ai == null
+            ? null
+            : (row) => ai!.store.hasStarredSession(
+                ai!.bridge.sessionId(row['root_id'] as String),
+              ),
         recordState: ai == null
             ? null
             : (row) async {
@@ -183,8 +196,12 @@ class OfflineContributionApp extends StatelessWidget {
                 await Navigator.push(
                   context,
                   MaterialPageRoute<void>(
-                    builder: (_) =>
-                        AiFortunePage(runtime: ai!, session: session),
+                    builder: (_) => AiFortunePage(
+                      runtime: ai!,
+                      session: session,
+                      simple: true,
+                      autoGenerate: true,
+                    ),
                   ),
                 );
               },

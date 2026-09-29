@@ -1,3 +1,4 @@
+import 'suitability_fixture.dart';
 import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
@@ -10,6 +11,10 @@ import 'package:atlas_contribution_app/src/offline_contribution.dart';
 import 'fixtures.dart';
 
 class MemoryStore extends DraftStore {
+  bool accepted = false;
+  @override Future<bool> hasLocalAcceptance() async => accepted;
+  @override Future<void> acceptLocalUse() async { accepted = true; }
+
   MemoryStore(super.directory, this.draft);
   ContributionDraft? draft;
   final rows = <Map<String, dynamic>>[];
@@ -99,7 +104,7 @@ void main() {
         final analysis = Completer<RecordPreparationStatus>();
         await tester.pumpWidget(
           MaterialApp(
-            home: ContributionHome(
+            home: ContributionHome(photoSuitability: SupportedSuitability(),
               modern: true,
               store: store,
               service: service,
@@ -112,11 +117,15 @@ void main() {
         await tester.pumpAndSettle();
         await tester.tap(find.text('Kaldığın Yerden Devam Et'));
         await tester.pumpAndSettle();
-        for (var i = 0; i < 4; i++) {
+        for (var i = 0; i < 1; i++) {
           await tester.ensureVisible(find.byType(CheckboxListTile).at(i));
           await tester.tap(find.byType(CheckboxListTile).at(i));
           await tester.pump();
         }
+        await tester.tap(find.text('Şekilleri İncele'));
+        await tester.pumpAndSettle();
+        await tester.pageBack();
+        await tester.pumpAndSettle();
         await tester.ensureVisible(find.text('Gözlemleri Kaydet'));
         await tester.tap(find.text('Gözlemleri Kaydet'));
         await tester.pump();

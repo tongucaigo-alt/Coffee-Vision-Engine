@@ -2,6 +2,8 @@ import 'package:atlas_contribution_app/src/fortune_progress.dart';
 import 'dart:convert';
 import 'package:atlas_contribution_app/src/contribution_home.dart';
 import 'dart:io';
+import 'package:atlas_contribution_app/src/photo_suitability.dart';
+import 'suitability_fixture.dart';
 import 'package:atlas_contribution_app/offline_main.dart';
 import 'package:atlas_contribution_app/src/offline_contribution.dart';
 import 'package:flutter/material.dart';
@@ -106,7 +108,7 @@ void main() {
       await temp.delete(recursive: true);
     });
     Future<void> settleIo() async {
-      for (var i = 0; i < 25; i++) {
+      for (var i = 0; i < 100; i++) {
         await tester.pump(const Duration(milliseconds: 20));
         await tester.runAsync(
           () => Future<void>.delayed(const Duration(milliseconds: 20)),
@@ -123,8 +125,8 @@ void main() {
       () => tester.tap(find.textContaining('Fincanın Hikâyesi').first),
     );
     await settleIo();
-    await tester.ensureVisible(find.text('Fal oluştur'));
-    await tester.runAsync(() => tester.tap(find.text('Fal oluştur')));
+    await tester.ensureVisible(find.text('Fal Oluştur'));
+    await tester.runAsync(() => tester.tap(find.text('Fal Oluştur')));
     await settleIo();
     expect(find.byType(AiFortunePage), findsOneWidget);
     final sessions = await tester.runAsync(() => runtime.reviews.sessions());
@@ -141,7 +143,13 @@ void main() {
     final identities = sourcePhotos
         .map((p) => '${p.localName}|${p.checksum}')
         .toSet();
-    await tester.runAsync(() => home.onConfirmedRecorded!(row, identities));
+    await tester.runAsync(() async {
+      final checker = PhotoSuitability(Directory('${source.directory.parent.path}/photo-suitability'));
+      for (final p in sourcePhotos) {
+        await checker.continueWith(p, await SupportedSuitability().assess(source.file(p.localName),p));
+      }
+      await home.onConfirmedRecorded!(row, identities);
+    });
     final confirmed = (await tester.runAsync(
       () => runtime.reviews.sessions(),
     ))!.single;

@@ -193,7 +193,7 @@ void main() {
       );
       expect(messages.last['content'], endsWith('/no_think'));
       expect(jsonEncode(messages), isNot(contains('sessionId')));
-      expect(prompt.version, 'atlas-fortune-prompt-v4');
+      expect(prompt.version, 'atlas-fortune-prompt-v5');
       expect(
         prompt.hash,
         sha256
@@ -351,15 +351,16 @@ void main() {
         'expires_at': '2000-01-01T00:00:00Z',
       });
       await bridge.reconcile();
-      expect(await ai.results(expiring.id), isEmpty);
+      expect(await ai.results(expiring.id), hasLength(1));
       expect(
         await reviews.file(expiring.photos.first.photo.localName).exists(),
-        isFalse,
+        isTrue,
       );
       await source.queueDelete(draft.rootId);
       await source.acknowledgeDelete(draft.rootId);
       expect(await ai.results(session.id), isEmpty);
-      expect((await reviews.sessions()).every((s) => s.deleted), isTrue);
+      expect((await reviews.sessions()).singleWhere((s) => s.id == session.id).deleted, isTrue);
+      expect((await reviews.sessions()).singleWhere((s) => s.id == expiring.id).deleted, isFalse);
       expect(
         await reviews.file(session.photos.first.photo.localName).exists(),
         isFalse,

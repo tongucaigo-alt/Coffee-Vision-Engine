@@ -1,3 +1,5 @@
+import 'dart:io';
+import '../photo_suitability.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
@@ -311,11 +313,13 @@ class AiFortunePage extends StatefulWidget {
     required this.runtime,
     required this.session,
     this.autoGenerate = false,
+    this.simple = false,
     super.key,
   });
   final AiRuntime runtime;
   final ReviewSession session;
   final bool autoGenerate;
+  final bool simple;
   @override
   State<AiFortunePage> createState() => _AiFortunePageState();
 }
@@ -325,6 +329,7 @@ class _AiFortunePageState extends State<AiFortunePage> {
   List<AiProfile> _profiles = [];
   List<Map<String, dynamic>> _results = [];
   String? _first, _second, _message;
+  Set<String> _stars = {};
   bool _busy = false, _compare = false, _showScan = false;
   AiCancellation? _cancel;
   ReviewSession get session => _controller.session;
@@ -337,7 +342,14 @@ class _AiFortunePageState extends State<AiFortunePage> {
     );
     _controller.addListener(_analysisProgress);
     _load().then((_) {
-      if (mounted && widget.autoGenerate && _profiles.isNotEmpty) {
+      if (mounted &&
+          widget.autoGenerate &&
+          _profiles.isNotEmpty &&
+          !_results.any(
+            (r) =>
+                r['state'] == 'completed' &&
+                r['sourceFingerprint'] == preparationSourceFingerprint(session),
+          )) {
         _act(_generate);
       }
     });
@@ -366,6 +378,7 @@ class _AiFortunePageState extends State<AiFortunePage> {
   Future<void> _load() async {
     try {
       final profiles = await widget.runtime.store.profiles();
+      final stars = await widget.runtime.store.starredIds();
       final results = await widget.runtime.store.results(session.id);
       for (final result in results) {
         if ((result['answers'] as List).isNotEmpty) {
@@ -375,6 +388,7 @@ class _AiFortunePageState extends State<AiFortunePage> {
       if (mounted) {
         setState(() {
           _profiles = profiles;
+          _stars = stars;
           _first ??= profiles.firstOrNull?.id;
           _results = results.reversed.toList();
         });
@@ -404,7 +418,64 @@ class _AiFortunePageState extends State<AiFortunePage> {
     }
   }
 
+  Future<bool> _checkPhotos() async {
+    final checker = PhotoSuitability(
+      Directory(
+        '${widget.runtime.bridge.source.directory.parent.path}/photo-suitability',
+      ),
+    );
+    var next = session;
+    for (final p in session.photos) {
+      if (!mounted) return false;
+      final assessment = await ensurePhotoSuitability(
+        context,
+        checker,
+        widget.runtime.reviews.file(p.photo.localName),
+        p.photo,
+      );
+      if (assessment == null) return false;
+      if (jsonEncode(assessment) != jsonEncode(p.suitability)) {
+        next = next.withPhoto(p.update(suitability: assessment));
+      }
+    }
+    if (session.photos.length == 1 && !next.sameSampleDeclared) {
+      next = next.next(sameSample: true);
+    }
+    if (!next.sameSampleDeclared && mounted) {
+      final same = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Aynı fincan mı?'),
+          content: const Text(
+            'Fotoğraflar aynı fincana ve varsa ona ait tabağa mı ait?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Geri dön'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Evet, devam et'),
+            ),
+          ],
+        ),
+      );
+      if (same != true) return false;
+      next = next.next(sameSample: true);
+    }
+    if (!identical(next, session)) {
+      // Coalesce preparation into one revision regardless of photo count.
+      await _controller.save(
+        session.next(photos: next.photos, sameSample: next.sameSampleDeclared),
+      );
+    }
+    return true;
+  }
+
   Future<void> _generate() async {
+    if (widget.simple && !await _checkPhotos()) return;
+    if (!mounted) return;
     setState(() => _showScan = true);
     if (!await widget.runtime.bridge.isCurrent(session)) {
       throw const AiFailure(
@@ -538,6 +609,11 @@ class _AiFortunePageState extends State<AiFortunePage> {
         Theme.of(context).textTheme.bodyMedium?.fontFamily ==
         'Plus Jakarta Sans';
     final hasAnswers = _results.any((r) => (r['answers'] as List).isNotEmpty);
+    final currentComplete = _results.any(
+      (r) =>
+          r['state'] == 'completed' &&
+          r['sourceFingerprint'] == preparationSourceFingerprint(session),
+    );
     final prepared = session.preparedInput;
     final eligible =
         session.photos.any((p) => p.surface == ReviewSurface.cup) &&
@@ -546,21 +622,22 @@ class _AiFortunePageState extends State<AiFortunePage> {
       appBar: AppBar(
         title: Text(modern ? 'Fincanının Hikâyesi' : 'Fal denemesi'),
         actions: [
-          IconButton(
-            tooltip: 'AI Laboratuvarı',
-            icon: const Icon(Icons.settings),
-            onPressed: _busy
-                ? null
-                : () async {
-                    await Navigator.push(
-                      context,
-                      MaterialPageRoute<void>(
-                        builder: (_) => AiLabPage(runtime: widget.runtime),
-                      ),
-                    );
-                    await _load();
-                  },
-          ),
+          if (!widget.simple)
+            IconButton(
+              tooltip: 'AI Laboratuvarı',
+              icon: const Icon(Icons.settings),
+              onPressed: _busy
+                  ? null
+                  : () async {
+                      await Navigator.push(
+                        context,
+                        MaterialPageRoute<void>(
+                          builder: (_) => AiLabPage(runtime: widget.runtime),
+                        ),
+                      );
+                      await _load();
+                    },
+            ),
         ],
       ),
       body: _busy && _showScan
@@ -659,232 +736,282 @@ class _AiFortunePageState extends State<AiFortunePage> {
                   const SizedBox(height: 20),
                   if (hasAnswers) ..._fortuneWidgets(),
                 ],
-                ExpansionTile(
-                  key: ValueKey('fortune-controls-$hasAnswers'),
-                  initiallyExpanded: !modern || !hasAnswers,
-                  title: Text(
-                    hasAnswers
-                        ? 'Yeni Fal ve İnceleme Ayarları'
-                        : 'Falını Hazırla',
-                  ),
-                  children: [
-                    const Text(
-                      'Önce kendi gözlemlerin kaydedilir. Fotoğrafların telefonda kalır; fal için yalnızca metinsel özet gönderilir.',
-                    ),
-                    if (session.id.startsWith('linked-'))
-                      const Text(
-                        'Fotoğraf ve işaretleri değiştirmek için Kayıtlarım ekranını kullan.',
-                      ),
-                    ExpansionTile(
-                      title: const Text('Fotoğraflar ve Yerel İnceleme'),
-                      initiallyExpanded:
-                          !modern || !session.ready || prepared == null,
-                      children: [
-                        for (final p in session.orderedPhotos) ...[
-                          const SizedBox(height: 12),
-                          SizedBox(
-                            height: 160,
-                            child: Center(
-                              child: CroppedPhoto(
-                                image: FileImage(
-                                  widget.runtime.reviews.file(
-                                    p.photo.localName,
+                if (widget.simple) ...[
+                  if (!currentComplete)
+                    FilledButton(
+                      onPressed: _busy
+                          ? null
+                          : () async {
+                              if (_profiles.isEmpty) {
+                                await Navigator.push(
+                                  context,
+                                  MaterialPageRoute<void>(
+                                    builder: (_) =>
+                                        AiLabPage(runtime: widget.runtime),
                                   ),
+                                );
+                                await _load();
+                              } else {
+                                await _act(_generate);
+                              }
+                            },
+                      child: Text(
+                        _profiles.isEmpty
+                            ? 'Fal bağlantısını ayarla'
+                            : _message != null
+                            ? 'Yeniden Dene'
+                            : 'Fal Oluştur',
+                      ),
+                    ),
+                  ExpansionTile(
+                    title: const Text('Araştırmaya katkı'),
+                    children: [
+                      CheckboxListTile(
+                        value: session.researchConsentAtUtc != null,
+                        title: const Text(
+                          'Bu kaydı araştırma paketine eklemeye izin veriyorum.',
+                        ),
+                        onChanged: _busy
+                            ? null
+                            : (value) => _act(
+                                () => _controller.save(
+                                  session.next(researchAllowed: value),
                                 ),
-                                photoWidth: p.photo.width,
-                                photoHeight: p.photo.height,
-                                crop: p.visibleCrop,
                               ),
-                            ),
-                          ),
-                          if (p.photo.regions.isNotEmpty)
-                            ExpansionTile(
-                              title: Text(
-                                'İşaretleri gör · ${p.photo.regions.length}',
-                              ),
-                              children: [
-                                MarkedPhoto(
-                                  photo: p.photo,
+                      ),
+                    ],
+                  ),
+                ],
+                if (!widget.simple)
+                  ExpansionTile(
+                    key: ValueKey('fortune-controls-$hasAnswers'),
+                    initiallyExpanded: !modern || !hasAnswers,
+                    title: Text(
+                      hasAnswers
+                          ? 'Yeni Fal ve İnceleme Ayarları'
+                          : 'Falını Hazırla',
+                    ),
+                    children: [
+                      const Text(
+                        'Önce kendi gözlemlerin kaydedilir. Fotoğrafların telefonda kalır; fal için yalnızca metinsel özet gönderilir.',
+                      ),
+                      if (session.id.startsWith('linked-'))
+                        const Text(
+                          'Fotoğraf ve işaretleri değiştirmek için Kayıtlarım ekranını kullan.',
+                        ),
+                      ExpansionTile(
+                        title: const Text('Fotoğraflar ve Yerel İnceleme'),
+                        initiallyExpanded:
+                            !modern || !session.ready || prepared == null,
+                        children: [
+                          for (final p in session.orderedPhotos) ...[
+                            const SizedBox(height: 12),
+                            SizedBox(
+                              height: 160,
+                              child: Center(
+                                child: CroppedPhoto(
                                   image: FileImage(
                                     widget.runtime.reviews.file(
                                       p.photo.localName,
                                     ),
                                   ),
-                                  displayCrop: p.visibleCrop,
+                                  photoWidth: p.photo.width,
+                                  photoHeight: p.photo.height,
+                                  crop: p.visibleCrop,
                                 ),
-                              ],
+                              ),
                             ),
-                          CheckboxListTile(
-                            value: p.usableConfirmedAtUtc != null,
-                            title: Text(
-                              '${p.title}: telve kullanılabilir biçimde görünüyor',
-                            ),
-                            onChanged: _busy || p.usableConfirmedAtUtc != null
-                                ? null
-                                : (v) => _act(
-                                    () => _controller.save(
-                                      session.withPhoto(
-                                        p.update(
-                                          confirmedAt: DateTime.now()
-                                              .toUtc()
-                                              .toIso8601String(),
+                            if (p.photo.regions.isNotEmpty)
+                              ExpansionTile(
+                                title: Text(
+                                  'İşaretleri gör · ${p.photo.regions.length}',
+                                ),
+                                children: [
+                                  MarkedPhoto(
+                                    photo: p.photo,
+                                    image: FileImage(
+                                      widget.runtime.reviews.file(
+                                        p.photo.localName,
+                                      ),
+                                    ),
+                                    displayCrop: p.visibleCrop,
+                                  ),
+                                ],
+                              ),
+                            CheckboxListTile(
+                              value: p.usableConfirmedAtUtc != null,
+                              title: Text(
+                                '${p.title}: telve kullanılabilir biçimde görünüyor',
+                              ),
+                              onChanged: _busy || p.usableConfirmedAtUtc != null
+                                  ? null
+                                  : (v) => _act(
+                                      () => _controller.save(
+                                        session.withPhoto(
+                                          p.update(
+                                            confirmedAt: DateTime.now()
+                                                .toUtc()
+                                                .toIso8601String(),
+                                          ),
                                         ),
                                       ),
                                     ),
+                            ),
+                            if (p.failed)
+                              TextButton(
+                                onPressed: _busy
+                                    ? null
+                                    : () => _act(
+                                        () => _controller.analyze(
+                                          retryPhotoId: p.id,
+                                        ),
+                                      ),
+                                child: const Text(
+                                  'Bu fotoğrafın analizini yeniden dene',
+                                ),
+                              ),
+                          ],
+                          CheckboxListTile(
+                            value: session.sameSampleDeclared,
+                            title: const Text(
+                              'Fotoğraflar aynı fincan / telve grubuna ait.',
+                            ),
+                            onChanged: _busy
+                                ? null
+                                : (v) => _act(
+                                    () => _controller.save(
+                                      session.next(sameSample: v),
+                                    ),
                                   ),
                           ),
-                          if (p.failed)
-                            TextButton(
-                              onPressed: _busy
-                                  ? null
-                                  : () => _act(
-                                      () => _controller.analyze(
-                                        retryPhotoId: p.id,
-                                      ),
-                                    ),
-                              child: const Text(
-                                'Bu fotoğrafın analizini yeniden dene',
-                              ),
-                            ),
-                        ],
-                        CheckboxListTile(
-                          value: session.sameSampleDeclared,
-                          title: const Text(
-                            'Fotoğraflar aynı fincan / telve grubuna ait.',
+                          FilledButton(
+                            onPressed: _busy || !session.ready
+                                ? null
+                                : () => _act(() => _controller.analyze()),
+                            child: const Text('Yerel incelemeyi tamamla'),
                           ),
+                        ],
+                      ),
+                      Text(
+                        prepared == null
+                            ? 'Analiz bekliyor'
+                            : switch (prepared['status']) {
+                                'ready' => 'Metin hazır',
+                                'partial' => 'Metin hazır · kısmi analiz',
+                                'empty' =>
+                                  'Kullanılabilir gözlem veya bulgu yok',
+                                _ => 'Analiz bekliyor',
+                              },
+                      ),
+                      CheckboxListTile(
+                        value: session.researchConsentAtUtc != null,
+                        title: const Text(
+                          'İsteğe bağlı: bu incelemeyi ve bağlı çekim kaydını araştırma ZIP’ine eklemeye izin veriyorum.',
+                        ),
+                        onChanged: _busy
+                            ? null
+                            : (v) => _act(
+                                () => _controller.save(
+                                  session.next(researchAllowed: v),
+                                ),
+                              ),
+                      ),
+                      const Divider(),
+                      if (_profiles.isEmpty)
+                        const Text(
+                          'Önce sağ üstteki AI Laboratuvarından bağlantı ekle.',
+                        ),
+                      if (_profiles.isNotEmpty)
+                        DropdownButton<String>(
+                          value: _profiles.any((p) => p.id == _first)
+                              ? _first
+                              : null,
+                          isExpanded: true,
+                          hint: const Text('AI seç'),
+                          items: [
+                            for (final p in _profiles)
+                              DropdownMenuItem(
+                                value: p.id,
+                                child: Text('${p.name} · ${p.model}'),
+                              ),
+                          ],
                           onChanged: _busy
                               ? null
-                              : (v) => _act(
-                                  () => _controller.save(
-                                    session.next(sameSample: v),
-                                  ),
-                                ),
+                              : (v) => setState(() {
+                                  _first = v;
+                                  if (_second == v) _second = null;
+                                }),
                         ),
-                        FilledButton(
-                          onPressed: _busy || !session.ready
-                              ? null
-                              : () => _act(() => _controller.analyze()),
-                          child: const Text('Yerel incelemeyi tamamla'),
-                        ),
-                      ],
-                    ),
-                    Text(
-                      prepared == null
-                          ? 'Analiz bekliyor'
-                          : switch (prepared['status']) {
-                              'ready' => 'Metin hazır',
-                              'partial' => 'Metin hazır · kısmi analiz',
-                              'empty' => 'Kullanılabilir gözlem veya bulgu yok',
-                              _ => 'Analiz bekliyor',
-                            },
-                    ),
-                    CheckboxListTile(
-                      value: session.researchConsentAtUtc != null,
-                      title: const Text(
-                        'İsteğe bağlı: bu incelemeyi ve bağlı çekim kaydını araştırma ZIP’ine eklemeye izin veriyorum.',
+                      SwitchListTile(
+                        value: _compare,
+                        title: const Text('İki AI’yı kör karşılaştır'),
+                        onChanged: _busy || _profiles.length < 2
+                            ? null
+                            : (v) => setState(() => _compare = v),
                       ),
-                      onChanged: _busy
-                          ? null
-                          : (v) => _act(
-                              () => _controller.save(
-                                session.next(researchAllowed: v),
+                      if (_compare)
+                        DropdownButton<String>(
+                          value: _second,
+                          isExpanded: true,
+                          hint: const Text('İkinci AI'),
+                          items: [
+                            for (final p in _profiles.where(
+                              (p) => p.id != _first,
+                            ))
+                              DropdownMenuItem(
+                                value: p.id,
+                                child: Text('${p.name} · ${p.model}'),
                               ),
-                            ),
-                    ),
-                    const Divider(),
-                    if (_profiles.isEmpty)
-                      const Text(
-                        'Önce sağ üstteki AI Laboratuvarından bağlantı ekle.',
-                      ),
-                    if (_profiles.isNotEmpty)
-                      DropdownButton<String>(
-                        value: _profiles.any((p) => p.id == _first)
-                            ? _first
-                            : null,
-                        isExpanded: true,
-                        hint: const Text('AI seç'),
-                        items: [
-                          for (final p in _profiles)
-                            DropdownMenuItem(
-                              value: p.id,
-                              child: Text('${p.name} · ${p.model}'),
-                            ),
-                        ],
-                        onChanged: _busy
+                          ],
+                          onChanged: _busy
+                              ? null
+                              : (v) => setState(() => _second = v),
+                        ),
+                      for (final p in _profiles.where(
+                        (p) => p.id == _first || (_compare && p.id == _second),
+                      ))
+                        Text('Metin gönderilecek: ${p.url}'),
+                      FilledButton(
+                        onPressed:
+                            _busy ||
+                                !eligible ||
+                                _first == null ||
+                                (_compare &&
+                                    (_second == null || _second == _first))
                             ? null
-                            : (v) => setState(() {
-                                _first = v;
-                                if (_second == v) _second = null;
-                              }),
+                            : () => _act(_generate),
+                        child: Text(
+                          _compare ? 'A/B fal oluştur' : 'Fal oluştur',
+                        ),
                       ),
-                    SwitchListTile(
-                      value: _compare,
-                      title: const Text('İki AI’yı kör karşılaştır'),
-                      onChanged: _busy || _profiles.length < 2
-                          ? null
-                          : (v) => setState(() => _compare = v),
-                    ),
-                    if (_compare)
-                      DropdownButton<String>(
-                        value: _second,
-                        isExpanded: true,
-                        hint: const Text('İkinci AI'),
-                        items: [
-                          for (final p in _profiles.where(
-                            (p) => p.id != _first,
-                          ))
-                            DropdownMenuItem(
-                              value: p.id,
-                              child: Text('${p.name} · ${p.model}'),
+                      if (_busy) ...[
+                        const LinearProgressIndicator(),
+                        if (_cancel != null)
+                          TextButton(
+                            onPressed: () => _cancel?.cancel(),
+                            child: const Text('İptal et'),
+                          ),
+                      ],
+
+                      if (prepared != null)
+                        ExpansionTile(
+                          title: const Text(
+                            'Gönderilecek metin · teknik ayrıntılar',
+                          ),
+                          children: [
+                            SelectableText(
+                              const JsonEncoder.withIndent(
+                                '  ',
+                              ).convert(prepared['payload']),
                             ),
-                        ],
-                        onChanged: _busy
-                            ? null
-                            : (v) => setState(() => _second = v),
-                      ),
-                    for (final p in _profiles.where(
-                      (p) => p.id == _first || (_compare && p.id == _second),
-                    ))
-                      Text('Metin gönderilecek: ${p.url}'),
-                    FilledButton(
-                      onPressed:
-                          _busy ||
-                              !eligible ||
-                              _first == null ||
-                              (_compare &&
-                                  (_second == null || _second == _first))
-                          ? null
-                          : () => _act(_generate),
-                      child: Text(_compare ? 'A/B fal oluştur' : 'Fal oluştur'),
-                    ),
-                    if (_busy) ...[
-                      const LinearProgressIndicator(),
-                      if (_cancel != null)
-                        TextButton(
-                          onPressed: () => _cancel?.cancel(),
-                          child: const Text('İptal et'),
+                          ],
+                        ),
+                      if (_results.any((r) => r['state'] == 'interrupted'))
+                        const Text(
+                          'Önceki deneme uygulama kapanınca kesildi. Sunucu hâlâ çalışıyorsa işin bitmesini bekleyip yeniden deneyebilirsin.',
                         ),
                     ],
-
-                    if (prepared != null)
-                      ExpansionTile(
-                        title: const Text(
-                          'Gönderilecek metin · teknik ayrıntılar',
-                        ),
-                        children: [
-                          SelectableText(
-                            const JsonEncoder.withIndent(
-                              '  ',
-                            ).convert(prepared['payload']),
-                          ),
-                        ],
-                      ),
-                    if (_results.any((r) => r['state'] == 'interrupted'))
-                      const Text(
-                        'Önceki deneme uygulama kapanınca kesildi. Sunucu hâlâ çalışıyorsa işin bitmesini bekleyip yeniden deneyebilirsin.',
-                      ),
-                  ],
-                ),
+                  ),
                 if (!modern) ..._fortuneWidgets(),
               ],
             ),
@@ -902,6 +1029,24 @@ class _AiFortunePageState extends State<AiFortunePage> {
             : 'Önceki kayda ait fal',
         style: Theme.of(context).textTheme.titleLarge,
       ),
+      if (result['state'] == 'completed')
+        OutlinedButton.icon(
+          onPressed: _busy
+              ? null
+              : () => _act(() async {
+                  await widget.runtime.store.setStarred(
+                    result['id'] as String,
+                    !_stars.contains(result['id']),
+                  );
+                  await _load();
+                }),
+          icon: Icon(
+            _stars.contains(result['id']) ? Icons.star : Icons.star_border,
+          ),
+          label: Text(
+            '${_stars.contains(result['id']) ? 'Yıldızı Kaldır' : 'Falı Yıldızla'} · ${_stars.length}/20',
+          ),
+        ),
       if (result['state'] != 'completed')
         const Text('Deneme tamamlanamadı. Başarılı yanıt aşağıda korundu.'),
       for (var i = 0; i < (result['answers'] as List).length; i++) ...[
@@ -917,7 +1062,8 @@ class _AiFortunePageState extends State<AiFortunePage> {
             (p) => (p['userObservations'] as List).isNotEmpty,
           ),
         ),
-        if (result['comparison'] != true || result['vote'] != null)
+        if (!widget.simple &&
+            (result['comparison'] != true || result['vote'] != null))
           ExpansionTile(
             title: const Text('Model ve teknik bilgiler'),
             children: [

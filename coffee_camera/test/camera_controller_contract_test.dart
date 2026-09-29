@@ -23,6 +23,47 @@ import 'package:coffee_camera/src/quality/saucer_quality_checker.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  for (final closeDuringInitialization in [false, true]) {
+    test(
+      'pending initialization serializes lifecycle (close=$closeDuringInitialization)',
+      () async {
+        final gate = Completer<void>();
+        final service = _GatedCameraService(gate.future);
+        final controller = CoffeeCameraController(
+          config: const CoffeeCameraConfig(),
+          cameraService: service,
+          motionService: _FakeMotionService(),
+        );
+        final opening = controller.initialize();
+        await Future<void>.delayed(Duration.zero);
+        final pausing = controller.pause();
+        final resuming = controller.resume();
+        final closing = closeDuringInitialization ? controller.close() : null;
+        await Future<void>.delayed(Duration.zero);
+        expect(service.pauseCalls, 0);
+        expect(service.disposals, 0);
+        gate.complete();
+        await Future.wait([
+          opening,
+          pausing,
+          resuming,
+          ?closing,
+        ]);
+        if (closeDuringInitialization) {
+          expect(service.disposals, 1);
+          expect(service.isInitialized, isFalse);
+          expect(service.startFrameStreamCalls, 0);
+        } else {
+          expect(service.pauseCalls, 1);
+          expect(service.resumeCalls, 1);
+          expect(controller.phase, CameraExperiencePhase.live);
+          expect(service.isInitialized, isTrue);
+          await controller.close();
+        }
+      },
+    );
+  }
+
   test('manual capture and retake use the camera service contract', () async {
     final file = File(
       '${Directory.systemTemp.path}${Platform.pathSeparator}'
@@ -663,4 +704,22 @@ CameraImage _cameraImage() {
       },
     ],
   });
+}
+
+class _GatedCameraService extends _FakeCameraService {
+  _GatedCameraService(this.gate) : super(capturePaths: const []);
+  final Future<void> gate;
+  int disposals = 0;
+
+  @override
+  Future<void> initialize() async {
+    await gate;
+    await super.initialize();
+  }
+
+  @override
+  Future<void> dispose() async {
+    disposals++;
+    await super.dispose();
+  }
 }

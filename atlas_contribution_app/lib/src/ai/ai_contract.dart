@@ -380,3 +380,17 @@ class AiFailure implements Exception {
   @override
   String toString() => message;
 }
+
+/// Beta delivery policy: editorial checks remain diagnostic, not a gate.
+/// Empty, truncated and reasoning-only replies are still unusable.
+bool usableFortuneText(String? text, String? finishReason) {
+  if (finishReason != 'stop' || text == null) return false;
+  final value = text.trim();
+  if (value.split(RegExp(r'\s+')).length < 40 || value.length > 12000) {
+    return false;
+  }
+  return !RegExp(
+    r'<\/?think|analysis:|reasoning:|```|\b(system|assistant)\s*:',
+    caseSensitive: false,
+  ).hasMatch(value);
+}

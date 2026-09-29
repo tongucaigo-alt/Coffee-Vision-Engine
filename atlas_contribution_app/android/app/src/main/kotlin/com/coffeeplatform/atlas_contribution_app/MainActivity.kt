@@ -13,6 +13,12 @@ import java.io.ByteArrayOutputStream
 import java.io.File
 
 class MainActivity : FlutterActivity() {
+    private var suitability: PhotoSuitabilityChannel? = null
+    override fun onDestroy() {
+        suitability?.close()
+        suitability = null
+        super.onDestroy()
+    }
     private sealed class SavedExport {
         abstract val location: String
 
@@ -32,6 +38,7 @@ class MainActivity : FlutterActivity() {
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        suitability = PhotoSuitabilityChannel(this, flutterEngine.dartExecutor.binaryMessenger)
         MethodChannel(
             flutterEngine.dartExecutor.binaryMessenger,
             "atlas.contribution/export",

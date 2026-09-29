@@ -2,6 +2,10 @@
 
 Implementation candidate. AI test capability is available only with `ATLAS_AI_LAB=true` in the separate `.beta` package. Signed distribution and remote acceptance must be verified before participant rollout. See [AI setup and validation](../atlas_ai_gateway/README.md). No training, canonical Symbol release or frozen engine changes.
 
+## Beta 8 — Sade akış ve yıldızlar
+
+[Sürüm doğrulaması](SIMPLE_FLOW_VALIDATION.md): tek seferlik yerel kullanım kabulü, deneysel çevrimdışı fotoğraf kontrolü, 20 yıldız, manuel saklama ve sade fal akışı. [Model kaynağı](PHOTO_MODEL.md). Fotoğraf engellemesinin olumsuz örnek kabulü ve kör anlatım değerlendirmesi henüz tamamlanmadı.
+
 ## Atlas visual refresh — September 2026
 
 The local entrypoint now uses bundled Atlas artwork and fonts, a cream/coffee/sage

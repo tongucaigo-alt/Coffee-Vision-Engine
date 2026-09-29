@@ -205,7 +205,22 @@ class CoffeeCameraController extends ChangeNotifier {
   CameraCaptureResult? get _previewResult =>
       _draftResult ?? (isCupStep ? _confirmedCup : null);
 
-  Future<void> initialize() async {
+  // Permission dialogs can pause/resume the app while camera initialization
+  // is still pending. Never dispose the device during another lifecycle step.
+  Future<void> _lifecycleTail = Future<void>.value();
+
+  Future<void> _sequenceLifecycle(Future<void> Function() operation) {
+    final next = _lifecycleTail.then((_) => operation());
+    _lifecycleTail = next.then<void>(
+      (_) {},
+      onError: (Object _, StackTrace _) {},
+    );
+    return next;
+  }
+
+  Future<void> initialize() => _sequenceLifecycle(_initialize);
+
+  Future<void> _initialize() async {
     if (_closed) return;
     _phase = CameraExperiencePhase.initializing;
     _errorMessage = null;
@@ -221,13 +236,15 @@ class CoffeeCameraController extends ChangeNotifier {
     }
   }
 
-  Future<void> retry() async {
+  Future<void> retry() => _sequenceLifecycle(_retry);
+
+  Future<void> _retry() async {
     if (_closed) return;
     _coordinator.pause();
     _saucerCoordinator.pause();
     await motionService.stop();
     await cameraService.dispose();
-    await initialize();
+    await _initialize();
   }
 
   void setViewportSize(Size value) {
@@ -550,7 +567,9 @@ class CoffeeCameraController extends ChangeNotifier {
     return cameraService.setFocusPoint(normalizedPoint);
   }
 
-  Future<void> pause() async {
+  Future<void> pause() => _sequenceLifecycle(_pause);
+
+  Future<void> _pause() async {
     if (_closed) return;
     _cupAnalysisActive = false;
     _saucerAnalysisActive = false;
@@ -566,7 +585,9 @@ class CoffeeCameraController extends ChangeNotifier {
     }
   }
 
-  Future<void> resume() async {
+  Future<void> resume() => _sequenceLifecycle(_resume);
+
+  Future<void> _resume() async {
     if (_closed || _phase != CameraExperiencePhase.paused) return;
     try {
       await _enterLiveStep();
@@ -713,6 +734,7 @@ class CoffeeCameraController extends ChangeNotifier {
   Future<void> _close() async {
     if (_closed) return;
     _closed = true;
+    await _lifecycleTail;
     _cupAnalysisActive = false;
     _saucerAnalysisActive = false;
     _coordinator.pause();

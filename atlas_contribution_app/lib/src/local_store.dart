@@ -48,7 +48,8 @@ Map<String, Object> preparePhoto(Uint8List bytes) {
 }
 
 class DraftStore {
-  DraftStore(this.directory);
+  DraftStore(this.directory, {this.manualRetention = false});
+  final bool manualRetention;
   final Directory directory;
   Future<void> Function(String rootId)? onDeleteRoot;
   static final Map<String, Future<void>> _writes = {};
@@ -119,7 +120,8 @@ class DraftStore {
         : ContributionDraft.fromJson(
             Map<String, dynamic>.from(json['draft'] as Map),
           );
-    if (draft != null &&
+    if (!manualRetention &&
+        draft != null &&
         DateTime.parse(
           draft.consentedAt,
         ).add(const Duration(days: 180)).isBefore(DateTime.now())) {
@@ -128,6 +130,18 @@ class DraftStore {
     }
     return draft;
   }
+
+  static const localAcceptanceVersion = 'atlas-local-use-v2';
+  Future<bool> hasLocalAcceptance() async =>
+      (await _read('local-use.json'))?['version'] == localAcceptanceVersion;
+  Future<void> acceptLocalUse() => _mutate(
+    () => _atomic('local-use.json', {
+      'version': localAcceptanceVersion,
+      'acceptedAtUtc': DateTime.now().toUtc().toIso8601String(),
+      'adultDeclared': true,
+      'researchConsentGranted': false,
+    }),
+  );
 
   Future<void> pruneExpiredReceipts() => _mutate(() async {
     final rows = await receipts();
@@ -188,10 +202,11 @@ class DraftStore {
         .map((r) => Map<String, dynamic>.from(r as Map))
         .where(
           (r) =>
+              (r['local_only'] == true) ||
               DateTime.tryParse(
-                r['expires_at'] as String? ?? '',
-              )?.isAfter(DateTime.now()) ==
-              true,
+                    r['expires_at'] as String? ?? '',
+                  )?.isAfter(DateTime.now()) ==
+                  true,
         )
         .toList();
   }

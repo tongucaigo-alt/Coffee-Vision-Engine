@@ -153,7 +153,7 @@ void main() {
   });
 
   test(
-    'gallery and camera share the 30-record quota and cannot bypass checksum validation',
+    'gallery allows more than 30 records and still validates checksum',
     () async {
       picker.selection = testImage();
       final imported = (await importer.select(galleryDraft()))!;
@@ -178,14 +178,11 @@ void main() {
               ],
             }),
           );
-      await expectLater(
-        service.submit(draft, (p) async {
-          reads++;
-          return store.file(p.localName).readAsBytes();
-        }, (_) {}),
-        throwsA(isA<Exception>()),
-      );
-      expect(reads, 0);
+      final extra = await service.submit(draft, (p) async {
+        reads++; return store.file(p.localName).readAsBytes();
+      }, (_) {});
+      expect(extra['local_only'], true);
+      expect(reads, 1);
       await store.file('receipts.json').writeAsString('{"rows":[]}');
       await expectLater(
         service.submit(draft, (_) async => Uint8List(10), (_) {}),

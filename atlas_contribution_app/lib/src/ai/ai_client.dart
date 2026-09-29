@@ -21,10 +21,16 @@ class AiCancellation {
 }
 
 class AiClient {
-  AiClient(this.prompt, {this.allowLan = aiLabEnabled, this.createHttpClient});
+  AiClient(
+    this.prompt, {
+    this.allowLan = aiLabEnabled,
+    this.bestEffort = aiLabEnabled,
+    this.createHttpClient,
+  });
   final HttpClient Function()? createHttpClient;
   final FortunePrompt prompt;
   final bool allowLan;
+  final bool bestEffort;
   Future<Map<String, dynamic>> probe(
     AiProfile p,
     String key,
@@ -218,14 +224,17 @@ class AiClient {
           if (result['promptHash'] != prompt.hash ||
               result['promptVersion'] != prompt.version ||
               fortuneQualityError(
-                    result['text'] as String?,
-                    'stop',
-                    context: input,
-                  ) !=
-                  null) {
+                        result['text'] as String?,
+                        'stop',
+                        context: input,
+                      ) !=
+                      null &&
+                  !(bestEffort &&
+                      usableFortuneText(result['text'] as String?, 'stop'))) {
             throw const AiFailure('Yanıt kalite kontrolünden geçmedi.');
           }
-          if (input['version'] == 'atlas-fortune-context-v2' &&
+          if (!bestEffort &&
+              input['version'] == 'atlas-fortune-context-v2' &&
               narrativeRepetition(result['text'] as String, previousTexts) !=
                   null) {
             if (result['attempts'] != 1 || repetitionRepairRequested) {
@@ -318,9 +327,12 @@ class AiClient {
           input['version'] != 'atlas-fortune-context-v2' || content == null
           ? null
           : narrativeRepetition(content, previousTexts);
-      if (lastError == null) {
+      if (lastError == null ||
+          (bestEffort &&
+              usableFortuneText(content, choice['finish_reason'] as String?))) {
         return {
           'text': content!.trim(),
+          'qualityWarning': ?lastError,
           'model': p.model,
           'promptVersion': prompt.version,
           'promptHash': prompt.hash,

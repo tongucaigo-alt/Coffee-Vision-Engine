@@ -53,12 +53,27 @@ final class ReviewStore {
       _serial(operation);
 
   /// The linked review is a stricter override of the original contribution consent.
-  Future<Set<String>> blockedContributionRoots() async => {
-    for (final session in await sessions())
-      if (session.id.startsWith('linked-') &&
-          (session.deleted || session.researchConsentAtUtc == null))
-        session.id.substring(7),
-  };
+  Future<Set<String>> blockedContributionRoots() async {
+    final all = await sessions();
+    final blocked = <String>{
+      for (final session in all)
+        if (session.id.startsWith('linked-') &&
+            (session.deleted || session.researchConsentAtUtc == null))
+          session.id.substring(7),
+    };
+    for (final row in await contributionStore.receipts()) {
+      if (row['localUseVersion'] == null) continue;
+      final session = all
+          .where((s) => s.id == 'linked-${row['root_id']}')
+          .firstOrNull;
+      if (session == null ||
+          session.deleted ||
+          session.researchConsentAtUtc == null) {
+        blocked.add(row['root_id'] as String);
+      }
+    }
+    return blocked;
+  }
 
   Future<Set<String>> _liveContributionRoots() async {
     final pending = (await contributionStore.pendingDeletes()).toSet();
@@ -197,6 +212,7 @@ final class ReviewStore {
       throw StateError('Initial observation history is immutable');
     }
     if (old == null &&
+        !session.id.startsWith('linked-') &&
         all
                 .where(
                   (s) =>

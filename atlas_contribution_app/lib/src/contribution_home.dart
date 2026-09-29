@@ -1,3 +1,5 @@
+import 'dart:io';
+import 'photo_suitability.dart';
 import 'package:coffee_camera/coffee_camera.dart';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -63,11 +65,13 @@ class ContributionHome extends StatefulWidget {
     this.aiDescription,
     this.fortuneProgress,
     this.galleryPicker,
+    this.photoSuitability,
     this.cameraLauncher,
     this.saucerLauncher,
     this.modern = false,
     this.onConfirmedRecorded,
     this.recordState,
+    this.recordStarred,
     super.key,
   });
   final DraftStore store;
@@ -81,6 +85,7 @@ class ContributionHome extends StatefulWidget {
   final Future<String?> Function()? aiDescription;
   final ValueNotifier<FortuneProgress>? fortuneProgress;
   final GalleryPicker? galleryPicker;
+  final PhotoSuitability? photoSuitability;
   final CameraLauncher? cameraLauncher;
   final Future<CameraCaptureResult?> Function(BuildContext)? saucerLauncher;
   final bool modern;
@@ -90,6 +95,7 @@ class ContributionHome extends StatefulWidget {
   )?
   onConfirmedRecorded;
   final Future<String> Function(Map<String, dynamic>)? recordState;
+  final Future<bool> Function(Map<String, dynamic>)? recordStarred;
   @override
   State<ContributionHome> createState() => _ContributionHomeState();
 }
@@ -98,6 +104,7 @@ class _ContributionHomeState extends State<ContributionHome>
     with WidgetsBindingObserver {
   ContributionDraft? _draft;
   bool _loading = true, _busy = false, _resumePrompt = false;
+  bool _fortuneWorkflow = false, _startChoiceOpen = false;
   String? _error;
   int _uploaded = 0;
   bool _stopRequested = false;
@@ -113,10 +120,9 @@ class _ContributionHomeState extends State<ContributionHome>
   Widget _saveActions(bool enabled) => FutureBuilder<String?>(
     future: widget.aiDescription?.call(),
     builder: (context, snapshot) => Column(
+      mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (snapshot.data != null)
-          Text('${snapshot.data} · Yalnız metinsel özet gönderilir'),
         if (widget.onGenerateFortune != null)
           FilledButton(
             onPressed: enabled && snapshot.data != null
@@ -133,8 +139,15 @@ class _ContributionHomeState extends State<ContributionHome>
         if (widget.onGenerateFortune != null &&
             snapshot.connectionState == ConnectionState.done &&
             snapshot.data == null)
-          const Text(
-            'Fal için Ayarlar’dan bir AI bağlantısı seç. Kaydını yine saklayabilirsin.',
+          TextButton.icon(
+            onPressed: widget.onAiSettings == null
+                ? null
+                : () async {
+                    await widget.onAiSettings!();
+                    _change(() {});
+                  },
+            icon: const Icon(Icons.settings_outlined),
+            label: const Text('Fal bağlantısını ayarla'),
           ),
       ],
     ),
@@ -143,6 +156,11 @@ class _ContributionHomeState extends State<ContributionHome>
   int _tab = 0;
   bool _flowOpen = false, _sequenceRunning = false, _sameSample = false;
   final Set<String> _usable = {};
+  late final _suitability =
+      widget.photoSuitability ??
+      PhotoSuitability(
+        Directory('${widget.store.directory.parent.path}/photo-suitability'),
+      );
   void _change(VoidCallback action) {
     if (mounted) setState(action);
   }
@@ -210,6 +228,11 @@ class _ContributionHomeState extends State<ContributionHome>
 
   Future<void> _save(ContributionDraft next) async {
     await widget.store.save(next);
+    if (widget.modern && widget.service.isOffline) {
+      for (final p in next.photos) {
+        await _suitability.assess(widget.store.file(p.localName), p);
+      }
+    }
     if (mounted) {
       setState(() {
         if (_draft?.id != next.id) _savePhase = _SavePhase.idle;
@@ -219,12 +242,19 @@ class _ContributionHomeState extends State<ContributionHome>
   }
 
   Future<bool> _consent() async {
+    if (widget.service.isOffline && await widget.store.hasLocalAcceptance()) {
+      return true;
+    }
+    if (!mounted) return false;
     bool adult = false, permission = false;
-    return await showDialog<bool>(
+    final accepted =
+        await showDialog<bool>(
           context: context,
           builder: (context) => StatefulBuilder(
             builder: (context, change) => AlertDialog(
-              title: const Text('Katkı iznin'),
+              title: Text(
+                widget.service.isOffline ? 'Başlamadan önce' : 'Katkı iznin',
+              ),
               content: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -244,8 +274,10 @@ class _ContributionHomeState extends State<ContributionHome>
                     ),
                     CheckboxListTile(
                       contentPadding: EdgeInsets.zero,
-                      title: const Text(
-                        'Kendi çektiğim fotoğrafların ve işaretlerimin bu amaçla kullanılmasına izin veriyorum.',
+                      title: Text(
+                        widget.service.isOffline
+                            ? 'Yerel kayıt ve fal hizmeti açıklamasını okudum. Araştırmaya katkı vermek isteğe bağlıdır.'
+                            : 'Kendi çektiğim fotoğrafların ve işaretlerimin bu amaçla kullanılmasına izin veriyorum.',
                       ),
                       value: permission,
                       onChanged: (v) => change(() => permission = v!),
@@ -269,6 +301,10 @@ class _ContributionHomeState extends State<ContributionHome>
           ),
         ) ??
         false;
+    if (accepted && widget.service.isOffline) {
+      await widget.store.acceptLocalUse();
+    }
+    return accepted;
   }
 
   Future<void> _new({String? groupId}) async {
@@ -427,6 +463,7 @@ class _ContributionHomeState extends State<ContributionHome>
       _busy = true;
       _uploaded = 0;
       _savePhase = _SavePhase.saving;
+      _fortuneWorkflow = true;
     });
     widget.fortuneProgress?.value = const FortuneProgress(FortunePhase.saving);
     _stopRequested = false;
@@ -556,7 +593,12 @@ class _ContributionHomeState extends State<ContributionHome>
         );
       }
     } finally {
-      if (mounted) setState(() => _busy = false);
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          _fortuneWorkflow = false;
+        });
+      }
     }
   }
 
@@ -603,6 +645,7 @@ class _ContributionHomeState extends State<ContributionHome>
       MaterialPageRoute<void>(
         builder: (_) => ContributionHistory(
           onReadFortune: widget.onReadFortune,
+          recordStarred: widget.recordStarred,
           store: widget.store,
           service: widget.service,
           canStart: _draft == null,
@@ -645,6 +688,7 @@ class _ContributionHomeState extends State<ContributionHome>
   @override
   Widget build(BuildContext context) {
     if (widget.modern &&
+        _fortuneWorkflow &&
         _busy &&
         _draft != null &&
         widget.fortuneProgress != null) {
@@ -1013,6 +1057,7 @@ class ContributionHistory extends StatefulWidget {
     this.currentDraft,
     this.onContinue,
     this.recordState,
+    this.recordStarred,
     super.key,
   });
   final DraftStore store;
@@ -1026,6 +1071,7 @@ class ContributionHistory extends StatefulWidget {
   final ContributionDraft? currentDraft;
   final Future<void> Function()? onContinue;
   final Future<String> Function(Map<String, dynamic>)? recordState;
+  final Future<bool> Function(Map<String, dynamic>)? recordStarred;
   @override
   State<ContributionHistory> createState() => _ContributionHistoryState();
 }
@@ -1043,6 +1089,7 @@ class _ContributionHistoryState extends State<ContributionHistory> {
     _refresh();
   }
 
+  final Set<String> _starredRoots = {};
   Future<void> _refresh() async {
     setState(() => _busy = true);
     try {
@@ -1056,6 +1103,14 @@ class _ContributionHistoryState extends State<ContributionHistory> {
     _rows = _rows.where((r) => !deleted.contains(r['root_id'])).toList();
     if (widget.onlyRoot != null) {
       _rows = _rows.where((r) => r['root_id'] == widget.onlyRoot).toList();
+    }
+    _starredRoots.clear();
+    if (widget.recordStarred != null) {
+      for (final row in _rows) {
+        if (await widget.recordStarred!(row)) {
+          _starredRoots.add(row['root_id'] as String);
+        }
+      }
     }
     if (widget.recordState != null) {
       for (final row in _rows) {
@@ -1255,7 +1310,11 @@ class _ContributionHistoryState extends State<ContributionHistory> {
                                 : () => _act(
                                     () => widget.onReadFortune!(_rows[i]),
                                   ),
-                            child: const Text('Fal oluştur'),
+                            child: Text(
+                              _recordStates[_rows[i]['root_id']] == 'Fal hazır'
+                                  ? 'Falını Oku'
+                                  : 'Fal Oluştur',
+                            ),
                           ),
                         if (widget.canStart) ...[
                           OutlinedButton(

@@ -207,7 +207,7 @@ void main() {
     },
   );
 
-  for (final action in ['withdraw', 'delete', 'expire']) {
+  for (final action in ['withdraw', 'delete']) {
     test(
       'contribution final validation prevents $action during preparation',
       () async {
