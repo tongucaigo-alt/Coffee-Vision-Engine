@@ -286,6 +286,7 @@ extension _PhotoSetFlow on _ContributionHomeState {
                       ],
                     ],
                   ),
+                  _photoCheckNotice(p),
                   if (draft.complete) Text(_decisionText(p)),
                 ],
               ),

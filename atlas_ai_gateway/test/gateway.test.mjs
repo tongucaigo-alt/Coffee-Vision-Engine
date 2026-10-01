@@ -41,7 +41,7 @@ test('shared language cases distinguish reporting from visual evidence',()=>{
   }
 });
 test('shared prompt version and byte hash include the language repair instructions',()=>{
-  assert.equal(prompt.version,'atlas-fortune-prompt-v5');
+  assert.equal(prompt.version,'atlas-fortune-prompt-v6');
   assert.equal(promptHash,createHash('sha256').update(promptBytes).digest('hex'));
   assert.match(messages(context())[0].content,/You have not seen any photo\./);
   assert.ok(!messages(context())[1].content.includes('bunu açıkça söyle'));

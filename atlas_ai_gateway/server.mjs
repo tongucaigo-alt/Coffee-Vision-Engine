@@ -1,13 +1,16 @@
 import http from 'node:http';
+import { dirname, join } from 'node:path';
+import { reportStore } from './reports.mjs';
 import { readFileSync } from 'node:fs';
 import { createHash, randomUUID } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
 import { exact, validateContext, messages, qualityError, prompt, promptHash } from './contract.mjs';
 
 const hash = value => createHash('sha256').update(value).digest('hex');
-export function createGateway({config, tokens, fetchImpl = fetch, runtimeMs = 180000, queueMs = 1800000, retentionMs = 1800000}) {
+export function createGateway({config, tokens, fetchImpl = fetch, runtimeMs = 180000, queueMs = 1800000, retentionMs = 1800000, saveReport = null}) {
   const jobs = new Map(), dedupe = new Map();
   const instance = randomUUID();
+  const reportCounts = new Map();
   let active = null, stopping = false, stalled = false;
   const models = () => config().models;
   function end(job, state, error) {
@@ -44,7 +47,7 @@ export function createGateway({config, tokens, fetchImpl = fetch, runtimeMs = 18
         const choice = data.choices?.[0];
         const text = choice?.message?.content;
         job.previousReply=typeof text==='string'?text.slice(0,12000):null;
-        const error = qualityError(text,choice?.finish_reason,job.context);
+        const error = qualityError(text,choice?.finish_reason,job.context,false);
         lastError = error;
         if (!error) {
           job.result = {text:text.trim(),model:job.model.model,modelAlias:job.alias,promptVersion:prompt.version,promptHash,temperature:prompt.temperature,maxTokens:prompt.maxTokens,noThink:!!job.model.noThink,durationMs:(job.productionMs??0)+Date.now()-job.startedAt,attempts:attempt+1,reasoningTokens:data.usage?.completion_tokens_details?.reasoning_tokens??null,reasoningReturned:!!choice?.message?.reasoning_content};
@@ -75,7 +78,23 @@ export function createGateway({config, tokens, fetchImpl = fetch, runtimeMs = 18
       if (!owner) return reply(res,401,{error:'unauthorized'});
       const url = new URL(req.url,'http://localhost');
       const route = url.pathname;
-      if (req.method === 'GET' && route === '/api/ai/v1/capabilities') return reply(res,200,{apiVersion:1,contextVersions:['atlas-fortune-context-v1','atlas-fortune-context-v2'],clientRepetitionRepair:true,serverInstanceId:instance,promptVersion:prompt.version,promptHash,models:Object.keys(models()),available:!stalled,capacity:10});
+      if (req.method === 'GET' && route === '/api/ai/v1/capabilities') return reply(res,200,{apiVersion:1,reportVersion:saveReport?1:null,contextVersions:['atlas-fortune-context-v1','atlas-fortune-context-v2'],clientRepetitionRepair:true,serverInstanceId:instance,promptVersion:prompt.version,promptHash,models:Object.keys(models()),available:!stalled,capacity:10});
+      if (req.method === 'POST' && route === '/api/ai/v1/reports') {
+        if (!saveReport) return reply(res,503,{error:'reporting_unavailable'});
+        const window = reportCounts.get(owner);
+        const current = window && Date.now()-window.at < 3600000 ? window : {at:Date.now(),count:0};
+        if (current.count >= 30) return reply(res,429,{error:'report_limit'});
+        current.count++; reportCounts.set(owner,current);
+        const chunks=[]; let size=0;
+        for await (const chunk of req) { size+=chunk.length; if(size>65536) return reply(res,413,{error:'too_large'}); chunks.push(chunk); }
+        try {
+          const body=JSON.parse(Buffer.concat(chunks).toString('utf8'));
+          await saveReport(owner,body);
+          return reply(res,201,{version:1,status:'received',reportId:body.id});
+        } catch (error) {
+          return reply(res,['invalid_report','report_conflict'].includes(error.message)?400:503,{error:'report_not_saved'});
+        }
+      }
       if (req.method === 'POST' && route === '/api/ai/v1/jobs') {
         if (stalled) return reply(res,503,{error:'upstream_state_unknown'});
         const chunks=[]; let size=0;
@@ -137,6 +156,6 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     const u=new URL(model.baseUrl);
     if(u.protocol!=='https:' && !(u.protocol==='http:' && ['localhost','127.0.0.1','[::1]'].includes(u.hostname))) throw new Error('Upstream must be loopback HTTP or HTTPS.');
   }
-  const server=createGateway({config:load,tokens:()=>load().testers});
+  const server=createGateway({config:load,tokens:()=>load().testers,saveReport:reportStore(join(dirname(filename),'content-reports'))});
   server.listen(initial.port??8787,'127.0.0.1',()=>console.log('Atlas AI gateway listening on loopback. No request contents are logged.'));
 }

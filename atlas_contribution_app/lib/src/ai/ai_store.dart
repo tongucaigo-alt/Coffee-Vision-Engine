@@ -46,6 +46,25 @@ class AiStore {
     return next;
   }
 
+  Future<void> queueReport(Map<String, dynamic> row) => change((d) {
+    final reports = d.putIfAbsent('contentReports', () => <dynamic>[]) as List;
+    if (reports.any((r) => r['id'] == row['id'])) return;
+    reports.add(row);
+  });
+  Future<List<Map<String, dynamic>>> pendingReports() async =>
+      ((await read())['contentReports'] as List? ?? [])
+          .where((r) => r['state'] == 'pending')
+          .map((r) => Map<String, dynamic>.from(r as Map))
+          .toList();
+  Future<void> markReportSent(String id) => change((d) {
+    for (final r in d['contentReports'] as List? ?? []) {
+      if (r['id'] == id) {
+        r['state'] = 'sent';
+        r.remove('text');
+      }
+    }
+  });
+
   Future<Set<String>> starredIds() async =>
       Set<String>.from((await read())['starredResultIds'] as List? ?? []);
   Future<void> setStarred(String resultId, bool starred) => change((d) {
@@ -157,6 +176,7 @@ class AiStore {
         .map((r) => r['id'])
         .toSet();
     (d['starredResultIds'] as List?)?.removeWhere(removed.contains);
+    (d['contentReports'] as List?)?.removeWhere((r) => r['sessionId'] == id);
     (d['results'] as List).removeWhere((r) => r['sessionId'] == id);
     // Minimal exposure history remains alongside existing research tombstones;
     // no narrative, profile, input or media is retained here.

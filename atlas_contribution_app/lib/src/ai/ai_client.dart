@@ -117,6 +117,8 @@ class AiClient {
             429 => 'Sunucu meşgul. Biraz sonra tekrar dene.',
             404 => 'İş veya adres bulunamadı. Sunucu yeniden açılmış olabilir.',
             409 => 'İstek sürümü çakıştı.',
+            503 =>
+              'Fal hizmeti şu anda kullanılamıyor. Kayıtların korunuyor; test saatlerinde yeniden deneyebilirsin.',
             _ => 'AI servisi yanıt veremedi (${response.statusCode}).',
           });
         }
@@ -126,10 +128,34 @@ class AiClient {
       rethrow;
     } catch (_) {
       throw const AiFailure(
-        'AI bağlantısı kurulamadı veya zaman aşımına uğradı. Kayıtların telefonda korunuyor.',
+        playTestEnabled
+            ? 'Fal hizmetine şu anda ulaşılamıyor. Kayıtların telefonda korunuyor; test saatlerinde yeniden deneyebilirsin.'
+            : 'AI bağlantısı kurulamadı veya zaman aşımına uğradı. Kayıtların telefonda korunuyor.',
       );
     } finally {
       client.close(force: true);
+    }
+  }
+
+  Future<void> sendReport(
+    AiProfile profile,
+    String key,
+    Map<String, dynamic> report,
+  ) async {
+    if (profile.provider != AiProvider.atlas) {
+      throw const AiFailure('Bildirim için Atlas test bağlantısı gerekli.');
+    }
+    final reply = await _request(
+      profile,
+      'POST',
+      '/api/ai/v1/reports',
+      key,
+      body: report,
+    );
+    if (reply['version'] != 1 ||
+        reply['status'] != 'received' ||
+        reply['reportId'] != report['id']) {
+      throw const AiFailure('Bildirim henüz alınamadı.');
     }
   }
 
@@ -227,6 +253,7 @@ class AiClient {
                         result['text'] as String?,
                         'stop',
                         context: input,
+                        editorial: !playTestEnabled,
                       ) !=
                       null &&
                   !(bestEffort &&
@@ -234,6 +261,7 @@ class AiClient {
             throw const AiFailure('Yanıt kalite kontrolünden geçmedi.');
           }
           if (!bestEffort &&
+              !playTestEnabled &&
               input['version'] == 'atlas-fortune-context-v2' &&
               narrativeRepetition(result['text'] as String, previousTexts) !=
                   null) {

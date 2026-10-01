@@ -1,4 +1,6 @@
 import 'dart:io';
+import 'dart:async';
+import 'ai/ai_contract.dart' show playTestEnabled;
 import 'photo_suitability.dart';
 import 'package:coffee_camera/coffee_camera.dart';
 import 'package:flutter/material.dart';
@@ -156,6 +158,43 @@ class _ContributionHomeState extends State<ContributionHome>
   int _tab = 0;
   bool _flowOpen = false, _sequenceRunning = false, _sameSample = false;
   final Set<String> _usable = {};
+  final _photoChecks = <String, Map<String, dynamic>>{};
+  final _checkingPhotos = <String>{};
+  Future<void> _checkPhoto(ContributionPhoto p, {bool retry = false}) async {
+    final key = suitabilityIdentity(p);
+    if (!_checkingPhotos.add(key)) return;
+    _change(() {});
+    try {
+      final value = await _suitability.assess(
+        widget.store.file(p.localName),
+        p,
+        retry: retry,
+      );
+      if (!mounted ||
+          _draft?.photos.any((v) => suitabilityIdentity(v) == key) != true) {
+        return;
+      }
+      _change(() {
+        _photoChecks[key] = value;
+        if (suitabilityAccepted(value, p)) {
+          _usable.add(_photoIdentity(p));
+        } else {
+          _usable.remove(_photoIdentity(p));
+        }
+      });
+    } finally {
+      _checkingPhotos.remove(key);
+      _change(() {});
+    }
+  }
+
+  Widget _photoCheckNotice(ContributionPhoto p) => PhotoSuitabilityNotice(
+    photo: p,
+    value: _photoChecks[suitabilityIdentity(p)],
+    onRetry: _atlasBusy || _checkingPhotos.contains(suitabilityIdentity(p))
+        ? null
+        : () => _checkPhoto(p, retry: true),
+  );
   late final _suitability =
       widget.photoSuitability ??
       PhotoSuitability(
@@ -209,7 +248,14 @@ class _ContributionHomeState extends State<ContributionHome>
       _error =
           'Taslak okunamadı. Dosyaların korundu; destek için davet eden kişiye ulaş.';
     }
-    if (mounted) setState(() => _loading = false);
+    if (mounted) {
+      setState(() => _loading = false);
+      if (widget.modern && widget.service.isOffline && _draft != null) {
+        for (final p in _draft!.photos) {
+          unawaited(_checkPhoto(p));
+        }
+      }
+    }
     await _sync();
   }
 
@@ -228,16 +274,16 @@ class _ContributionHomeState extends State<ContributionHome>
 
   Future<void> _save(ContributionDraft next) async {
     await widget.store.save(next);
-    if (widget.modern && widget.service.isOffline) {
-      for (final p in next.photos) {
-        await _suitability.assess(widget.store.file(p.localName), p);
-      }
-    }
     if (mounted) {
       setState(() {
         if (_draft?.id != next.id) _savePhase = _SavePhase.idle;
         _draft = next;
       });
+      if (widget.modern && widget.service.isOffline) {
+        for (final p in next.photos) {
+          unawaited(_checkPhoto(p));
+        }
+      }
     }
   }
 
@@ -478,7 +524,10 @@ class _ContributionHomeState extends State<ContributionHome>
         },
       );
       final confirmed = (_sameSample || _draft!.photos.length == 1)
-          ? Set<String>.of(_usable)
+          // Same-sample declaration is independent of the system's photo check.
+          // onConfirmedRecorded reads each actual assessment; no usability tick
+          // is synthesized, including when a check failed.
+          ? _draft!.photos.map(_photoIdentity).toSet()
           : <String>{};
       await widget.store.saveReceipt(row);
       receiptSaved = true;
@@ -531,11 +580,7 @@ class _ContributionHomeState extends State<ContributionHome>
               ? savedExplanation
               : 'Gönderildi. Katkın için teşekkür ederiz.',
         );
-        if (generate &&
-            !_stopRequested &&
-            widget.onGenerateFortune != null &&
-            (preparation == RecordPreparationStatus.ready ||
-                preparation == RecordPreparationStatus.partial)) {
+        if (generate && !_stopRequested && widget.onGenerateFortune != null) {
           await widget.onGenerateFortune!(row);
         } else if (!generate &&
             !widget.modern &&

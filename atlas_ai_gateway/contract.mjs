@@ -75,7 +75,7 @@ export function physicalCues(context) {
     if(c) {
       const horizontal=c.x<1/3?'sol':c.x>2/3?'sağ':'orta';
       const vertical=c.y<1/3?'üst':c.y>2/3?'alt':'orta';
-      cues.unshift(`${surface} ${horizontal} ${vertical} bölümündeki leke`);
+      cues.unshift(`${surface} ${horizontal===vertical?'orta':horizontal==='orta'?vertical:vertical==='orta'?horizontal:vertical+' '+horizontal} bölümündeki leke`);
     }
   }
   return [...new Set(cues)].slice(0,3);
@@ -101,16 +101,17 @@ function groundingError(lower, context) {
   }
   return null;
 }
-export function qualityError(text, finishReason, context = null) {
+export function qualityError(text, finishReason, context = null, editorial = true) {
   if (finishReason !== 'stop' || typeof text !== 'string') return 'incomplete';
-  if(context?.version==='atlas-fortune-context-v2') {
+  if(editorial && context?.version==='atlas-fortune-context-v2') {
     const words=text.trim().split(/\s+/u).length;
     if(words<250 || words>400) return 'length';
     if(text.trim().split(/\n\s*\n/u).length!==4) return 'structure';
   }
   const lower = text.toLocaleLowerCase('tr');
   if (/<\/?think|analysis:|reasoning:|```|\b(system|assistant)\s*:/i.test(text)) return 'reasoning';
-  if (text.trim().split(/\s+/u).length < 150 || text.length > 12000) return 'length';
+  if (!text.trim() || text.length > 12000) return 'incomplete';
+  if (editorial && text.trim().split(/\s+/u).length < 150) return 'length';
   if (/kesinlikle|kesin olarak|yüzde yüz|%\s*100|garanti|mutlaka|olacaksın|kazanacaksın|evleneceksin|gerçekleşecek|olacaktır|öleceksin|olacağını|şekillenecek|getirecek|açılacak|karşılaşacaksın|bulacaksın|seni bekliyor/u.test(lower)) return 'certainty';
   if (/(^|[^a-zçğıöşü])(olacak|yaşanacak|göreceksin|hissedeceksin|başlayacak|bitecek|kalacak|taşıyacak|çıkacak)($|[^a-zçğıöşü])/u.test(lower)) return 'certainty';
   const grounding = groundingError(lower, context);

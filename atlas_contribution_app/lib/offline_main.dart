@@ -28,7 +28,9 @@ Future<void> main() async {
     manualRetention: true,
   );
   await store.initialize();
-  final ai = aiLabEnabled ? await AiRuntime.create(store) : null;
+  final ai = (aiLabEnabled || playTestEnabled)
+      ? await AiRuntime.create(store)
+      : null;
   runApp(OfflineContributionApp(store: store, ai: ai));
 }
 

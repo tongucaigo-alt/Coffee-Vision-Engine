@@ -73,7 +73,7 @@ extension _AtlasHomePresentation on _ContributionHomeState {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (_draft!.reviewed && _usable.length == _draft!.photos.length) ...[
+          if (_draft!.reviewed) ...[
             OutlinedButton.icon(
               onPressed: _atlasBusy ? null : _atlasAnnotations,
               icon: const Icon(Icons.draw_outlined),
@@ -144,14 +144,7 @@ extension _AtlasHomePresentation on _ContributionHomeState {
     try {
       for (final p in draft.photos) {
         if (!mounted) return;
-        final assessment = await ensurePhotoSuitability(
-          context,
-          _suitability,
-          widget.store.file(p.localName),
-          p,
-        );
-        if (assessment == null) return;
-        _usable.add(_photoIdentity(p));
+        await _checkPhoto(p);
       }
     } finally {
       _change(() => _busy = false);
@@ -405,7 +398,11 @@ extension _AtlasHomePresentation on _ContributionHomeState {
         OutlinedButton.icon(
           onPressed: _atlasBusy ? null : widget.onAiSettings,
           icon: const Icon(Icons.science_outlined),
-          label: const Text('AI Laboratuvarı · Test'),
+          label: const Text(
+            playTestEnabled
+                ? 'Atlas Test Bağlantısı'
+                : 'AI Laboratuvarı · Test',
+          ),
         ),
         const SizedBox(height: 12),
       ],
@@ -483,6 +480,7 @@ extension _AtlasHomePresentation on _ContributionHomeState {
                     height: 190,
                   ),
                   const SizedBox(height: 8),
+                  _photoCheckNotice(p),
                   Text(_decisionText(p)),
                 ],
               ),

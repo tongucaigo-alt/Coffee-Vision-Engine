@@ -18,7 +18,19 @@ val atlasTestTarget = atlasProductionTargets.none {
 }
 val atlasDefines = providers.gradleProperty("dart-defines").orElse("").get()
     .split(",").filter { it.isNotBlank() }.map { String(Base64.getDecoder().decode(it)) }
+val atlasPlayTest = "ATLAS_PLAY_TEST=true" in atlasDefines
+if (atlasPlayTest && ("ATLAS_AI_LAB=true" in atlasDefines || atlasDefines.any { it.startsWith("ATLAS_KIMI_TEST_KEY=") && it.substringAfter('=').isNotBlank() })) {
+    throw GradleException("Play builds must not include laboratory mode or a bundled provider credential.")
+}
 val atlasAiLab = "ATLAS_AI_LAB=true" in atlasDefines
+// Explicit sideload-only migration of the installed local Atlas test app.
+// Reuse the established Kimi/laboratory runtime while preserving its records.
+val atlasKimiLocalTest = "ATLAS_KIMI_LOCAL_TEST=true" in atlasDefines
+if (atlasKimiLocalTest && (atlasPlayTest || !atlasAiLab || !atlasDefines.any {
+    it.startsWith("ATLAS_KIMI_TEST_KEY=") && it.substringAfter('=').isNotBlank()
+})) {
+    throw GradleException("Local Kimi testing requires laboratory mode and a private build credential; it is not a Play build.")
+}
 // Flutter queries the application id separately without the integration target
 // when uninstalling. Keep that query on the diagnostic identity as well.
 val atlasDiagnostic = atlasTestTarget || "ATLAS_DIAGNOSTIC=true" in atlasDefines
@@ -41,7 +53,7 @@ android {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = if (atlasDiagnostic) {
             "com.coffeeplatform.atlas_contribution_app.diagnostic"
-        } else if (atlasAiLab) {
+        } else if (atlasAiLab && !atlasKimiLocalTest) {
             "com.coffeeplatform.atlas_contribution_app.beta"
         } else {
             "com.coffeeplatform.atlas_contribution_app"
@@ -53,7 +65,7 @@ android {
         versionCode = flutter.versionCode
         versionName = flutter.versionName
         manifestPlaceholders["atlasCleartext"] = if (atlasAiLab) "true" else "false"
-        manifestPlaceholders["atlasLabel"] = if (atlasAiLab) "Atlas AI Beta" else "Atlas Katkı"
+        manifestPlaceholders["atlasLabel"] = if (atlasKimiLocalTest) "Atlas Kimi Test" else if (atlasAiLab) "Atlas AI Beta" else if (atlasPlayTest) "Atlas" else "Atlas Katkı"
     }
 
     signingConfigs {
@@ -66,6 +78,7 @@ android {
     }
     buildTypes {
         release {
+            proguardFiles("proguard-rules.pro")
             if (signingFile.exists()) signingConfig = signingConfigs.getByName("founder")
         }
     }
@@ -82,5 +95,5 @@ flutter {
 }
 
 dependencies {
-    implementation("com.google.mediapipe:tasks-vision:0.10.21")
+    implementation("com.google.mediapipe:tasks-vision:0.10.26.1")
 }

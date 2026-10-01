@@ -7,7 +7,7 @@ $private = [IO.Path]::GetFullPath($PrivateDirectory)
 New-Item -ItemType Directory -Path $private -Force | Out-Null
 $configuration = Join-Path $private 'gateway.json'
 if (-not (Test-Path -LiteralPath $configuration)) {
-    $credentials = @(1..10 | ForEach-Object {
+    $credentials = @(1..12 | ForEach-Object {
         $bytes = [Security.Cryptography.RandomNumberGenerator]::GetBytes(32)
         $token = [Convert]::ToBase64String($bytes).TrimEnd('=').Replace('+', '-').Replace('/', '_')
         @{ id = "tester-$_"; token = $token }

@@ -100,27 +100,22 @@ void main() {
       );
     },
   );
-  test(
-    'acknowledged classifier error remains usable after reopening',
-    () async {
-      final checker = PhotoSuitability(Directory('${root.path}/suitability'));
-      final p = testPhoto(CaptureRole.free);
-      final file = File('${root.path}/missing.jpg');
-      final error = await checker.assess(file, p);
-      expect(error['status'], 'error');
-      expect(suitabilityAccepted(error, p), isFalse);
-      final acknowledged = await checker.continueWith(p, error);
-      final reopened = await PhotoSuitability(
-        checker.directory,
-      ).assess(file, p);
-      expect(reopened['continuedAtUtc'], acknowledged['continuedAtUtc']);
-      expect(suitabilityAccepted(reopened, p), isTrue);
-      expect(
-        suitabilityAccepted({...reopened, 'version': 'old-model'}, p),
-        isFalse,
-      );
-    },
-  );
+  test('legacy continue decision cannot bypass a technical failure', () async {
+    final checker = PhotoSuitability(Directory('${root.path}/suitability'));
+    final p = testPhoto(CaptureRole.free);
+    final file = File('${root.path}/missing.jpg');
+    final error = await checker.assess(file, p);
+    expect(error['status'], 'error');
+    expect(suitabilityAccepted(error, p), isFalse);
+    final acknowledged = await checker.continueWith(p, error);
+    final reopened = await PhotoSuitability(checker.directory).assess(file, p);
+    expect(reopened['continuedAtUtc'], acknowledged['continuedAtUtc']);
+    expect(suitabilityAccepted(reopened, p), isFalse);
+    expect(
+      suitabilityAccepted({...reopened, 'version': 'old-model'}, p),
+      isFalse,
+    );
+  });
   test(
     'two-view conservative rule distinguishes uncertainty from rejection',
     () {
@@ -148,7 +143,7 @@ void main() {
           'full': [key, row('cup', .02)],
           'crop': [key],
         }),
-        'supported',
+        'uncertain',
       );
       expect(
         classifySuitability({

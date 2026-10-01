@@ -193,7 +193,7 @@ void main() {
       );
       expect(messages.last['content'], endsWith('/no_think'));
       expect(jsonEncode(messages), isNot(contains('sessionId')));
-      expect(prompt.version, 'atlas-fortune-prompt-v5');
+      expect(prompt.version, 'atlas-fortune-prompt-v6');
       expect(
         prompt.hash,
         sha256

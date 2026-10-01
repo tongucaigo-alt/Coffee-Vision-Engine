@@ -14,6 +14,7 @@ class SupportedSuitability extends PhotoSuitability {
   }) async => {
     'version': suitabilityVersion,
     'checksum': p.checksum,
+    'surface': p.surface.name,
     'cropKey': jsonEncode((p.displayCrop ?? PhotoCrop.full).toJson()),
     'status': 'supported',
   };

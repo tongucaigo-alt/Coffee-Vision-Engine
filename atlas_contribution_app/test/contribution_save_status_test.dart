@@ -12,8 +12,12 @@ import 'fixtures.dart';
 
 class MemoryStore extends DraftStore {
   bool accepted = false;
-  @override Future<bool> hasLocalAcceptance() async => accepted;
-  @override Future<void> acceptLocalUse() async { accepted = true; }
+  @override
+  Future<bool> hasLocalAcceptance() async => accepted;
+  @override
+  Future<void> acceptLocalUse() async {
+    accepted = true;
+  }
 
   MemoryStore(super.directory, this.draft);
   ContributionDraft? draft;
@@ -91,7 +95,10 @@ void main() {
             createdAt: b.createdAt,
             consentedAt: b.consentedAt,
             kind: ContributionKind.freeThreeAngle,
-            photos: [for (final r in freeCaptureRoles) testPhoto(r, decision: PhotoDecision.skipped)],
+            photos: [
+              for (final r in freeCaptureRoles)
+                testPhoto(r, decision: PhotoDecision.skipped),
+            ],
           );
           store = MemoryStore(dir, d);
           for (final p in d.photos) {
@@ -104,7 +111,8 @@ void main() {
         final analysis = Completer<RecordPreparationStatus>();
         await tester.pumpWidget(
           MaterialApp(
-            home: ContributionHome(photoSuitability: SupportedSuitability(),
+            home: ContributionHome(
+              photoSuitability: SupportedSuitability(),
               modern: true,
               store: store,
               service: service,
@@ -122,7 +130,7 @@ void main() {
           await tester.tap(find.byType(CheckboxListTile).at(i));
           await tester.pump();
         }
-        await tester.tap(find.text('Şekilleri İncele'));
+        await tester.tap(find.text('İşaretleri Gözden Geçir'));
         await tester.pumpAndSettle();
         await tester.pageBack();
         await tester.pumpAndSettle();
@@ -140,7 +148,8 @@ void main() {
           expect(find.text('Kaydı Yeniden Dene'), findsOneWidget);
           service.fail = false;
           await tester.tap(find.text('Kaydı Yeniden Dene'));
-          await tester.pump(); await tester.pump();
+          await tester.pump();
+          await tester.pump();
         }
         expect(store.rows, hasLength(1));
         expect(find.text('Telve inceleniyor…'), findsWidgets);

@@ -14,6 +14,7 @@ import 'ai_client.dart';
 import 'ai_contract.dart';
 import 'ai_runtime.dart';
 import 'ai_bundled.dart';
+import 'play_access_page.dart';
 import 'narrative.dart';
 import '../fortune_progress.dart';
 
@@ -276,36 +277,38 @@ class _AiLabPageState extends State<AiLabPage> {
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('AI Laboratuvarı · Test')),
-    body: ListView(
-      padding: const EdgeInsets.all(20),
-      children: [
-        const Text(
-          'Yalnız test ekibi için. Fotoğraflar gönderilmez; seçilen sunucuya metinsel gözlemler ve fiziksel özet iletilir.',
-        ),
-        if (_message != null) Text(_message!),
-        for (final p in _profiles)
-          ListTile(
-            title: Text(p.name),
-            subtitle: Text(
-              isBundledProfile(p)
-                  ? '${p.model} · Hazır test bağlantısı\nİnternet bağlantısıyla kullanılır.'
-                  : '${p.model}\n${p.url}',
-            ),
-            isThreeLine: true,
-            trailing: isBundledProfile(p)
-                ? const Icon(Icons.lock_outline)
-                : null,
-            onTap: isBundledProfile(p) ? null : () => _edit(p),
+  Widget build(BuildContext context) => playTestEnabled
+      ? PlayAccessPage(runtime: widget.runtime)
+      : Scaffold(
+          appBar: AppBar(title: const Text('AI Laboratuvarı · Test')),
+          body: ListView(
+            padding: const EdgeInsets.all(20),
+            children: [
+              const Text(
+                'Yalnız test ekibi için. Fotoğraflar gönderilmez; seçilen sunucuya metinsel gözlemler ve fiziksel özet iletilir.',
+              ),
+              if (_message != null) Text(_message!),
+              for (final p in _profiles)
+                ListTile(
+                  title: Text(p.name),
+                  subtitle: Text(
+                    isBundledProfile(p)
+                        ? '${p.model} · Hazır test bağlantısı\nİnternet bağlantısıyla kullanılır.'
+                        : '${p.model}\n${p.url}',
+                  ),
+                  isThreeLine: true,
+                  trailing: isBundledProfile(p)
+                      ? const Icon(Icons.lock_outline)
+                      : null,
+                  onTap: isBundledProfile(p) ? null : () => _edit(p),
+                ),
+              FilledButton(
+                onPressed: () => _edit(),
+                child: const Text('Bağlantı ekle'),
+              ),
+            ],
           ),
-        FilledButton(
-          onPressed: () => _edit(),
-          child: const Text('Bağlantı ekle'),
-        ),
-      ],
-    ),
-  );
+        );
 }
 
 class AiFortunePage extends StatefulWidget {
@@ -332,6 +335,8 @@ class _AiFortunePageState extends State<AiFortunePage> {
   Set<String> _stars = {};
   bool _busy = false, _compare = false, _showScan = false;
   AiCancellation? _cancel;
+  PhotoSuitabilityFailure? _photoFailure;
+  bool _checkingPhotos = false;
   ReviewSession get session => _controller.session;
   @override
   void initState() {
@@ -406,6 +411,13 @@ class _AiFortunePageState extends State<AiFortunePage> {
     });
     try {
       await action();
+    } on PhotoSuitabilityFailure catch (e) {
+      if (mounted) {
+        setState(() {
+          _photoFailure = e;
+          _message = null;
+        });
+      }
     } catch (e) {
       if (mounted) setState(() => _message = _error(e));
     } finally {
@@ -418,63 +430,73 @@ class _AiFortunePageState extends State<AiFortunePage> {
     }
   }
 
-  Future<bool> _checkPhotos() async {
-    final checker = PhotoSuitability(
-      Directory(
-        '${widget.runtime.bridge.source.directory.parent.path}/photo-suitability',
-      ),
-    );
-    var next = session;
-    for (final p in session.photos) {
-      if (!mounted) return false;
-      final assessment = await ensurePhotoSuitability(
-        context,
-        checker,
-        widget.runtime.reviews.file(p.photo.localName),
-        p.photo,
-      );
-      if (assessment == null) return false;
-      if (jsonEncode(assessment) != jsonEncode(p.suitability)) {
-        next = next.withPhoto(p.update(suitability: assessment));
-      }
-    }
-    if (session.photos.length == 1 && !next.sameSampleDeclared) {
-      next = next.next(sameSample: true);
-    }
-    if (!next.sameSampleDeclared && mounted) {
-      final same = await showDialog<bool>(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          title: const Text('Aynı fincan mı?'),
-          content: const Text(
-            'Fotoğraflar aynı fincana ve varsa ona ait tabağa mı ait?',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Geri dön'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Evet, devam et'),
-            ),
-          ],
+  Future<bool> _checkPhotos({bool retry = false}) async {
+    if (mounted) setState(() => _checkingPhotos = true);
+    try {
+      final checker = PhotoSuitability(
+        Directory(
+          '${widget.runtime.bridge.source.directory.parent.path}/photo-suitability',
         ),
       );
-      if (same != true) return false;
-      next = next.next(sameSample: true);
+      var next = session;
+      for (final p in session.photos) {
+        if (!mounted) return false;
+        final assessment = await ensurePhotoSuitability(
+          context,
+          checker,
+          widget.runtime.reviews.file(p.photo.localName),
+          p.photo,
+          retry: retry && _photoFailure?.photo.checksum == p.photo.checksum,
+        );
+        if (assessment == null) return false;
+        if (jsonEncode(assessment) != jsonEncode(p.suitability)) {
+          next = next.withPhoto(p.update(suitability: assessment));
+        }
+      }
+      if (session.photos.length == 1 && !next.sameSampleDeclared) {
+        next = next.next(sameSample: true);
+      }
+      if (!next.sameSampleDeclared && mounted) {
+        final same = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('Aynı fincan mı?'),
+            content: const Text(
+              'Fotoğraflar aynı fincana ve varsa ona ait tabağa mı ait?',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Geri dön'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('Evet, devam et'),
+              ),
+            ],
+          ),
+        );
+        if (same != true) return false;
+        next = next.next(sameSample: true);
+      }
+      if (!identical(next, session)) {
+        // Coalesce preparation into one revision regardless of photo count.
+        await _controller.save(
+          session.next(
+            photos: next.photos,
+            sameSample: next.sameSampleDeclared,
+          ),
+        );
+      }
+      return true;
+    } finally {
+      if (mounted) setState(() => _checkingPhotos = false);
     }
-    if (!identical(next, session)) {
-      // Coalesce preparation into one revision regardless of photo count.
-      await _controller.save(
-        session.next(photos: next.photos, sameSample: next.sameSampleDeclared),
-      );
-    }
-    return true;
   }
 
   Future<void> _generate() async {
-    if (widget.simple && !await _checkPhotos()) return;
+    if (!await _checkPhotos(retry: _photoFailure?.technical == true)) return;
+    _photoFailure = null;
     if (!mounted) return;
     setState(() => _showScan = true);
     if (!await widget.runtime.bridge.isCurrent(session)) {
@@ -564,6 +586,7 @@ class _AiFortunePageState extends State<AiFortunePage> {
         (result['answers'] as List).add({
           ...answer,
           'profileId': p.id,
+          'profileUrl': p.url,
           'profileName': p.name,
         });
         await widget.runtime.store.saveResult(result);
@@ -661,6 +684,30 @@ class _AiFortunePageState extends State<AiFortunePage> {
           : ListView(
               padding: const EdgeInsets.all(20),
               children: [
+                if (_checkingPhotos)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Semantics(
+                      liveRegion: true,
+                      child: const Text('Fotoğraflar kontrol ediliyor…'),
+                    ),
+                  ),
+                if (_photoFailure != null) ...[
+                  PhotoSuitabilityNotice(
+                    photo: _photoFailure!.photo,
+                    value: _photoFailure!.assessment,
+                    onRetry: _busy
+                        ? null
+                        : () => _act(() async {
+                            await _checkPhotos(retry: true);
+                            if (mounted) setState(() => _photoFailure = null);
+                          }),
+                  ),
+                  if (!_photoFailure!.technical)
+                    const Text(
+                      'Fotoğrafı değiştirmek veya kaldırmak için Kayıtlarım ekranındaki kaydı düzenle.',
+                    ),
+                ],
                 if (_message != null)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 16),
@@ -1018,6 +1065,92 @@ class _AiFortunePageState extends State<AiFortunePage> {
     );
   }
 
+  Future<void> _report(Map<String, dynamic> result, Map answer) async {
+    final profiles = await widget.runtime.store.profiles();
+    final profile = profiles
+        .where(
+          (p) =>
+              p.id == answer['profileId'] &&
+              p.url == answer['profileUrl'] &&
+              p.provider == AiProvider.atlas,
+        )
+        .firstOrNull;
+    if (!mounted) return;
+    if (profile == null) {
+      setState(
+        () => _message =
+            'Bu eski bağlantıda bildirim desteklenmiyor. Atlas test bağlantısıyla oluşturulan yorumlar bildirilebilir.',
+      );
+      return;
+    }
+    var reason = 'misleading';
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, update) => AlertDialog(
+          title: const Text('Bu yorumu bildir'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'Aşağıdaki yorum ve seçtiğin neden Atlas test yöneticisine gönderilecek. Fotoğrafların eklenmez.',
+                ),
+                DropdownButton<String>(
+                  value: reason,
+                  isExpanded: true,
+                  items: const [
+                    DropdownMenuItem(
+                      value: 'misleading',
+                      child: Text('Yanıltıcı yorum'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'harmful',
+                      child: Text('Rahatsız edici içerik'),
+                    ),
+                    DropdownMenuItem(value: 'other', child: Text('Diğer')),
+                  ],
+                  onChanged: (v) => update(() => reason = v!),
+                ),
+                SelectableText(answer['text'] as String),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Vazgeç'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Bildir'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    await _act(() async {
+      await widget.runtime.store.queueReport({
+        'id': const Uuid().v4(),
+        'sessionId': session.id,
+        'profileId': profile.id,
+        'url': profile.url,
+        'reason': reason,
+        'text': answer['text'],
+        'state': 'pending',
+      });
+      final pending = await widget.runtime.sendPendingReports();
+      if (mounted) {
+        setState(
+          () => _message = pending == 0
+              ? 'Bildirim iletildi.'
+              : 'Bildirim telefonda bekliyor. Ayarlar’dan yeniden gönderebilirsin.',
+        );
+      }
+    });
+  }
+
   List<Widget> _fortuneWidgets() => [
     for (final result in _results.where(
       (r) => (r['answers'] as List).isNotEmpty,
@@ -1061,6 +1194,13 @@ class _AiFortunePageState extends State<AiFortunePage> {
           hasSymbols: ((result['context'] as Map)['photos'] as List).any(
             (p) => (p['userObservations'] as List).isNotEmpty,
           ),
+        ),
+        TextButton.icon(
+          onPressed: _busy
+              ? null
+              : () => _report(result, result['answers'][i] as Map),
+          icon: const Icon(Icons.flag_outlined),
+          label: const Text('Bu yorumu bildir'),
         ),
         if (!widget.simple &&
             (result['comparison'] != true || result['vote'] != null))

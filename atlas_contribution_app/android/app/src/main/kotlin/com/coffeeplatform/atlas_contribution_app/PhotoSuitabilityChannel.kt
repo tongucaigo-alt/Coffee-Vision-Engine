@@ -26,14 +26,17 @@ class PhotoSuitabilityChannel(private val activity: Activity, messenger: BinaryM
         channel.setMethodCallHandler { call, result ->
             if (call.method != "classify") { result.notImplemented(); return@setMethodCallHandler }
             worker.execute {
+                var stage = "source"
                 try {
                     val source = File(requireNotNull(call.argument<String>("path"))).canonicalFile
                     val roots = listOf(activity.filesDir.parentFile!!, activity.cacheDir)
                     val diagnostic = activity.packageName.endsWith(".diagnostic") &&
                         source.path.startsWith("/data/local/tmp/atlas-suitability/")
                     require(source.isFile && (diagnostic || roots.any { source.path.startsWith(it.canonicalPath + File.separator) }))
+                    stage = "crop"
                     val crop = requireNotNull(call.argument<List<Double>>("crop"))
                     require(crop.size == 4 && crop.all { it.isFinite() } && crop[0] >= 0 && crop[1] >= 0 && crop[2] > 0 && crop[3] > 0 && crop[0]+crop[2] <= 1.000001 && crop[1]+crop[3] <= 1.000001)
+                    stage = "decode"
                     val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
                     BitmapFactory.decodeFile(source.path, options)
                     require(options.outWidth > 0 && options.outHeight > 0)
@@ -49,11 +52,14 @@ class PhotoSuitabilityChannel(private val activity: Activity, messenger: BinaryM
                         val w = (crop[2]*bitmap.width).toInt().coerceIn(1, bitmap.width-x)
                         val h = (crop[3]*bitmap.height).toInt().coerceIn(1, bitmap.height-y)
                         val cropped = Bitmap.createBitmap(bitmap,x,y,w,h)
+                        stage = "inference"
                         val response = try { mapOf("full" to classify(bitmap), "crop" to classify(cropped)) }
                         finally { if (cropped !== bitmap) cropped.recycle() }
                         activity.runOnUiThread { result.success(response) }
                     } finally { bitmap.recycle() }
-                } catch (_: Exception) {
+                } catch (error: Exception) {
+                    // Never log paths, image data or exception messages.
+                    android.util.Log.w("AtlasPhotoCheck", "$stage:${error.javaClass.simpleName}")
                     activity.runOnUiThread { result.error("classification_failed", "Fotoğraf kontrolü tamamlanamadı.", null) }
                 }
             }

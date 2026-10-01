@@ -48,9 +48,12 @@ void main() {
             .whereType<File>()
             .where((f) => f.path.endsWith('.dart'))) {
       final text = f.readAsStringSync();
-      final engineAdapter = f.path
-          .replaceAll('\\', '/')
-          .endsWith('/mvp/review_engine.dart') || f.path.replaceAll('\\', '/').endsWith('/mvp/regional_summary.dart');
+      final engineAdapter =
+          f.path.replaceAll('\\', '/').endsWith('/mvp/review_engine.dart') ||
+          f.path
+              .replaceAll('\\', '/')
+              .endsWith('/mvp/photo_residue_check.dart') ||
+          f.path.replaceAll('\\', '/').endsWith('/mvp/regional_summary.dart');
       expect(
         text,
         isNot(matches(r"package:(coffee_source|atlas_k6)")),

@@ -62,6 +62,28 @@ class AiRuntime {
     );
   }
 
+  Future<int> sendPendingReports() async {
+    final profiles = await store.profiles();
+    for (final row in await store.pendingReports()) {
+      final profile = profiles
+          .where((p) => p.id == row['profileId'] && p.url == row['url'])
+          .firstOrNull;
+      if (profile == null || profile.provider != AiProvider.atlas) continue;
+      try {
+        await client.sendReport(profile, await key(profile), {
+          'version': 1,
+          'id': row['id'],
+          'reason': row['reason'],
+          'text': row['text'],
+        });
+        await store.markReportSent(row['id'] as String);
+      } catch (_) {
+        /* Retain until an explicit retry. Never claim delivery. */
+      }
+    }
+    return (await store.pendingReports()).length;
+  }
+
   Future<String> key(AiProfile p) async => isBundledProfile(p)
       ? bundledCredential(p)
       : readKey != null
@@ -70,6 +92,9 @@ class AiRuntime {
   Future<void> saveProfile(AiProfile p, String key) async {
     if (isBundledProfile(p)) {
       throw const AiFailure('Hazır test bağlantısı değiştirilemez.');
+    }
+    if (playTestEnabled && p.provider != AiProvider.atlas) {
+      throw const AiFailure('Bu sürüm Atlas test bağlantısını kullanır.');
     }
     validateAiUrl(p.url);
     final old = (await store.profiles()).where((v) => v.id == p.id).firstOrNull;

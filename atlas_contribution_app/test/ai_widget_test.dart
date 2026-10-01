@@ -144,9 +144,14 @@ void main() {
         .map((p) => '${p.localName}|${p.checksum}')
         .toSet();
     await tester.runAsync(() async {
-      final checker = PhotoSuitability(Directory('${source.directory.parent.path}/photo-suitability'));
+      final checker = PhotoSuitability(
+        Directory('${source.directory.parent.path}/photo-suitability'),
+      );
       for (final p in sourcePhotos) {
-        await checker.continueWith(p, await SupportedSuitability().assess(source.file(p.localName),p));
+        await checker.continueWith(
+          p,
+          await SupportedSuitability().assess(source.file(p.localName), p),
+        );
       }
       await home.onConfirmedRecorded!(row, identities);
     });
@@ -208,6 +213,18 @@ void main() {
                   label: 'bird',
                 ),
               ], PhotoDecision.marked),
+            ),
+          );
+        }
+        final checker = PhotoSuitability(
+          Directory('${source.directory.parent.path}/photo-suitability'),
+        );
+        for (final p in photos) {
+          await checker.continueWith(
+            p.photo,
+            await SupportedSuitability().assess(
+              runtime.reviews.file(p.photo.localName),
+              p.photo,
             ),
           );
         }
@@ -278,7 +295,54 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('two · two').last);
       await tester.pumpAndSettle();
+      // A manual usability tick must not bypass system preflight, even in lab/A-B.
+      final checkedPhoto = session.photos.first.photo;
+      final checker = PhotoSuitability(
+        Directory(
+          '${runtime.bridge.source.directory.parent.path}/photo-suitability',
+        ),
+      );
+      await tester.runAsync(() async {
+        final value = await SupportedSuitability().assess(
+          runtime.reviews.file(checkedPhoto.localName),
+          checkedPhoto,
+        );
+        await checker.continueWith(checkedPhoto, {
+          ...value,
+          'status': 'unsuitable',
+          'experimental': false,
+        });
+      });
       await tester.ensureVisible(find.text('A/B fal oluştur'));
+      await tester.pumpAndSettle();
+      await tester.runAsync(() => tester.tap(find.text('A/B fal oluştur')));
+      for (var i = 0; i < 20; i++) {
+        await tester.pump(const Duration(milliseconds: 20));
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 20)),
+        );
+      }
+      await tester.pumpAndSettle();
+      expect(client.inputs, isEmpty);
+      await tester.scrollUntilVisible(
+        find.textContaining('Bu karede fincanının hikâyesine ulaşamadık'),
+        -400,
+      );
+      expect(
+        find.textContaining('Bu karede fincanının hikâyesine ulaşamadık'),
+        findsOneWidget,
+      );
+      await tester.runAsync(() async {
+        await checker.continueWith(
+          checkedPhoto,
+          await SupportedSuitability().assess(
+            runtime.reviews.file(checkedPhoto.localName),
+            checkedPhoto,
+          ),
+        );
+      });
+      await tester.ensureVisible(find.text('A/B fal oluştur'));
+      await tester.pumpAndSettle();
       await tester.runAsync(() => tester.tap(find.text('A/B fal oluştur')));
       for (var i = 0; i < 40; i++) {
         await tester.pump(const Duration(milliseconds: 20));

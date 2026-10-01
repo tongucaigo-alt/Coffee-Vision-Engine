@@ -59,6 +59,19 @@ class _CaptureStore extends DraftStore {
   }
 }
 
+class _PendingSuitability extends SupportedSuitability {
+  final completed = Completer<void>();
+  @override
+  Future<Map<String, dynamic>> assess(
+    File file,
+    ContributionPhoto p, {
+    bool retry = false,
+  }) async {
+    await completed.future;
+    return super.assess(file, p, retry: retry);
+  }
+}
+
 class _CameraRequest {
   _CameraRequest(this.config, this.title, this.instruction);
   final CoffeeCameraConfig config;
@@ -143,6 +156,7 @@ Future<void> _mount(
   _CaptureStore store,
   _FakeCamera camera, {
   bool modern = false,
+  SupportedSuitability? checker,
 }) async {
   tester.view.physicalSize = const Size(412, 915);
   tester.view.devicePixelRatio = 1;
@@ -152,7 +166,7 @@ Future<void> _mount(
     MaterialApp(
       theme: modern ? atlasTheme() : contributionTheme(),
       home: ContributionHome(
-        photoSuitability: SupportedSuitability(),
+        photoSuitability: checker ?? SupportedSuitability(),
         modern: modern,
         fortuneProgress: ValueNotifier(
           const FortuneProgress(FortunePhase.saving),
@@ -327,13 +341,18 @@ void main() {
       addTearDown(() => _removeFixture(temp));
       final store = _CaptureStore(temp, _draft(ContributionKind.photoSet));
       final camera = _FakeCamera(captures);
-      await _mount(tester, store, camera, modern: true);
+      final checker = _PendingSuitability();
+      await _mount(tester, store, camera, modern: true, checker: checker);
       await _tapAndWait(
         tester,
         find.text('Kaldığın Yerden Devam Et'),
         () => store.current!.cupSelectionDone,
       );
       expect(camera.requests, hasLength(3));
+      expect(checker.completed.isCompleted, isFalse);
+      expect(find.byType(FortuneScan), findsNothing);
+      checker.completed.complete();
+      await tester.pumpAndSettle();
       expect(store.current!.saucerDecided, false);
       expect(store.current!.complete, false);
       expect(

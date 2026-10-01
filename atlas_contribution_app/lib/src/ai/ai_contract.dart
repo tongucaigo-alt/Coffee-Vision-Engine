@@ -6,6 +6,7 @@ import 'narrative.dart';
 import '../mvp/review_models.dart';
 
 const aiLabEnabled = bool.fromEnvironment('ATLAS_AI_LAB');
+const playTestEnabled = bool.fromEnvironment('ATLAS_PLAY_TEST');
 
 enum AiProvider { atlas, direct }
 
@@ -272,7 +273,14 @@ List<String> physicalCues(Map<String, dynamic>? context) {
           : (c['y'] as num) > 2 / 3
           ? 'alt'
           : 'orta';
-      cues.insert(0, '$surface $horizontal $vertical bölümündeki leke');
+      final position = horizontal == vertical
+          ? 'orta'
+          : horizontal == 'orta'
+          ? vertical
+          : vertical == 'orta'
+          ? horizontal
+          : '$vertical $horizontal';
+      cues.insert(0, '$surface $position bölümündeki leke');
     }
   }
   return cues.toSet().take(3).toList();
@@ -337,6 +345,7 @@ String? fortuneQualityError(
   String? text,
   String? finishReason, {
   Map<String, dynamic>? context,
+  bool editorial = true,
 }) {
   if (finishReason != 'stop' || text == null) return 'incomplete';
   if (RegExp(
@@ -345,10 +354,11 @@ String? fortuneQualityError(
   ).hasMatch(text)) {
     return 'reasoning';
   }
-  if (text.trim().split(RegExp(r'\s+')).length < 150 || text.length > 12000) {
+  if (text.trim().isEmpty || text.length > 12000) return 'incomplete';
+  if (editorial && text.trim().split(RegExp(r'\s+')).length < 150) {
     return 'length';
   }
-  if (context?['version'] == 'atlas-fortune-context-v2') {
+  if (editorial && context?['version'] == 'atlas-fortune-context-v2') {
     final words = text.trim().split(RegExp(r'\s+')).length;
     if (words < 250 || words > 400) return 'length';
     if (text.trim().split(RegExp(r'\n\s*\n')).length != 4) return 'structure';
