@@ -1,8 +1,10 @@
 import 'dart:math' as math;
+import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/material.dart';
 import 'models.dart';
 import 'cropped_photo.dart';
 import 'photo_crop.dart';
+import 'label_picker.dart' show labelIcons;
 
 enum FortunePhase {
   saving,
@@ -37,12 +39,20 @@ class FortuneScan extends StatefulWidget {
     required this.photos,
     required this.imageFor,
     this.onCancel,
+    this.showDecorativeSymbols = false,
+    this.symbolAnchorsFor,
     super.key,
   });
   final FortuneProgress progress;
   final List<ContributionPhoto> photos;
   final ImageProvider Function(ContributionPhoto) imageFor;
   final VoidCallback? onCancel;
+
+  /// Decorative only; enable exclusively on the fortune preparation screen.
+  final bool showDecorativeSymbols;
+
+  /// Residue centres in normalized original-photo coordinates, never labels.
+  final List<Offset> Function(ContributionPhoto)? symbolAnchorsFor;
   @override
   State<FortuneScan> createState() => _FortuneScanState();
 }
@@ -72,11 +82,14 @@ class _FortuneScanState extends State<FortuneScan>
   }
 
   int _photo = 0;
+  int _symbolCycle = 0;
+  final int _symbolSeed = math.Random().nextInt(1 << 30);
   @override
   void initState() {
     super.initState();
     _animation.addStatusListener((s) {
       if (s == AnimationStatus.completed && _animate) {
+        _symbolCycle++;
         if (widget.progress.phase != FortunePhase.analyzing && mounted) {
           setState(() => _photo++);
         }
@@ -92,7 +105,7 @@ class _FortuneScanState extends State<FortuneScan>
     if (!_animate) {
       _animation.stop();
     } else {
-      _animation.forward();
+      if (!_animation.isAnimating) _animation.forward();
     }
   }
 
@@ -113,6 +126,9 @@ class _FortuneScanState extends State<FortuneScan>
                 p.localName == widget.progress.photoId,
             orElse: () => photos[_photo % photos.length],
           );
+    final anchors = photo == null
+        ? const <Offset>[]
+        : widget.symbolAnchorsFor?.call(photo) ?? const <Offset>[];
     return ListView(
       padding: const EdgeInsets.all(24),
       children: [
@@ -121,7 +137,28 @@ class _FortuneScanState extends State<FortuneScan>
           Stack(
             alignment: Alignment.center,
             children: [
-              _ScanPhoto(photo: photo, image: widget.imageFor(photo)),
+              RepaintBoundary(
+                child: _ScanPhoto(photo: photo, image: widget.imageFor(photo)),
+              ),
+              if (_animate &&
+                  widget.showDecorativeSymbols &&
+                  photo.surface == PhotoSurface.cup)
+                Positioned.fill(
+                  child: IgnorePointer(
+                    child: ExcludeSemantics(
+                      child: AnimatedBuilder(
+                        animation: _animation,
+                        builder: (_, _) => _FortuneSymbols(
+                          phase: _animation.value,
+                          cycle: _symbolCycle,
+                          seed: _symbolSeed,
+                          crop: _scanCrop(photo),
+                          anchors: anchors,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
               if (_animate)
                 Positioned.fill(
                   child: IgnorePointer(
@@ -151,16 +188,170 @@ class _FortuneScanState extends State<FortuneScan>
   }
 }
 
+PhotoCrop _scanCrop(ContributionPhoto photo) {
+  final proposed = photo.displayCrop ?? PhotoCrop.full;
+  return photo.regions.every((r) => proposed.containsBox(r.box))
+      ? proposed
+      : PhotoCrop.full;
+}
+
+class _FortuneSymbols extends StatefulWidget {
+  const _FortuneSymbols({
+    required this.phase,
+    required this.cycle,
+    required this.seed,
+    required this.crop,
+    required this.anchors,
+  });
+  final double phase;
+  final int cycle;
+  final int seed;
+  final PhotoCrop crop;
+  final List<Offset> anchors;
+
+  @override
+  State<_FortuneSymbols> createState() => _FortuneSymbolsState();
+}
+
+class _FortuneSymbolsState extends State<_FortuneSymbols> {
+  late final _labels = <String>[
+    'fish',
+    'heart',
+    'eye',
+    'bird',
+    'moon',
+    'sun',
+    'tree',
+    'flower',
+    'crown',
+    'anchor',
+  ]..shuffle(math.Random(widget.seed));
+  Size? _size;
+  PhotoCrop? _crop;
+  List<Offset> _anchors = const [];
+  final _positions = <Offset>[];
+  final _generations = <int>[];
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (_, bounds) {
+      const iconSize = 22.0;
+      const displayIconSize = iconSize * .75;
+      final centre = Offset(bounds.maxWidth / 2, bounds.maxHeight / 2);
+      final radius = math.max(
+        0.0,
+        math.min(bounds.maxWidth, bounds.maxHeight) * .36 - 22,
+      );
+      final size = Size(bounds.maxWidth, bounds.maxHeight);
+      if (_size != size ||
+          _crop != widget.crop ||
+          !listEquals(_anchors, widget.anchors)) {
+        _size = size;
+        _crop = widget.crop;
+        _anchors = List.of(widget.anchors);
+        _positions.clear();
+        _generations.clear();
+      }
+      final crop = widget.crop;
+      final residue = <Offset>[];
+      for (final anchor in widget.anchors) {
+        if (!anchor.dx.isFinite ||
+            !anchor.dy.isFinite ||
+            anchor.dx < 0 ||
+            anchor.dx > 1 ||
+            anchor.dy < 0 ||
+            anchor.dy > 1) {
+          continue;
+        }
+        final point = Offset(
+          (anchor.dx - crop.x) / crop.width * bounds.maxWidth,
+          (anchor.dy - crop.y) / crop.height * bounds.maxHeight,
+        );
+        if (point.dx >= iconSize &&
+            point.dy >= iconSize &&
+            point.dx <= bounds.maxWidth - iconSize &&
+            point.dy <= bounds.maxHeight - iconSize) {
+          residue.add(point);
+        }
+        if (residue.length == 3) break;
+      }
+      final breaths = <double>[];
+      for (var i = 0; i < 3; i++) {
+        // Start the first symbol visibly, then introduce the others promptly.
+        final elapsed = widget.cycle + widget.phase + .12 - i * .09;
+        final generation = math.max(0, elapsed.floor());
+        final localPhase = elapsed < 0 ? 0.0 : elapsed - elapsed.floor();
+        breaths.add(elapsed < 0 ? 0 : math.sin(localPhase * math.pi));
+        // Keep each position fixed through its breath; choose a new one only
+        // while that symbol is invisible at the beginning of its next breath.
+        if (i < _generations.length && _generations[i] == generation) continue;
+        final random = math.Random(widget.seed + generation * 997 + i * 7919);
+        var point = centre;
+        for (var attempt = 0; attempt < 24; attempt++) {
+          final angle = random.nextDouble() * math.pi * 2;
+          final distance = radius * math.sqrt(.12 + random.nextDouble() * .88);
+          point = centre + Offset(math.cos(angle), math.sin(angle)) * distance;
+          if (residue.isNotEmpty && attempt < 12) {
+            final anchor = residue[random.nextInt(residue.length)];
+            point = Offset.lerp(anchor, point, .45)!;
+            final delta = point - centre;
+            if (delta.distance > radius && delta.distance > 0) {
+              point = centre + delta / delta.distance * radius;
+            }
+          }
+          if (_positions.indexed.every(
+            (other) =>
+                other.$1 == i || (other.$2 - point).distance >= iconSize * 1.8,
+          )) {
+            break;
+          }
+        }
+        if (i < _positions.length) {
+          _positions[i] = point;
+          _generations[i] = generation;
+        } else {
+          _positions.add(point);
+          _generations.add(generation);
+        }
+      }
+      return Stack(
+        key: const ValueKey('fortune-decorative-symbols'),
+        children: [
+          for (var i = 0; i < _positions.length; i++)
+            Positioned(
+              left: _positions[i].dx - displayIconSize / 2,
+              top: _positions[i].dy - displayIconSize / 2,
+              child: Opacity(
+                opacity: math.min(1.0, breaths[i] * 3),
+                child: Transform.scale(
+                  scale: .82 + .38 * breaths[i],
+                  child: Icon(
+                    labelIcons[_labels[(_generations[i] * 3 + i) %
+                        _labels.length]],
+                    key: ValueKey('fortune-symbol-$i'),
+                    size: displayIconSize,
+                    color: const Color(0xff7CE59C),
+                    shadows: const [
+                      Shadow(color: Color(0xcc143b23), blurRadius: 4),
+                      Shadow(color: Color(0x803dbf6e), blurRadius: 8),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+        ],
+      );
+    },
+  );
+}
+
 class _ScanPhoto extends StatelessWidget {
   const _ScanPhoto({required this.photo, required this.image});
   final ContributionPhoto photo;
   final ImageProvider image;
   @override
   Widget build(BuildContext context) {
-    final proposed = photo.displayCrop ?? PhotoCrop.full;
-    final crop = photo.regions.every((r) => proposed.containsBox(r.box))
-        ? proposed
-        : PhotoCrop.full;
+    final crop = _scanCrop(photo);
     return Semantics(
       label: photo.title,
       image: true,
@@ -217,13 +408,21 @@ class _ScanDots extends CustomPainter {
     final radius = math.min(size.width, size.height) * .36;
     for (var i = 0; i < 12; i++) {
       final angle = (i / 12 + phase) * math.pi * 2;
+      final point = center + Offset(math.cos(angle), math.sin(angle)) * radius;
       canvas.drawCircle(
-        center + Offset(math.cos(angle), math.sin(angle)) * radius,
-        3,
+        point,
+        7,
+        Paint()
+          ..color = const Color(0x505de28c)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3),
+      );
+      canvas.drawCircle(
+        point,
+        4.2,
         Paint()
           ..color = const Color(
-            0xff4A7C59,
-          ).withValues(alpha: .25 + .65 * i / 12),
+            0xff68D990,
+          ).withValues(alpha: .65 + .35 * i / 12),
       );
     }
   }

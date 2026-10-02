@@ -92,6 +92,11 @@ class _AnnotationSequenceState extends State<AnnotationSequence> {
                 Expanded(
                   child: Text(
                     '${_index + 1} / ${_photos.length} · ${photo.title}',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Color(0xff887c70),
+                      height: 1.5,
+                    ),
                   ),
                 ),
                 TextButton(
@@ -125,7 +130,7 @@ class _AnnotationSequenceState extends State<AnnotationSequence> {
                               decoration: BoxDecoration(
                                 border: Border.all(
                                   color: i == _index ? atlasSage : atlasBorder,
-                                  width: 2,
+                                  width: i == _index ? 1.5 : .8,
                                 ),
                                 borderRadius: BorderRadius.circular(12),
                               ),

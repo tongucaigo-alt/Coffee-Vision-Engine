@@ -38,7 +38,11 @@ final class ReviewController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> analyze({String? retryPhotoId, bool enrich = false}) {
+  Future<void> analyze({
+    String? retryPhotoId,
+    bool enrich = false,
+    bool Function()? isCancelled,
+  }) {
     if (_closed || busy || !_session.ready) {
       throw StateError('Review not ready');
     }
@@ -46,7 +50,7 @@ final class ReviewController extends ChangeNotifier {
         !_session.photos.any((p) => p.id == retryPhotoId && p.failed)) {
       throw StateError('Only failed photos may be retried');
     }
-    final run = _completeReview(retryPhotoId, enrich);
+    final run = _completeReview(retryPhotoId, enrich, isCancelled);
     _running = run;
     notifyListeners();
     return run.whenComplete(() {
@@ -55,10 +59,14 @@ final class ReviewController extends ChangeNotifier {
     });
   }
 
-  Future<void> _completeReview(String? retryPhotoId, bool enrich) async {
+  Future<void> _completeReview(
+    String? retryPhotoId,
+    bool enrich,
+    bool Function()? isCancelled,
+  ) async {
     try {
       final exposures = await store.knownGroupExposures(_session);
-      if (_closed) return;
+      if (_closed || isCancelled?.call() == true) return;
       final captured = captureInitialObservations(
         _session,
         capturedAtUtc: DateTime.now().toUtc().toIso8601String(),
@@ -67,7 +75,7 @@ final class ReviewController extends ChangeNotifier {
       if (!identical(captured, _session)) {
         await store.save(captured);
         _session = captured;
-        if (_closed) return;
+        if (_closed || isCancelled?.call() == true) return;
         notifyListeners();
       }
       // Use the durably captured photos, including normalized skip decisions.
@@ -83,11 +91,11 @@ final class ReviewController extends ChangeNotifier {
           )
           .toList();
       if (targets.isNotEmpty) {
-        await _process(targets);
+        await _process(targets, isCancelled);
       } else {
         setupError = null;
       }
-      if (_closed) return;
+      if (_closed || isCancelled?.call() == true) return;
       final next = _session.next(
         preparedInput: prepareReviewInput(
           _session,
@@ -102,7 +110,10 @@ final class ReviewController extends ChangeNotifier {
     }
   }
 
-  Future<void> _process(List<ReviewPhoto> targets) async {
+  Future<void> _process(
+    List<ReviewPhoto> targets,
+    bool Function()? isCancelled,
+  ) async {
     setupError = null;
     final ReviewEngine engine;
     try {
@@ -112,7 +123,7 @@ final class ReviewController extends ChangeNotifier {
       return;
     }
     for (final p in targets) {
-      if (_closed) break;
+      if (_closed || isCancelled?.call() == true) break;
       activePhotoId = p.id;
       notifyListeners();
       ReviewEngineOutput? output;
@@ -135,7 +146,7 @@ final class ReviewController extends ChangeNotifier {
           'symbols': <Object?>[],
         };
       }
-      if (_closed) break;
+      if (_closed || isCancelled?.call() == true) break;
       final next = _session.withPhoto(p.update(analysis: analysis));
       // Never publish a partial or undurable per-photo analysis.
       await store.save(next);

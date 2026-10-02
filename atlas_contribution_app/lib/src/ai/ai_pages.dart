@@ -6,6 +6,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 import '../cropped_photo.dart';
+import '../models.dart';
 import '../atlas_design.dart';
 import '../photo_view.dart';
 import '../mvp/review_controller.dart';
@@ -337,6 +338,7 @@ class _AiFortunePageState extends State<AiFortunePage> {
   AiCancellation? _cancel;
   PhotoSuitabilityFailure? _photoFailure;
   bool _checkingPhotos = false;
+  bool _generationCancelled = false;
   ReviewSession get session => _controller.session;
   @override
   void initState() {
@@ -356,6 +358,8 @@ class _AiFortunePageState extends State<AiFortunePage> {
                 r['sourceFingerprint'] == preparationSourceFingerprint(session),
           )) {
         _act(_generate);
+      } else if (mounted) {
+        widget.runtime.preparation.finish();
       }
     });
   }
@@ -426,6 +430,8 @@ class _AiFortunePageState extends State<AiFortunePage> {
           _busy = false;
           _showScan = false;
         });
+        await WidgetsBinding.instance.endOfFrame;
+        widget.runtime.preparation.finish();
       }
     }
   }
@@ -494,20 +500,85 @@ class _AiFortunePageState extends State<AiFortunePage> {
     }
   }
 
+  List<Offset> _symbolAnchors(ContributionPhoto photo) {
+    for (final item in session.orderedPhotos) {
+      if (item.photo.localName != photo.localName ||
+          item.photo.checksum != photo.checksum) {
+        continue;
+      }
+      final summary = item.analysis?['regionalSummary'];
+      if (summary is! Map || summary['components'] is! List) {
+        return const [];
+      }
+      return [
+        for (final component in summary['components'] as List)
+          if (component is Map &&
+              component['x'] is num &&
+              component['y'] is num)
+            Offset(
+              (component['x'] as num).toDouble(),
+              (component['y'] as num).toDouble(),
+            ),
+      ];
+    }
+    return const [];
+  }
+
   Future<void> _generate() async {
+    _generationCancelled = false;
+    final presentation = widget.runtime.preparation;
+    if (presentation.cancelled && presentation.active) {
+      throw const AiFailure('İşlem durduruldu; kaydın korunuyor.');
+    }
     if (!await _checkPhotos(retry: _photoFailure?.technical == true)) return;
     _photoFailure = null;
+    if (_generationCancelled ||
+        (presentation.active && presentation.cancelled)) {
+      throw const AiFailure('İşlem durduruldu; kaydın korunuyor.');
+    }
+    if (presentation.attached) {
+      if (!presentation.active) {
+        widget.runtime.progress.value = const FortuneProgress(
+          FortunePhase.generating,
+        );
+      }
+      presentation.begin(
+        photos: session.orderedPhotos.map((p) => p.photo).toList(),
+        imageFor: (p) => FileImage(widget.runtime.reviews.file(p.localName)),
+        anchorsFor: _symbolAnchors,
+        onCancel: () {
+          _generationCancelled = true;
+          if (_cancel != null) unawaited(_cancel!.cancel());
+        },
+      );
+      await WidgetsBinding.instance.endOfFrame;
+    }
+    void checkCancelled() {
+      if (_generationCancelled ||
+          (presentation.active && presentation.cancelled)) {
+        throw const AiFailure('İşlem durduruldu; kaydın korunuyor.');
+      }
+    }
+
+    checkCancelled();
     if (!mounted) return;
+    widget.runtime.progress.value = const FortuneProgress(
+      FortunePhase.generating,
+    );
     setState(() => _showScan = true);
+    // Paint the preparation screen before beginning local analysis work.
+    await WidgetsBinding.instance.endOfFrame;
+    if (!mounted) return;
     if (!await widget.runtime.bridge.isCurrent(session)) {
       throw const AiFailure(
         'Kaynak kayıt değişti. Ekranı kapatıp güncel kaydı aç.',
       );
     }
-    widget.runtime.progress.value = const FortuneProgress(
-      FortunePhase.generating,
+    await _controller.analyze(
+      enrich: true,
+      isCancelled: () => _generationCancelled,
     );
-    await _controller.analyze(enrich: true);
+    checkCancelled();
     if (!mounted) return;
     final preparation = session.preparedInput;
     if (preparation == null ||
@@ -559,6 +630,7 @@ class _AiFortunePageState extends State<AiFortunePage> {
       'state': 'running',
       'vote': null,
     };
+    checkCancelled();
     _cancel = AiCancellation();
     await widget.runtime.store.saveResult(result);
     try {
@@ -641,427 +713,454 @@ class _AiFortunePageState extends State<AiFortunePage> {
     final eligible =
         session.photos.any((p) => p.surface == ReviewSurface.cup) &&
         ['ready', 'partial'].contains(prepared?['status']);
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(modern ? 'Fincanının Hikâyesi' : 'Fal denemesi'),
-        actions: [
-          if (!widget.simple)
-            IconButton(
-              tooltip: 'AI Laboratuvarı',
-              icon: const Icon(Icons.settings),
-              onPressed: _busy
-                  ? null
-                  : () async {
-                      await Navigator.push(
-                        context,
-                        MaterialPageRoute<void>(
-                          builder: (_) => AiLabPage(runtime: widget.runtime),
-                        ),
-                      );
-                      await _load();
-                    },
-            ),
-        ],
-      ),
-      body: _busy && _showScan
-          ? ValueListenableBuilder<FortuneProgress>(
-              valueListenable: widget.runtime.progress,
-              builder: (_, progress, _) => FortuneScan(
-                progress: progress,
-                photos: session.orderedPhotos.map((p) => p.photo).toList(),
-                imageFor: (p) =>
-                    FileImage(widget.runtime.reviews.file(p.localName)),
-                onCancel: _cancel == null
-                    ? null
-                    : () {
-                        widget.runtime.progress.value = const FortuneProgress(
-                          FortunePhase.cancelled,
-                        );
-                        unawaited(_cancel!.cancel());
-                      },
-              ),
-            )
-          : ListView(
-              padding: const EdgeInsets.all(20),
-              children: [
-                if (_checkingPhotos)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: Semantics(
-                      liveRegion: true,
-                      child: const Text('Fotoğraflar kontrol ediliyor…'),
-                    ),
-                  ),
-                if (_photoFailure != null) ...[
-                  PhotoSuitabilityNotice(
-                    photo: _photoFailure!.photo,
-                    value: _photoFailure!.assessment,
-                    onRetry: _busy
+    return ListenableBuilder(
+      listenable: widget.runtime.preparation,
+      builder: (context, _) => PopScope(
+        canPop: !_busy && !widget.runtime.preparation.active,
+        onPopInvokedWithResult: (didPop, _) {
+          if (!didPop) {
+            _generationCancelled = true;
+            widget.runtime.preparation.cancel();
+          }
+        },
+        child: Scaffold(
+          appBar: AppBar(
+            title: Text(modern ? 'Fincanının Hikâyesi' : 'Fal denemesi'),
+            actions: [
+              if (!widget.simple)
+                IconButton(
+                  tooltip: 'AI Laboratuvarı',
+                  icon: const Icon(Icons.settings),
+                  onPressed: _busy
+                      ? null
+                      : () async {
+                          await Navigator.push(
+                            context,
+                            MaterialPageRoute<void>(
+                              builder: (_) =>
+                                  AiLabPage(runtime: widget.runtime),
+                            ),
+                          );
+                          await _load();
+                        },
+                ),
+            ],
+          ),
+          body: _busy && _showScan && !widget.runtime.preparation.attached
+              ? ValueListenableBuilder<FortuneProgress>(
+                  valueListenable: widget.runtime.progress,
+                  builder: (_, progress, _) => FortuneScan(
+                    progress: progress,
+                    showDecorativeSymbols: true,
+                    symbolAnchorsFor: _symbolAnchors,
+                    photos: session.orderedPhotos.map((p) => p.photo).toList(),
+                    imageFor: (p) =>
+                        FileImage(widget.runtime.reviews.file(p.localName)),
+                    onCancel: _cancel == null
                         ? null
-                        : () => _act(() async {
-                            await _checkPhotos(retry: true);
-                            if (mounted) setState(() => _photoFailure = null);
-                          }),
+                        : () {
+                            widget.runtime.progress.value =
+                                const FortuneProgress(FortunePhase.cancelled);
+                            unawaited(_cancel!.cancel());
+                          },
                   ),
-                  if (!_photoFailure!.technical)
-                    const Text(
-                      'Fotoğrafı değiştirmek veya kaldırmak için Kayıtlarım ekranındaki kaydı düzenle.',
-                    ),
-                ],
-                if (_message != null)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 16),
-                    child: Semantics(liveRegion: true, child: Text(_message!)),
-                  ),
-                if (modern) ...[
-                  SizedBox(
-                    height: 108,
-                    child: ListView.separated(
-                      scrollDirection: Axis.horizontal,
-                      itemCount: session.orderedPhotos.length,
-                      separatorBuilder: (_, _) => const SizedBox(width: 8),
-                      itemBuilder: (context, i) {
-                        final p = session.orderedPhotos[i];
-                        return SizedBox(
-                          width: 96,
-                          child: InkWell(
-                            onTap: () => showDialog<void>(
-                              context: context,
-                              builder: (ctx) => Dialog(
-                                child: Padding(
-                                  padding: const EdgeInsets.all(16),
-                                  child: SingleChildScrollView(
-                                    child: Column(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Text(p.title),
-                                        MarkedPhoto(
-                                          photo: p.photo,
-                                          image: FileImage(
-                                            widget.runtime.reviews.file(
-                                              p.photo.localName,
-                                            ),
-                                          ),
-                                          displayCrop: p.visibleCrop,
-                                        ),
-                                        TextButton(
-                                          onPressed: () => Navigator.pop(ctx),
-                                          child: const Text('Kapat'),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                            child: Column(
-                              children: [
-                                AtlasPhoto(
-                                  photo: p.photo,
-                                  image: FileImage(
-                                    widget.runtime.reviews.file(
-                                      p.photo.localName,
-                                    ),
-                                  ),
-                                  height: 70,
-                                ),
-                                Expanded(
-                                  child: Text(
-                                    p.title,
-                                    textAlign: TextAlign.center,
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  if (hasAnswers) ..._fortuneWidgets(),
-                ],
-                if (widget.simple) ...[
-                  if (!currentComplete)
-                    FilledButton(
-                      onPressed: _busy
-                          ? null
-                          : () async {
-                              if (_profiles.isEmpty) {
-                                await Navigator.push(
-                                  context,
-                                  MaterialPageRoute<void>(
-                                    builder: (_) =>
-                                        AiLabPage(runtime: widget.runtime),
-                                  ),
-                                );
-                                await _load();
-                              } else {
-                                await _act(_generate);
-                              }
-                            },
-                      child: Text(
-                        _profiles.isEmpty
-                            ? 'Fal bağlantısını ayarla'
-                            : _message != null
-                            ? 'Yeniden Dene'
-                            : 'Fal Oluştur',
-                      ),
-                    ),
-                  ExpansionTile(
-                    title: const Text('Araştırmaya katkı'),
-                    children: [
-                      CheckboxListTile(
-                        value: session.researchConsentAtUtc != null,
-                        title: const Text(
-                          'Bu kaydı araştırma paketine eklemeye izin veriyorum.',
+                )
+              : ListView(
+                  padding: const EdgeInsets.all(20),
+                  children: [
+                    if (_checkingPhotos)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: Semantics(
+                          liveRegion: true,
+                          child: const Text('Fotoğraflar kontrol ediliyor…'),
                         ),
-                        onChanged: _busy
+                      ),
+                    if (_photoFailure != null) ...[
+                      PhotoSuitabilityNotice(
+                        photo: _photoFailure!.photo,
+                        value: _photoFailure!.assessment,
+                        onRetry: _busy
                             ? null
-                            : (value) => _act(
-                                () => _controller.save(
-                                  session.next(researchAllowed: value),
+                            : () => _act(() async {
+                                await _checkPhotos(retry: true);
+                                if (mounted) {
+                                  setState(() => _photoFailure = null);
+                                }
+                              }),
+                      ),
+                      if (!_photoFailure!.technical)
+                        const Text(
+                          'Fotoğrafı değiştirmek veya kaldırmak için Kayıtlarım ekranındaki kaydı düzenle.',
+                        ),
+                    ],
+                    if (_message != null)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 16),
+                        child: Semantics(
+                          liveRegion: true,
+                          child: Text(_message!),
+                        ),
+                      ),
+                    if (modern) ...[
+                      SizedBox(
+                        height: 108,
+                        child: ListView.separated(
+                          scrollDirection: Axis.horizontal,
+                          itemCount: session.orderedPhotos.length,
+                          separatorBuilder: (_, _) => const SizedBox(width: 8),
+                          itemBuilder: (context, i) {
+                            final p = session.orderedPhotos[i];
+                            return SizedBox(
+                              width: 96,
+                              child: InkWell(
+                                onTap: () => showDialog<void>(
+                                  context: context,
+                                  builder: (ctx) => Dialog(
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(16),
+                                      child: SingleChildScrollView(
+                                        child: Column(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Text(p.title),
+                                            MarkedPhoto(
+                                              photo: p.photo,
+                                              image: FileImage(
+                                                widget.runtime.reviews.file(
+                                                  p.photo.localName,
+                                                ),
+                                              ),
+                                              displayCrop: p.visibleCrop,
+                                            ),
+                                            TextButton(
+                                              onPressed: () =>
+                                                  Navigator.pop(ctx),
+                                              child: const Text('Kapat'),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                child: Column(
+                                  children: [
+                                    AtlasPhoto(
+                                      photo: p.photo,
+                                      image: FileImage(
+                                        widget.runtime.reviews.file(
+                                          p.photo.localName,
+                                        ),
+                                      ),
+                                      height: 70,
+                                    ),
+                                    Expanded(
+                                      child: Text(
+                                        p.title,
+                                        textAlign: TextAlign.center,
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          fontSize: 11,
+                                          height: 1.4,
+                                          color: Color(0xff887c70),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
+                            );
+                          },
+                        ),
                       ),
+                      const SizedBox(height: 20),
+                      if (hasAnswers) ..._fortuneWidgets(),
                     ],
-                  ),
-                ],
-                if (!widget.simple)
-                  ExpansionTile(
-                    key: ValueKey('fortune-controls-$hasAnswers'),
-                    initiallyExpanded: !modern || !hasAnswers,
-                    title: Text(
-                      hasAnswers
-                          ? 'Yeni Fal ve İnceleme Ayarları'
-                          : 'Falını Hazırla',
-                    ),
-                    children: [
-                      const Text(
-                        'Önce kendi gözlemlerin kaydedilir. Fotoğrafların telefonda kalır; fal için yalnızca metinsel özet gönderilir.',
-                      ),
-                      if (session.id.startsWith('linked-'))
-                        const Text(
-                          'Fotoğraf ve işaretleri değiştirmek için Kayıtlarım ekranını kullan.',
+                    if (widget.simple) ...[
+                      if (!currentComplete)
+                        FilledButton(
+                          onPressed: _busy
+                              ? null
+                              : () async {
+                                  if (_profiles.isEmpty) {
+                                    await Navigator.push(
+                                      context,
+                                      MaterialPageRoute<void>(
+                                        builder: (_) =>
+                                            AiLabPage(runtime: widget.runtime),
+                                      ),
+                                    );
+                                    await _load();
+                                  } else {
+                                    await _act(_generate);
+                                  }
+                                },
+                          child: Text(
+                            _profiles.isEmpty
+                                ? 'Fal bağlantısını ayarla'
+                                : _message != null
+                                ? 'Yeniden Dene'
+                                : 'Fal Oluştur',
+                          ),
                         ),
                       ExpansionTile(
-                        title: const Text('Fotoğraflar ve Yerel İnceleme'),
-                        initiallyExpanded:
-                            !modern || !session.ready || prepared == null,
+                        title: const Text('Araştırmaya katkı'),
                         children: [
-                          for (final p in session.orderedPhotos) ...[
-                            const SizedBox(height: 12),
-                            SizedBox(
-                              height: 160,
-                              child: Center(
-                                child: CroppedPhoto(
-                                  image: FileImage(
-                                    widget.runtime.reviews.file(
-                                      p.photo.localName,
-                                    ),
-                                  ),
-                                  photoWidth: p.photo.width,
-                                  photoHeight: p.photo.height,
-                                  crop: p.visibleCrop,
-                                ),
-                              ),
+                          CheckboxListTile(
+                            value: session.researchConsentAtUtc != null,
+                            title: const Text(
+                              'Bu kaydı araştırma paketine eklemeye izin veriyorum.',
                             ),
-                            if (p.photo.regions.isNotEmpty)
-                              ExpansionTile(
-                                title: Text(
-                                  'İşaretleri gör · ${p.photo.regions.length}',
-                                ),
-                                children: [
-                                  MarkedPhoto(
-                                    photo: p.photo,
-                                    image: FileImage(
-                                      widget.runtime.reviews.file(
-                                        p.photo.localName,
-                                      ),
+                            onChanged: _busy
+                                ? null
+                                : (value) => _act(
+                                    () => _controller.save(
+                                      session.next(researchAllowed: value),
                                     ),
-                                    displayCrop: p.visibleCrop,
                                   ),
-                                ],
-                              ),
-                            CheckboxListTile(
-                              value: p.usableConfirmedAtUtc != null,
-                              title: Text(
-                                '${p.title}: telve kullanılabilir biçimde görünüyor',
-                              ),
-                              onChanged: _busy || p.usableConfirmedAtUtc != null
-                                  ? null
-                                  : (v) => _act(
-                                      () => _controller.save(
-                                        session.withPhoto(
-                                          p.update(
-                                            confirmedAt: DateTime.now()
-                                                .toUtc()
-                                                .toIso8601String(),
+                          ),
+                        ],
+                      ),
+                    ],
+                    if (!widget.simple)
+                      ExpansionTile(
+                        key: ValueKey('fortune-controls-$hasAnswers'),
+                        initiallyExpanded: !modern || !hasAnswers,
+                        title: Text(
+                          hasAnswers
+                              ? 'Yeni Fal ve İnceleme Ayarları'
+                              : 'Falını Hazırla',
+                        ),
+                        children: [
+                          const Text(
+                            'Önce kendi gözlemlerin kaydedilir. Fotoğrafların telefonda kalır; fal için yalnızca metinsel özet gönderilir.',
+                          ),
+                          if (session.id.startsWith('linked-'))
+                            const Text(
+                              'Fotoğraf ve işaretleri değiştirmek için Kayıtlarım ekranını kullan.',
+                            ),
+                          ExpansionTile(
+                            title: const Text('Fotoğraflar ve Yerel İnceleme'),
+                            initiallyExpanded:
+                                !modern || !session.ready || prepared == null,
+                            children: [
+                              for (final p in session.orderedPhotos) ...[
+                                const SizedBox(height: 12),
+                                SizedBox(
+                                  height: 160,
+                                  child: Center(
+                                    child: CroppedPhoto(
+                                      image: FileImage(
+                                        widget.runtime.reviews.file(
+                                          p.photo.localName,
+                                        ),
+                                      ),
+                                      photoWidth: p.photo.width,
+                                      photoHeight: p.photo.height,
+                                      crop: p.visibleCrop,
+                                    ),
+                                  ),
+                                ),
+                                if (p.photo.regions.isNotEmpty)
+                                  ExpansionTile(
+                                    title: Text(
+                                      'İşaretleri gör · ${p.photo.regions.length}',
+                                    ),
+                                    children: [
+                                      MarkedPhoto(
+                                        photo: p.photo,
+                                        image: FileImage(
+                                          widget.runtime.reviews.file(
+                                            p.photo.localName,
                                           ),
                                         ),
+                                        displayCrop: p.visibleCrop,
                                       ),
+                                    ],
+                                  ),
+                                CheckboxListTile(
+                                  value: p.usableConfirmedAtUtc != null,
+                                  title: Text(
+                                    '${p.title}: telve kullanılabilir biçimde görünüyor',
+                                  ),
+                                  onChanged:
+                                      _busy || p.usableConfirmedAtUtc != null
+                                      ? null
+                                      : (v) => _act(
+                                          () => _controller.save(
+                                            session.withPhoto(
+                                              p.update(
+                                                confirmedAt: DateTime.now()
+                                                    .toUtc()
+                                                    .toIso8601String(),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                ),
+                                if (p.failed)
+                                  TextButton(
+                                    onPressed: _busy
+                                        ? null
+                                        : () => _act(
+                                            () => _controller.analyze(
+                                              retryPhotoId: p.id,
+                                            ),
+                                          ),
+                                    child: const Text(
+                                      'Bu fotoğrafın analizini yeniden dene',
                                     ),
-                            ),
-                            if (p.failed)
-                              TextButton(
-                                onPressed: _busy
+                                  ),
+                              ],
+                              CheckboxListTile(
+                                value: session.sameSampleDeclared,
+                                title: const Text(
+                                  'Fotoğraflar aynı fincan / telve grubuna ait.',
+                                ),
+                                onChanged: _busy
                                     ? null
-                                    : () => _act(
-                                        () => _controller.analyze(
-                                          retryPhotoId: p.id,
+                                    : (v) => _act(
+                                        () => _controller.save(
+                                          session.next(sameSample: v),
                                         ),
                                       ),
-                                child: const Text(
-                                  'Bu fotoğrafın analizini yeniden dene',
-                                ),
                               ),
-                          ],
+                              FilledButton(
+                                onPressed: _busy || !session.ready
+                                    ? null
+                                    : () => _act(() => _controller.analyze()),
+                                child: const Text('Yerel incelemeyi tamamla'),
+                              ),
+                            ],
+                          ),
+                          Text(
+                            prepared == null
+                                ? 'Analiz bekliyor'
+                                : switch (prepared['status']) {
+                                    'ready' => 'Metin hazır',
+                                    'partial' => 'Metin hazır · kısmi analiz',
+                                    'empty' =>
+                                      'Kullanılabilir gözlem veya bulgu yok',
+                                    _ => 'Analiz bekliyor',
+                                  },
+                          ),
                           CheckboxListTile(
-                            value: session.sameSampleDeclared,
+                            value: session.researchConsentAtUtc != null,
                             title: const Text(
-                              'Fotoğraflar aynı fincan / telve grubuna ait.',
+                              'İsteğe bağlı: bu incelemeyi ve bağlı çekim kaydını araştırma ZIP’ine eklemeye izin veriyorum.',
                             ),
                             onChanged: _busy
                                 ? null
                                 : (v) => _act(
                                     () => _controller.save(
-                                      session.next(sameSample: v),
+                                      session.next(researchAllowed: v),
                                     ),
                                   ),
                           ),
-                          FilledButton(
-                            onPressed: _busy || !session.ready
+                          const Divider(),
+                          if (_profiles.isEmpty)
+                            const Text(
+                              'Önce sağ üstteki AI Laboratuvarından bağlantı ekle.',
+                            ),
+                          if (_profiles.isNotEmpty)
+                            DropdownButton<String>(
+                              value: _profiles.any((p) => p.id == _first)
+                                  ? _first
+                                  : null,
+                              isExpanded: true,
+                              hint: const Text('AI seç'),
+                              items: [
+                                for (final p in _profiles)
+                                  DropdownMenuItem(
+                                    value: p.id,
+                                    child: Text('${p.name} · ${p.model}'),
+                                  ),
+                              ],
+                              onChanged: _busy
+                                  ? null
+                                  : (v) => setState(() {
+                                      _first = v;
+                                      if (_second == v) _second = null;
+                                    }),
+                            ),
+                          SwitchListTile(
+                            value: _compare,
+                            title: const Text('İki AI’yı kör karşılaştır'),
+                            onChanged: _busy || _profiles.length < 2
                                 ? null
-                                : () => _act(() => _controller.analyze()),
-                            child: const Text('Yerel incelemeyi tamamla'),
+                                : (v) => setState(() => _compare = v),
                           ),
+                          if (_compare)
+                            DropdownButton<String>(
+                              value: _second,
+                              isExpanded: true,
+                              hint: const Text('İkinci AI'),
+                              items: [
+                                for (final p in _profiles.where(
+                                  (p) => p.id != _first,
+                                ))
+                                  DropdownMenuItem(
+                                    value: p.id,
+                                    child: Text('${p.name} · ${p.model}'),
+                                  ),
+                              ],
+                              onChanged: _busy
+                                  ? null
+                                  : (v) => setState(() => _second = v),
+                            ),
+                          for (final p in _profiles.where(
+                            (p) =>
+                                p.id == _first || (_compare && p.id == _second),
+                          ))
+                            Text('Metin gönderilecek: ${p.url}'),
+                          FilledButton(
+                            onPressed:
+                                _busy ||
+                                    !eligible ||
+                                    _first == null ||
+                                    (_compare &&
+                                        (_second == null || _second == _first))
+                                ? null
+                                : () => _act(_generate),
+                            child: Text(
+                              _compare ? 'A/B fal oluştur' : 'Fal oluştur',
+                            ),
+                          ),
+                          if (_busy) ...[
+                            const LinearProgressIndicator(),
+                            if (_cancel != null)
+                              TextButton(
+                                onPressed: () => _cancel?.cancel(),
+                                child: const Text('İptal et'),
+                              ),
+                          ],
+
+                          if (prepared != null)
+                            ExpansionTile(
+                              title: const Text(
+                                'Gönderilecek metin · teknik ayrıntılar',
+                              ),
+                              children: [
+                                SelectableText(
+                                  const JsonEncoder.withIndent(
+                                    '  ',
+                                  ).convert(prepared['payload']),
+                                ),
+                              ],
+                            ),
+                          if (_results.any((r) => r['state'] == 'interrupted'))
+                            const Text(
+                              'Önceki deneme uygulama kapanınca kesildi. Sunucu hâlâ çalışıyorsa işin bitmesini bekleyip yeniden deneyebilirsin.',
+                            ),
                         ],
                       ),
-                      Text(
-                        prepared == null
-                            ? 'Analiz bekliyor'
-                            : switch (prepared['status']) {
-                                'ready' => 'Metin hazır',
-                                'partial' => 'Metin hazır · kısmi analiz',
-                                'empty' =>
-                                  'Kullanılabilir gözlem veya bulgu yok',
-                                _ => 'Analiz bekliyor',
-                              },
-                      ),
-                      CheckboxListTile(
-                        value: session.researchConsentAtUtc != null,
-                        title: const Text(
-                          'İsteğe bağlı: bu incelemeyi ve bağlı çekim kaydını araştırma ZIP’ine eklemeye izin veriyorum.',
-                        ),
-                        onChanged: _busy
-                            ? null
-                            : (v) => _act(
-                                () => _controller.save(
-                                  session.next(researchAllowed: v),
-                                ),
-                              ),
-                      ),
-                      const Divider(),
-                      if (_profiles.isEmpty)
-                        const Text(
-                          'Önce sağ üstteki AI Laboratuvarından bağlantı ekle.',
-                        ),
-                      if (_profiles.isNotEmpty)
-                        DropdownButton<String>(
-                          value: _profiles.any((p) => p.id == _first)
-                              ? _first
-                              : null,
-                          isExpanded: true,
-                          hint: const Text('AI seç'),
-                          items: [
-                            for (final p in _profiles)
-                              DropdownMenuItem(
-                                value: p.id,
-                                child: Text('${p.name} · ${p.model}'),
-                              ),
-                          ],
-                          onChanged: _busy
-                              ? null
-                              : (v) => setState(() {
-                                  _first = v;
-                                  if (_second == v) _second = null;
-                                }),
-                        ),
-                      SwitchListTile(
-                        value: _compare,
-                        title: const Text('İki AI’yı kör karşılaştır'),
-                        onChanged: _busy || _profiles.length < 2
-                            ? null
-                            : (v) => setState(() => _compare = v),
-                      ),
-                      if (_compare)
-                        DropdownButton<String>(
-                          value: _second,
-                          isExpanded: true,
-                          hint: const Text('İkinci AI'),
-                          items: [
-                            for (final p in _profiles.where(
-                              (p) => p.id != _first,
-                            ))
-                              DropdownMenuItem(
-                                value: p.id,
-                                child: Text('${p.name} · ${p.model}'),
-                              ),
-                          ],
-                          onChanged: _busy
-                              ? null
-                              : (v) => setState(() => _second = v),
-                        ),
-                      for (final p in _profiles.where(
-                        (p) => p.id == _first || (_compare && p.id == _second),
-                      ))
-                        Text('Metin gönderilecek: ${p.url}'),
-                      FilledButton(
-                        onPressed:
-                            _busy ||
-                                !eligible ||
-                                _first == null ||
-                                (_compare &&
-                                    (_second == null || _second == _first))
-                            ? null
-                            : () => _act(_generate),
-                        child: Text(
-                          _compare ? 'A/B fal oluştur' : 'Fal oluştur',
-                        ),
-                      ),
-                      if (_busy) ...[
-                        const LinearProgressIndicator(),
-                        if (_cancel != null)
-                          TextButton(
-                            onPressed: () => _cancel?.cancel(),
-                            child: const Text('İptal et'),
-                          ),
-                      ],
-
-                      if (prepared != null)
-                        ExpansionTile(
-                          title: const Text(
-                            'Gönderilecek metin · teknik ayrıntılar',
-                          ),
-                          children: [
-                            SelectableText(
-                              const JsonEncoder.withIndent(
-                                '  ',
-                              ).convert(prepared['payload']),
-                            ),
-                          ],
-                        ),
-                      if (_results.any((r) => r['state'] == 'interrupted'))
-                        const Text(
-                          'Önceki deneme uygulama kapanınca kesildi. Sunucu hâlâ çalışıyorsa işin bitmesini bekleyip yeniden deneyebilirsin.',
-                        ),
-                    ],
-                  ),
-                if (!modern) ..._fortuneWidgets(),
-              ],
-            ),
+                    if (!modern) ..._fortuneWidgets(),
+                  ],
+                ),
+        ),
+      ),
     );
   }
 
@@ -1155,12 +1254,16 @@ class _AiFortunePageState extends State<AiFortunePage> {
     for (final result in _results.where(
       (r) => (r['answers'] as List).isNotEmpty,
     )) ...[
-      const Divider(),
+      const Divider(height: 32, color: atlasBorder),
       Text(
         result['sourceFingerprint'] == preparationSourceFingerprint(session)
             ? 'Kayıtlı fal'
             : 'Önceki kayda ait fal',
-        style: Theme.of(context).textTheme.titleLarge,
+        style: const TextStyle(
+          fontFamily: 'Literata',
+          fontSize: 22,
+          height: 1.4,
+        ),
       ),
       if (result['state'] == 'completed')
         OutlinedButton.icon(
@@ -1183,11 +1286,18 @@ class _AiFortunePageState extends State<AiFortunePage> {
       if (result['state'] != 'completed')
         const Text('Deneme tamamlanamadı. Başarılı yanıt aşağıda korundu.'),
       for (var i = 0; i < (result['answers'] as List).length; i++) ...[
-        Text(
-          result['comparison'] == true
-              ? 'Yanıt ${i == 0 ? 'A' : 'B'}'
-              : 'Falın',
-          style: Theme.of(context).textTheme.titleMedium,
+        Padding(
+          padding: const EdgeInsets.only(top: 20, bottom: 12),
+          child: Text(
+            result['comparison'] == true
+                ? 'Yanıt ${i == 0 ? 'A' : 'B'}'
+                : 'Falın',
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: atlasSage,
+            ),
+          ),
         ),
         FortuneStory(
           text: result['answers'][i]['text'] as String,

@@ -411,7 +411,9 @@ class _AnnotationPageState extends State<AnnotationPage> {
                                 child: Container(
                                   decoration: BoxDecoration(
                                     border: Border.all(
-                                      color: Colors.tealAccent,
+                                      color: widget.modern
+                                          ? const Color(0xff8ec89c)
+                                          : Colors.tealAccent,
                                       width: 2,
                                     ),
                                   ),
@@ -425,7 +427,9 @@ class _AnnotationPageState extends State<AnnotationPage> {
                               key: const ValueKey('selected-region'),
                               decoration: BoxDecoration(
                                 border: Border.all(
-                                  color: Colors.amberAccent,
+                                  color: widget.modern
+                                      ? const Color(0xffffd18a)
+                                      : Colors.amberAccent,
                                   width: 3,
                                 ),
                               ),
@@ -446,7 +450,12 @@ class _AnnotationPageState extends State<AnnotationPage> {
                                         width: 14,
                                         height: 14,
                                         decoration: BoxDecoration(
-                                          color: Colors.amberAccent,
+                                          color: widget.modern
+                                              ? const Color(0xffffd18a)
+                                              : Colors.amberAccent,
+                                          borderRadius: BorderRadius.circular(
+                                            3,
+                                          ),
                                           border: Border.all(
                                             color: Colors.black,
                                             width: 2,
@@ -476,7 +485,12 @@ class _AnnotationPageState extends State<AnnotationPage> {
           ? kToolbarHeight *
                 (MediaQuery.textScalerOf(context).scale(16) / 16).clamp(1, 1.8)
           : null,
-      title: Text(widget.modern ? 'Sen ne görüyorsun?' : _photo.title),
+      title: Text(
+        widget.modern ? 'Sen ne görüyorsun?' : _photo.title,
+        style: widget.modern
+            ? const TextStyle(fontSize: 20, fontWeight: FontWeight.w600)
+            : null,
+      ),
     ),
     body: SafeArea(
       child: LayoutBuilder(

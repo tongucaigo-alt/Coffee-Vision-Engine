@@ -155,6 +155,82 @@ void main() {
     await temp.delete(recursive: true);
   });
 
+  test(
+    'cancelled analysis preserves first observation and skips remaining photos',
+    () async {
+      final s = review(
+        photos: [
+          await photo(role: CaptureRole.free),
+          await photo(role: CaptureRole.handleRight),
+        ],
+      );
+      await store.save(s);
+      final started = Completer<void>();
+      final release = Completer<void>();
+      var calls = 0;
+      var cancelled = false;
+      final controller = ReviewController(
+        store: store,
+        session: s,
+        loadEngine: () async => fakeEngine(
+          vision: (input) async {
+            calls++;
+            started.complete();
+            await release.future;
+            return features(input);
+          },
+        ),
+      );
+      final running = controller.analyze(isCancelled: () => cancelled);
+      await started.future;
+      final first = jsonEncode(controller.session.currentInitialObservation);
+      expect(controller.session.currentInitialObservation, isNotNull);
+      cancelled = true;
+      release.complete();
+      await running;
+      expect(calls, 1);
+      expect(controller.session.photos.every((p) => !p.analyzed), isTrue);
+      expect(jsonEncode(controller.session.currentInitialObservation), first);
+      expect(controller.activePhotoId, isNull);
+      expect(controller.session.preparedInput, isNull);
+      await controller.close();
+      controller.dispose();
+    },
+  );
+
+  test(
+    'current regional analysis is reused without an analyzing stage',
+    () async {
+      final s = review(photos: [await photo()]);
+      await store.save(s);
+      var loads = 0;
+      final controller = ReviewController(
+        store: store,
+        session: s,
+        loadEngine: () async {
+          loads++;
+          return fakeEngine();
+        },
+      );
+      await controller.analyze(enrich: true);
+      final first = jsonEncode(controller.session.currentInitialObservation);
+      final analysis = jsonEncode(controller.session.photos.single.analysis);
+      final active = <String>[];
+      controller.addListener(() {
+        if (controller.activePhotoId != null) {
+          active.add(controller.activePhotoId!);
+        }
+      });
+      await controller.analyze(enrich: true);
+      expect(loads, 1);
+      expect(active, isEmpty);
+      expect(jsonEncode(controller.session.photos.single.analysis), analysis);
+      expect(jsonEncode(controller.session.currentInitialObservation), first);
+      await controller.close();
+      controller.dispose();
+    },
+  );
+
   test('exact shipped baseline validates, mutated bytes fail closed', () async {
     expect(
       await File('.gitattributes').readAsString(),
@@ -171,6 +247,68 @@ void main() {
       throwsA(isA<ReviewEngineFailure>()),
     );
   });
+  test(
+    'background analysis preserves results and leaves event loop responsive',
+    () async {
+      final p = await photo();
+      final bytes = await store.readPhoto(p);
+      final baseline = await File(
+        'assets/mvp/knowledge_dataset.json',
+      ).readAsBytes();
+      final worker = ReviewEngine.fromBaseline(baseline);
+      var ticks = 0;
+      final heartbeat = Timer.periodic(
+        const Duration(milliseconds: 16),
+        (_) => ticks++,
+      );
+      late ReviewEngineOutput background;
+      try {
+        background = await worker.analyze(p, () async => bytes);
+      } finally {
+        heartbeat.cancel();
+      }
+      expect(ticks, greaterThan(0));
+      final direct = ReviewEngine(
+        dataset: worker.dataset,
+        release: worker.release,
+        analyzeFeatures: const CoffeeVisionEngine().analyzeFeatures,
+      );
+      final local = await direct.analyze(p, () async => bytes);
+      Object? stable(Object? value) {
+        if (value is Map) {
+          return {
+            for (final entry in value.entries)
+              if (!['runId', 'createdAtUtc', 'durationMs'].contains(entry.key))
+                entry.key: stable(entry.value),
+          };
+        }
+        if (value is List) return value.map(stable).toList();
+        return value;
+      }
+
+      expect(stable(background.document), stable(local.document));
+      await expectLater(
+        worker.analyze(p, () async => Uint8List(0)),
+        throwsA(
+          isA<ReviewEngineFailure>().having(
+            (e) => e.stage,
+            'stage',
+            'photoIntegrity',
+          ),
+        ),
+      );
+      await expectLater(
+        worker.analyze(p, () async => throw StateError('read failed')),
+        throwsA(
+          isA<ReviewEngineFailure>().having(
+            (e) => e.stage,
+            'stage',
+            'fileRead',
+          ),
+        ),
+      );
+    },
+  );
   test(
     'cup roles, unknown role and optional saucer have stable order',
     () async {

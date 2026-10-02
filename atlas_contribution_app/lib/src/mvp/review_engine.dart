@@ -7,6 +7,7 @@ import 'package:coffee_pattern/coffee_pattern.dart';
 import 'package:coffee_symbol/coffee_symbol.dart';
 import 'package:coffee_vision/coffee_vision.dart';
 import 'package:crypto/crypto.dart';
+import 'package:flutter/foundation.dart' show compute;
 import 'package:flutter/services.dart';
 import 'package:uuid/uuid.dart';
 
@@ -20,6 +21,20 @@ const mvpKnowledgeFileChecksum = mvpKnowledgeChecksum;
 const mvpKnowledgeCanonicalChecksum =
     'sha256:cdf0e6763c878956c061591631e869051da4cd90e17244dc4adc66c166c90595';
 const mvpEngineBaseline = '86011b4b33df787d08a9202565649bf880361fbc';
+
+Future<ReviewEngineOutput> _analyzeReviewInBackground(
+  ({
+    ReviewPhoto photo,
+    Uint8List bytes,
+    KnowledgeDatasetSnapshot dataset,
+    KnowledgeDatasetReleaseRef release,
+  })
+  input,
+) => ReviewEngine(
+  dataset: input.dataset,
+  release: input.release,
+  analyzeFeatures: const CoffeeVisionEngine().analyzeFeatures,
+)._analyzeLocally(input.photo, () async => input.bytes);
 
 typedef ReviewFeatureAnalyzer =
     Future<VisionFeatureSet> Function(VisionImageInput);
@@ -70,7 +85,12 @@ final class ReviewEngine {
     ReviewPatternAnalyzer? analyzePatterns,
     ReviewMatcher? match,
     ReviewResolver? resolve,
-  }) : _vision = analyzeFeatures ?? CoffeeVisionEngine().analyzeFeatures,
+  }) : _background =
+           analyzeFeatures == null &&
+           analyzePatterns == null &&
+           match == null &&
+           resolve == null,
+       _vision = analyzeFeatures ?? CoffeeVisionEngine().analyzeFeatures,
        _pattern = analyzePatterns ?? const PatternEngine().analyzePatterns,
        _match = match ?? const KnowledgeRecordCollectionMatcher().match,
        _resolve = resolve ?? const SymbolCandidateResolver().resolve {
@@ -79,6 +99,7 @@ final class ReviewEngine {
     }
   }
   final KnowledgeDatasetSnapshot dataset;
+  final bool _background;
   final KnowledgeDatasetReleaseRef release;
   final ReviewFeatureAnalyzer _vision;
   final ReviewPatternAnalyzer _pattern;
@@ -110,6 +131,27 @@ final class ReviewEngine {
   }
 
   Future<ReviewEngineOutput> analyze(
+    ReviewPhoto photo,
+    Future<Uint8List> Function() read,
+  ) async {
+    if (!_background) return _analyzeLocally(photo, read);
+    final Uint8List bytes;
+    try {
+      bytes = await read();
+    } catch (_) {
+      throw const ReviewEngineFailure('fileRead');
+    }
+    // Keep platform file access on the caller; run the unchanged pure-Dart
+    // analysis pipeline away from the UI isolate.
+    return compute(_analyzeReviewInBackground, (
+      photo: photo,
+      bytes: bytes,
+      dataset: dataset,
+      release: release,
+    ), debugLabel: 'atlas-photo-analysis');
+  }
+
+  Future<ReviewEngineOutput> _analyzeLocally(
     ReviewPhoto photo,
     Future<Uint8List> Function() read,
   ) async {

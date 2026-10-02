@@ -19,6 +19,7 @@ import 'atlas_design.dart';
 import 'annotation_sequence.dart';
 import 'research_export_notice.dart';
 import 'fortune_progress.dart';
+import 'fortune_preparation.dart';
 
 part 'contribution_design.dart';
 part 'photo_set_flow.dart';
@@ -66,6 +67,7 @@ class ContributionHome extends StatefulWidget {
     this.onGenerateFortune,
     this.aiDescription,
     this.fortuneProgress,
+    this.preparation,
     this.galleryPicker,
     this.photoSuitability,
     this.cameraLauncher,
@@ -86,6 +88,7 @@ class ContributionHome extends StatefulWidget {
   final Future<void> Function(Map<String, dynamic>)? onGenerateFortune;
   final Future<String?> Function()? aiDescription;
   final ValueNotifier<FortuneProgress>? fortuneProgress;
+  final FortunePreparationController? preparation;
   final GalleryPicker? galleryPicker;
   final PhotoSuitability? photoSuitability;
   final CameraLauncher? cameraLauncher;
@@ -513,8 +516,18 @@ class _ContributionHomeState extends State<ContributionHome>
     });
     widget.fortuneProgress?.value = const FortuneProgress(FortunePhase.saving);
     _stopRequested = false;
+    final presentation = widget.preparation;
+    if (generate && presentation?.attached == true) {
+      presentation!.begin(
+        photos: _draft!.photos,
+        imageFor: (p) => FileImage(widget.store.file(p.localName)),
+        onCancel: () => _stopRequested = true,
+      );
+      await WidgetsBinding.instance.endOfFrame;
+    }
     var receiptSaved = false;
     try {
+      if (_stopRequested) return;
       await _save(_draft!.copy(queued: true));
       final row = await widget.service.submit(
         _draft!,
@@ -536,14 +549,15 @@ class _ContributionHomeState extends State<ContributionHome>
       // The receipt is durable before analysis starts. A later failure must
       // never be presented as a failed save or trigger another submission.
       try {
-        if (widget.onRecorded != null) {
+        if (!_stopRequested && widget.onRecorded != null) {
           _change(() => _savePhase = _SavePhase.analyzing);
           await widget.onRecorded!(row);
           if (((row['document'] as Map)['photos'] as List).isNotEmpty) {
             preparation = RecordPreparationStatus.pending;
           }
         }
-        if (confirmed.length ==
+        if (!_stopRequested &&
+            confirmed.length ==
                 ((row['document'] as Map)['photos'] as List).length &&
             widget.onConfirmedRecorded != null) {
           preparation = await widget.onConfirmedRecorded!(row, confirmed);
@@ -574,12 +588,14 @@ class _ContributionHomeState extends State<ContributionHome>
           _sameSample = false;
         });
         ScaffoldMessenger.of(context).clearSnackBars();
-        showNotice(
-          context,
-          widget.service.isOffline
-              ? savedExplanation
-              : 'Gönderildi. Katkın için teşekkür ederiz.',
-        );
+        if (!generate || _stopRequested) {
+          showNotice(
+            context,
+            widget.service.isOffline
+                ? savedExplanation
+                : 'Gönderildi. Katkın için teşekkür ederiz.',
+          );
+        }
         if (generate && !_stopRequested && widget.onGenerateFortune != null) {
           await widget.onGenerateFortune!(row);
         } else if (!generate &&
@@ -624,10 +640,30 @@ class _ContributionHomeState extends State<ContributionHome>
         }
       }
     } catch (e) {
-      _change(
-        () => _savePhase = receiptSaved ? _SavePhase.saved : _SavePhase.failed,
-      );
-      if (mounted) {
+      _change(() {
+        _savePhase = receiptSaved ? _SavePhase.saved : _SavePhase.failed;
+        _fortuneWorkflow = false;
+      });
+      presentation?.finish();
+      if (mounted && generate) {
+        await showDialog<void>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: Text(receiptSaved ? 'Kayıt korundu' : 'Kayıt tamamlanamadı'),
+            content: Text(
+              receiptSaved
+                  ? 'Kaydın telefonda duruyor. Kayıtlarım ekranından aynı kayıtla yeniden deneyebilirsin.'
+                  : 'Fotoğrafların ve işaretlerin taslakta duruyor. Ekrana dönüp yeniden deneyebilirsin.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Tamam'),
+              ),
+            ],
+          ),
+        );
+      } else if (mounted) {
         showNotice(
           context,
           receiptSaved
@@ -638,6 +674,7 @@ class _ContributionHomeState extends State<ContributionHome>
         );
       }
     } finally {
+      presentation?.finish();
       if (mounted) {
         setState(() {
           _busy = false;
@@ -733,6 +770,7 @@ class _ContributionHomeState extends State<ContributionHome>
   @override
   Widget build(BuildContext context) {
     if (widget.modern &&
+        widget.preparation?.active != true &&
         _fortuneWorkflow &&
         _busy &&
         _draft != null &&
@@ -1257,6 +1295,21 @@ class _ContributionHistoryState extends State<ContributionHistory> {
                 ),
               for (var i = 0; i < _rows.length; i++) ...[
                 if (widget.modern) ...[
+                  Text(
+                    _recordStates[_rows[i]['root_id']] ?? 'Telefona kaydedildi',
+                  ),
+                  if (widget.onReadFortune != null)
+                    FilledButton(
+                      onPressed: _busy
+                          ? null
+                          : () => _act(() => widget.onReadFortune!(_rows[i])),
+                      child: Text(
+                        _recordStates[_rows[i]['root_id']] == 'Fal hazır'
+                            ? 'Falını Oku'
+                            : 'Fal Oluştur',
+                      ),
+                    ),
+                  const SizedBox(height: 12),
                   for (final p in ContributionDraft.fromJson(
                     Map<String, dynamic>.from(_rows[i]['document'] as Map),
                   ).photos)
@@ -1266,12 +1319,9 @@ class _ContributionHistoryState extends State<ContributionHistory> {
                         photo: p,
                         image: FileImage(widget.store.file(p.localName)),
                         displayCrop: p.visibleCrop,
+                        maxPreviewHeight: 240,
                       ),
                     ),
-                  Text(
-                    _recordStates[_rows[i]['root_id']] ?? 'Telefona kaydedildi',
-                  ),
-                  const SizedBox(height: 12),
                 ],
                 Card(
                   child: Padding(
@@ -1346,7 +1396,8 @@ class _ContributionHistoryState extends State<ContributionHistory> {
                                 }),
                           child: const Text('Fotoğrafları gör'),
                         ),
-                        if (widget.onReadFortune != null &&
+                        if (!widget.modern &&
+                            widget.onReadFortune != null &&
                             ((_rows[i]['document'] as Map)['photos'] as List)
                                 .isNotEmpty)
                           FilledButton(

@@ -78,7 +78,11 @@ class LabelPicker extends StatelessWidget {
                 const Expanded(
                   child: Text(
                     'Neye benziyor?',
-                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                      fontFamily: 'Literata',
+                      fontSize: 22,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                 ),
                 IconButton(
@@ -111,7 +115,11 @@ class LabelPicker extends StatelessWidget {
                     children: [
                       LabelIcon(item.key),
                       const SizedBox(height: 8),
-                      Text(item.value, textAlign: TextAlign.center),
+                      Text(
+                        item.value,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(fontSize: 13, height: 1.4),
+                      ),
                     ],
                   ),
                 );

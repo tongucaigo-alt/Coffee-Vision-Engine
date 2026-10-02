@@ -169,6 +169,27 @@ void main() {
     expect(jsonEncode(retried.initialObservations), firstObservation);
     expect(retried.observationHistory, 'unknown');
 
+    // Finishing an app-wide overlay must re-enable the route's system back.
+    final scope = find
+        .descendant(
+          of: find.byType(AiFortunePage),
+          matching: find.byWidgetPredicate((w) => w is PopScope),
+        )
+        .first;
+    runtime.preparation.begin(
+      photos: sourcePhotos,
+      imageFor: (_) => MemoryImage(testImage()),
+      onCancel: () {},
+    );
+    await tester.pump();
+    expect(tester.widget<PopScope>(scope).canPop, isFalse);
+    runtime.preparation.finish();
+    await tester.pumpAndSettle();
+    expect(tester.widget<PopScope>(scope).canPop, isTrue);
+    await tester.binding.handlePopRoute();
+    await settleIo();
+    expect(find.byType(AiFortunePage), findsNothing);
+
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());
   });

@@ -20,11 +20,20 @@ ThemeData atlasTheme() {
   return base.copyWith(
     colorScheme: colors,
     scaffoldBackgroundColor: atlasCream,
-    textTheme: base.textTheme.apply(
-      fontFamily: 'Plus Jakarta Sans',
-      bodyColor: atlasCoffee,
-      displayColor: atlasCoffee,
-    ),
+    textTheme: base.textTheme
+        .apply(
+          fontFamily: 'Plus Jakarta Sans',
+          bodyColor: atlasCoffee,
+          displayColor: atlasCoffee,
+        )
+        .copyWith(
+          titleLarge: const TextStyle(
+            fontFamily: 'Plus Jakarta Sans',
+            fontSize: 20,
+            fontWeight: FontWeight.w600,
+            color: atlasCoffee,
+          ),
+        ),
     appBarTheme: const AppBarTheme(
       backgroundColor: atlasCream,
       foregroundColor: atlasCoffee,
@@ -40,6 +49,14 @@ ThemeData atlasTheme() {
     ),
     segmentedButtonTheme: SegmentedButtonThemeData(
       style: ButtonStyle(
+        minimumSize: const WidgetStatePropertyAll(Size(48, 48)),
+        textStyle: const WidgetStatePropertyAll(
+          TextStyle(
+            fontFamily: 'Plus Jakarta Sans',
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
         backgroundColor: WidgetStateProperty.resolveWith(
           (states) => states.contains(WidgetState.selected)
               ? const Color(0xffeaf2ec)
@@ -53,29 +70,75 @@ ThemeData atlasTheme() {
       style: FilledButton.styleFrom(
         backgroundColor: atlasCoffee,
         foregroundColor: Colors.white,
-        minimumSize: const Size(48, 56),
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        textStyle: const TextStyle(
+          fontFamily: 'Plus Jakarta Sans',
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+        ),
+        minimumSize: const Size(48, 52),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
       ),
     ),
     outlinedButtonTheme: OutlinedButtonThemeData(
       style: OutlinedButton.styleFrom(
         minimumSize: const Size(48, 52),
         foregroundColor: atlasCoffee,
-        backgroundColor: Colors.white,
+        textStyle: const TextStyle(
+          fontFamily: 'Plus Jakarta Sans',
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+        ),
+        backgroundColor: const Color(0xfffffdf9),
         side: const BorderSide(color: atlasBorder),
         padding: const EdgeInsets.all(14),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
       ),
     ),
     cardTheme: CardThemeData(
-      color: Colors.white,
+      color: const Color(0xfffffdf9),
       elevation: 0,
       margin: EdgeInsets.zero,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: const BorderSide(color: atlasBorder),
+        borderRadius: BorderRadius.circular(22),
+        side: const BorderSide(color: atlasBorder, width: .8),
       ),
+    ),
+    textButtonTheme: TextButtonThemeData(
+      style: TextButton.styleFrom(
+        minimumSize: const Size(48, 48),
+        foregroundColor: atlasSage,
+        textStyle: const TextStyle(
+          fontFamily: 'Plus Jakarta Sans',
+          fontSize: 13,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+    ),
+    inputDecorationTheme: InputDecorationTheme(
+      filled: true,
+      fillColor: const Color(0xfffffdf9),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      labelStyle: const TextStyle(fontSize: 12, color: Color(0xff887c70)),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(18),
+        borderSide: const BorderSide(color: atlasBorder),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(18),
+        borderSide: const BorderSide(color: atlasBorder),
+      ),
+    ),
+    bottomSheetTheme: const BottomSheetThemeData(
+      backgroundColor: atlasCream,
+      showDragHandle: true,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+    ),
+    dialogTheme: DialogThemeData(
+      backgroundColor: atlasCream,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
     ),
   );
 }
@@ -112,16 +175,42 @@ class AtlasNotice extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.all(14),
     decoration: BoxDecoration(
-      color: const Color(0xffeaf2ec),
-      borderRadius: BorderRadius.circular(16),
+      color: const Color(0xffedf2eb),
+      borderRadius: BorderRadius.circular(20),
     ),
     child: Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, color: atlasSage, size: 22),
+        Icon(icon, color: atlasSage, size: 18),
         const SizedBox(width: 10),
-        Expanded(child: Text(text)),
+        Expanded(
+          child: Text(
+            text,
+            style: const TextStyle(
+              fontSize: 12,
+              height: 1.6,
+              color: Color(0xff60715d),
+            ),
+          ),
+        ),
       ],
+    ),
+  );
+}
+
+class AtlasHint extends StatelessWidget {
+  const AtlasHint(this.text, {super.key});
+  final String text;
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 6),
+    child: Text(
+      text,
+      style: const TextStyle(
+        fontSize: 12,
+        height: 1.6,
+        color: Color(0xff887c70),
+      ),
     ),
   );
 }
@@ -162,7 +251,7 @@ class FortuneStory extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final paragraphs = text.trim().split(RegExp(r'\r?\n\s*\r?\n'));
-    const style = TextStyle(fontFamily: 'Literata', fontSize: 18, height: 1.65);
+    const style = TextStyle(fontFamily: 'Literata', fontSize: 16, height: 1.75);
     if (paragraphs.length != 4) return SelectableText(text, style: style);
     final headings = [
       'Genel Enerji',
@@ -180,7 +269,7 @@ class FortuneStory extends StatelessWidget {
             decoration: i == 1
                 ? BoxDecoration(
                     color: const Color(0xfff3ede2),
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(22),
                   )
                 : null,
             child: Column(
@@ -190,7 +279,8 @@ class FortuneStory extends StatelessWidget {
                   headings[i],
                   style: const TextStyle(
                     color: atlasSage,
-                    fontWeight: FontWeight.w700,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
                 const SizedBox(height: 8),

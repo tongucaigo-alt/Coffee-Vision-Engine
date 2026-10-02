@@ -9,11 +9,13 @@ class MarkedPhoto extends StatefulWidget {
     required this.photo,
     required this.image,
     this.displayCrop,
+    this.maxPreviewHeight,
     super.key,
   });
   final ContributionPhoto photo;
   final ImageProvider image;
   final PhotoCrop? displayCrop;
+  final double? maxPreviewHeight;
   @override
   State<MarkedPhoto> createState() => _MarkedPhotoState();
 }
@@ -34,47 +36,67 @@ class _MarkedPhotoState extends State<MarkedPhoto> {
     children: [
       Text(widget.photo.title, style: Theme.of(context).textTheme.titleLarge),
       const SizedBox(height: 8),
-      AspectRatio(
-        aspectRatio: crop.aspectRatio(widget.photo.width, widget.photo.height),
-        child: LayoutBuilder(
-          builder: (_, c) => Stack(
-            children: [
-              Positioned.fill(
-                child: CroppedPhoto(
-                  image: widget.image,
-                  photoWidth: widget.photo.width,
-                  photoHeight: widget.photo.height,
-                  crop: crop,
-                  errorBuilder: (_, _, _) => const Center(
-                    child: Text('Fotoğraf yüklenemedi. Sayfayı yeniden aç.'),
-                  ),
-                ),
+      LayoutBuilder(
+        builder: (context, constraints) => Align(
+          alignment: Alignment.center,
+          child: SizedBox(
+            width: widget.maxPreviewHeight == null
+                ? constraints.maxWidth
+                : (widget.maxPreviewHeight! *
+                          crop.aspectRatio(
+                            widget.photo.width,
+                            widget.photo.height,
+                          ))
+                      .clamp(0, constraints.maxWidth),
+            child: AspectRatio(
+              aspectRatio: crop.aspectRatio(
+                widget.photo.width,
+                widget.photo.height,
               ),
-              for (final r in widget.photo.regions)
-                Positioned(
-                  left: crop.toDisplayBox(r.box).x * c.maxWidth,
-                  top: crop.toDisplayBox(r.box).y * c.maxHeight,
-                  width: crop.toDisplayBox(r.box).width * c.maxWidth,
-                  height: crop.toDisplayBox(r.box).height * c.maxHeight,
-                  child: GestureDetector(
-                    onTap: () => setState(() => selected = r.id),
-                    child: Semantics(
-                      label: r.title,
-                      button: true,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          border: Border.all(
-                            color: selected == r.id
-                                ? Colors.amber
-                                : Colors.tealAccent,
-                            width: selected == r.id ? 4 : 2,
+              child: LayoutBuilder(
+                builder: (_, c) => Stack(
+                  children: [
+                    Positioned.fill(
+                      child: CroppedPhoto(
+                        image: widget.image,
+                        photoWidth: widget.photo.width,
+                        photoHeight: widget.photo.height,
+                        crop: crop,
+                        errorBuilder: (_, _, _) => const Center(
+                          child: Text(
+                            'Fotoğraf yüklenemedi. Sayfayı yeniden aç.',
                           ),
                         ),
                       ),
                     ),
-                  ),
+                    for (final r in widget.photo.regions)
+                      Positioned(
+                        left: crop.toDisplayBox(r.box).x * c.maxWidth,
+                        top: crop.toDisplayBox(r.box).y * c.maxHeight,
+                        width: crop.toDisplayBox(r.box).width * c.maxWidth,
+                        height: crop.toDisplayBox(r.box).height * c.maxHeight,
+                        child: GestureDetector(
+                          onTap: () => setState(() => selected = r.id),
+                          child: Semantics(
+                            label: r.title,
+                            button: true,
+                            child: Container(
+                              decoration: BoxDecoration(
+                                border: Border.all(
+                                  color: selected == r.id
+                                      ? Colors.amber
+                                      : Colors.tealAccent,
+                                  width: selected == r.id ? 4 : 2,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
-            ],
+              ),
+            ),
           ),
         ),
       ),

@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import '../fortune_progress.dart';
+import '../fortune_preparation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../local_store.dart';
@@ -17,6 +18,7 @@ class AiRuntime {
   final progress = ValueNotifier<FortuneProgress>(
     const FortuneProgress(FortunePhase.saving),
   );
+  late final preparation = FortunePreparationController(progress);
   final AiStore store;
   final ReviewStore reviews;
   final AiBridge bridge;

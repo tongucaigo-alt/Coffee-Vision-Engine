@@ -10,6 +10,7 @@ import 'src/research_export.dart';
 import 'src/atlas_design.dart';
 import 'src/models.dart';
 import 'src/fortune_progress.dart';
+import 'src/fortune_preparation.dart';
 import 'src/photo_suitability.dart';
 import 'src/mvp/review_controller.dart';
 import 'src/mvp/review_models.dart';
@@ -45,6 +46,9 @@ class OfflineContributionApp extends StatelessWidget {
     title: 'Atlas',
     debugShowCheckedModeBanner: false,
     theme: atlasTheme(),
+    builder: (context, child) => ai == null
+        ? child!
+        : FortunePreparationHost(controller: ai!.preparation, child: child!),
     home: Builder(
       builder: (context) => ContributionHome(
         modern: true,
@@ -68,6 +72,7 @@ class OfflineContributionApp extends StatelessWidget {
                 }
               },
         fortuneProgress: ai?.progress,
+        preparation: ai?.preparation,
         aiDescription: ai == null
             ? null
             : () async {
@@ -138,11 +143,20 @@ class OfflineContributionApp extends StatelessWidget {
                       );
                       ai!.progress.value = FortuneProgress(
                         FortunePhase.analyzing,
-                        photoId: p.photo.localName,
+                        photoId: source.photos
+                            .firstWhere(
+                              (original) =>
+                                  original.fileKey == p.photo.fileKey &&
+                                  original.checksum == p.photo.checksum,
+                            )
+                            .localName,
                       );
                     }
                   });
-                  await controller.analyze(enrich: true);
+                  await controller.analyze(
+                    enrich: true,
+                    isCancelled: () => ai!.preparation.cancelled,
+                  );
                   if (controller.setupError != null) {
                     return RecordPreparationStatus.failed;
                   }

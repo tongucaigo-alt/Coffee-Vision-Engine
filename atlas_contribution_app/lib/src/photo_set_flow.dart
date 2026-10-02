@@ -168,69 +168,84 @@ extension _PhotoSetFlow on _ContributionHomeState {
       children: [
         Text(
           draft.photoSummary,
-          style: Theme.of(context).textTheme.titleMedium,
+          style: const TextStyle(
+            fontFamily: 'Literata',
+            fontSize: 22,
+            height: 1.4,
+          ),
         ),
         const SizedBox(height: 12),
         if (draft.isGallery && draft.cups.length < 3)
-          const AtlasNotice(
+          const AtlasHint(
             'Farklı açılardan üç fotoğraf ekleyebilirsin. Tek fincan fotoğrafıyla da devam edebilirsin.',
           ),
         if (draft.complete)
-          const AtlasNotice(
+          const AtlasHint(
             'Fotoğrafların netliğini ve aynı fincana ait olduğunu kontrol et. Tabak varsa bu fincana ait olmalı.',
           ),
+        const SizedBox(height: 16),
         for (final p in draft.photos) ...[
           Card(
             child: Padding(
-              padding: const EdgeInsets.all(14),
+              padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Text(p.title, style: Theme.of(context).textTheme.titleMedium),
-                  const SizedBox(height: 8),
+                  Text(
+                    p.title,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: atlasSage,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
                   AtlasPhoto(
                     photo: p,
                     image: FileImage(widget.store.file(p.localName)),
                     height: 190,
                   ),
                   if (p.surface == PhotoSurface.cup && p.origin == 'gallery')
-                    DropdownButtonFormField<String>(
-                      key: ValueKey('${p.id}-${p.angle?.name}'),
-                      initialValue:
-                          (p.angle == CaptureRole.top
-                                  ? CaptureRole.free
-                                  : p.angle)
-                              ?.name ??
-                          'unknown',
-                      isExpanded: true,
-                      decoration: const InputDecoration(
-                        labelText: 'Fotoğrafın açısı',
-                      ),
-                      items: [
-                        const DropdownMenuItem(
-                          value: 'unknown',
-                          child: Text('Açı belirtilmedi'),
+                    Padding(
+                      padding: const EdgeInsets.only(top: 14),
+                      child: DropdownButtonFormField<String>(
+                        key: ValueKey('${p.id}-${p.angle?.name}'),
+                        initialValue:
+                            (p.angle == CaptureRole.top
+                                    ? CaptureRole.free
+                                    : p.angle)
+                                ?.name ??
+                            'unknown',
+                        isExpanded: true,
+                        decoration: const InputDecoration(
+                          labelText: 'Fotoğrafın açısı',
                         ),
-                        for (final angle in freeCaptureRoles)
-                          if (p.angle == angle ||
-                              !draft.cups.any(
-                                (q) =>
-                                    q.id != p.id &&
-                                    (q.angle == CaptureRole.top
-                                            ? CaptureRole.free
-                                            : q.angle) ==
-                                        angle,
-                              ))
-                            DropdownMenuItem(
-                              value: angle.name,
-                              child: Text(angle.title),
-                            ),
-                      ],
-                      onChanged: disabled
-                          ? null
-                          : (v) {
-                              if (v != null) _setAngle(p, v);
-                            },
+                        items: [
+                          const DropdownMenuItem(
+                            value: 'unknown',
+                            child: Text('Açı belirtilmedi'),
+                          ),
+                          for (final angle in freeCaptureRoles)
+                            if (p.angle == angle ||
+                                !draft.cups.any(
+                                  (q) =>
+                                      q.id != p.id &&
+                                      (q.angle == CaptureRole.top
+                                              ? CaptureRole.free
+                                              : q.angle) ==
+                                          angle,
+                                ))
+                              DropdownMenuItem(
+                                value: angle.name,
+                                child: Text(angle.title),
+                              ),
+                        ],
+                        onChanged: disabled
+                            ? null
+                            : (v) {
+                                if (v != null) _setAngle(p, v);
+                              },
+                      ),
                     ),
                   Wrap(
                     spacing: 8,
@@ -287,7 +302,15 @@ extension _PhotoSetFlow on _ContributionHomeState {
                     ],
                   ),
                   _photoCheckNotice(p),
-                  if (draft.complete) Text(_decisionText(p)),
+                  if (draft.complete)
+                    Text(
+                      _decisionText(p),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        height: 1.5,
+                        color: Color(0xff887c70),
+                      ),
+                    ),
                 ],
               ),
             ),
@@ -318,8 +341,16 @@ extension _PhotoSetFlow on _ContributionHomeState {
             'Tabak fotoğrafı da eklemek ister misin?',
             style: Theme.of(context).textTheme.titleLarge,
           ),
-          const Text(
-            'İsteğe bağlı. Tabak eklemeden de falını oluşturabilirsin.',
+          const Padding(
+            padding: EdgeInsets.only(top: 8, bottom: 16),
+            child: Text(
+              'İsteğe bağlı. Tabak eklemeden de falını oluşturabilirsin.',
+              style: TextStyle(
+                fontSize: 12,
+                height: 1.6,
+                color: Color(0xff887c70),
+              ),
+            ),
           ),
         ],
         if (draft.cupSelectionDone && draft.saucers.isEmpty) ...[
@@ -335,6 +366,7 @@ extension _PhotoSetFlow on _ContributionHomeState {
             icon: const Icon(Icons.photo_library_outlined),
             label: const Text('Galeriden tabak seç'),
           ),
+          const SizedBox(height: 8),
           if (!draft.saucerDecided)
             FilledButton(
               onPressed: disabled
