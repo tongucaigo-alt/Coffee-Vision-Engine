@@ -9,9 +9,34 @@ import 'models.dart';
 import 'photo_crop.dart';
 
 // Cache identity includes both the object model and application residue rules.
-const suitabilityVersion = 'atlas-suitability-lite0-residue-v4';
-// Must remain false until the documented real-image release gate passes.
-const suitabilityBlockingValidated = false;
+// Explicit build opt-in for the model whose independent device gate passed.
+const localImageScreenEnabled = bool.fromEnvironment('ATLAS_IMAGE_SCREEN');
+const diagnosticImageScreen =
+    bool.fromEnvironment('ATLAS_DIAGNOSTIC') && localImageScreenEnabled;
+const suitabilityVersion = localImageScreenEnabled
+    ? 'atlas-diagnostic-mobilenet-17cb073e-expanded-v5'
+    : 'atlas-suitability-lite0-residue-v4';
+const suitabilityBlockingValidated = localImageScreenEnabled;
+
+/// Whole-frame and preview-crop evidence must both be negative to reject.
+/// A positive model margin cannot provide definite evidence against a photo.
+String classifyLocalImageScreen(Map<dynamic, dynamic>? response) {
+  final scores = response?['scores'];
+  if (response?['modelSha256'] !=
+          '17cb073e902c459ebc04fe9b14a2ba10ec968a4c378c40fbd8199f7c5b0ff5d4' ||
+      scores is! List ||
+      scores.length != 2 ||
+      scores.any((value) => value is! num || !value.isFinite)) {
+    throw const FormatException('Invalid diagnostic screening response');
+  }
+  if (scores.every((value) => (value as num) < -.4117240578933279)) {
+    return 'unsuitable';
+  }
+  if (scores.any((value) => (value as num) > .27635831503150343)) {
+    return 'supported';
+  }
+  return 'uncertain';
+}
 
 /// Validates native output before assigning a visual outcome. A malformed
 /// model response is a technical failure, never evidence against the photo.
@@ -109,9 +134,7 @@ class PhotoSuitabilityNotice extends StatelessWidget {
       );
     }
     final status = value!['status'];
-    if (suitabilityAccepted(value, photo) &&
-        value!['candidateStatus'] != 'unsuitable' &&
-        value!['candidateStatus'] != 'residueFree') {
+    if (suitabilityAccepted(value, photo)) {
       return const SizedBox.shrink();
     }
     final failure = PhotoSuitabilityFailure(photo, value!);
@@ -140,10 +163,45 @@ class PhotoSuitabilityNotice extends StatelessWidget {
   }
 }
 
+/// An old saved record may need editing under the current model. The fortune
+/// page offers a route back to the record, without repeating preview's warning.
+class PhotoSuitabilityRecovery extends StatelessWidget {
+  const PhotoSuitabilityRecovery({
+    required this.failure,
+    required this.onReviewPhotos,
+    this.onRetry,
+    super.key,
+  });
+  final PhotoSuitabilityFailure failure;
+  final VoidCallback? onReviewPhotos;
+  final VoidCallback? onRetry;
+  @override
+  Widget build(BuildContext context) {
+    if (failure.technical) {
+      return PhotoSuitabilityNotice(
+        photo: failure.photo,
+        value: failure.assessment,
+        onRetry: onRetry,
+      );
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const Text('Kayıtlarım ekranında fotoğrafları gözden geçirebilirsin.'),
+        OutlinedButton(
+          onPressed: onReviewPhotos,
+          child: const Text('Kayda dön'),
+        ),
+      ],
+    );
+  }
+}
+
 class PhotoSuitability {
   PhotoSuitability(this.directory);
   final Directory directory;
   static const channel = MethodChannel('atlas.photo/suitability');
+  static const imageScreenChannel = MethodChannel('atlas.photo/image_screen');
   String _key(ContributionPhoto p) => sha256
       .convert(
         utf8.encode(
@@ -203,7 +261,8 @@ class PhotoSuitability {
       'surface': p.surface.name,
       'cropKey': jsonEncode(crop.toJson()),
       'checkedAtUtc': DateTime.now().toUtc().toIso8601String(),
-      'experimental': !suitabilityBlockingValidated,
+      'experimental':
+          !(suitabilityBlockingValidated && p.surface == PhotoSurface.cup),
       'decisionSource': 'localSystem',
     };
     try {
@@ -235,6 +294,25 @@ class PhotoSuitability {
         if ('sha256:${sha256.convert(bytes)}' != p.checksum) {
           throw const FormatException('Photo mismatch');
         }
+        // The cup model has no independent saucer validation. Preserve the
+        // existing saucer assessment rather than applying a cup-only head.
+        if (localImageScreenEnabled && p.surface == PhotoSurface.cup) {
+          final screen = await imageScreenChannel
+              .invokeMapMethod<String, dynamic>('assess', {
+                'path': file.absolute.path,
+                'crop': [crop.x, crop.y, crop.width, crop.height],
+              })
+              .timeout(const Duration(seconds: 30));
+          final status = classifyLocalImageScreen(screen);
+          value.addAll({
+            'candidateStatus': status,
+            'status': status,
+            'imageScreen': screen,
+            'diagnosticOnly': diagnosticImageScreen,
+          });
+          await _save(p, value);
+          return value;
+        }
         final scores = await channel
             .invokeMapMethod<dynamic, dynamic>('classify', {
               'path': file.absolute.path,
@@ -259,10 +337,9 @@ class PhotoSuitability {
           'residueAssessment': candidate == 'residueFree'
               ? 'lowEvidence'
               : 'measured',
-          // Do not enable hard rejection before the independent release gate.
-          'status':
-              !suitabilityBlockingValidated &&
-                  ['unsuitable', 'residueFree'].contains(candidate)
+          // The legacy module has no passing independent gate, including
+          // saucers. Its negative candidates therefore remain non-blocking.
+          'status': ['unsuitable', 'residueFree'].contains(candidate)
               ? 'uncertain'
               : candidate,
         });

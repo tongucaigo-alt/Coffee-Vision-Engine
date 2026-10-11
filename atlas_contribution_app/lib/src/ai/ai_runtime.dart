@@ -5,6 +5,7 @@ import '../fortune_preparation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../local_store.dart';
+import '../opencv_traces.dart';
 import '../mvp/review_store.dart';
 import 'ai_bridge.dart';
 import 'ai_client.dart';
@@ -13,7 +14,15 @@ import 'ai_store.dart';
 import 'ai_bundled.dart';
 
 class AiRuntime {
-  AiRuntime._(this.store, this.reviews, this.bridge, this.client, this.readKey);
+  AiRuntime._(
+    this.store,
+    this.reviews,
+    this.bridge,
+    this.client,
+    this.readKey,
+    this.traces,
+  );
+  final TraceService traces;
   final Future<String> Function(AiProfile)? readKey;
   final progress = ValueNotifier<FortuneProgress>(
     const FortuneProgress(FortunePhase.saving),
@@ -46,9 +55,18 @@ class AiRuntime {
     );
     reviews.additionalExposures = store.exposures;
     reviews.aiExposureAudit = store.researchAudit;
-    reviews.onDelete = store.deleteSession;
+    final traces = TraceService(
+      Directory('${source.directory.parent.path}/opencv-traces'),
+    );
+    reviews.onDelete = (id) async {
+      await store.deleteSession(id);
+      await traces.deleteOwner(id);
+    };
     final bridge = AiBridge(source, reviews, store);
-    source.onDeleteRoot = bridge.deleteRoot;
+    source.onDeleteRoot = (root) async {
+      await traces.deleteOwner(bridge.sessionId(root));
+      await bridge.deleteRoot(root);
+    };
     await bridge.reconcile();
     return AiRuntime._(
       store,
@@ -61,6 +79,7 @@ class AiRuntime {
             ),
           ),
       readKey,
+      traces,
     );
   }
 

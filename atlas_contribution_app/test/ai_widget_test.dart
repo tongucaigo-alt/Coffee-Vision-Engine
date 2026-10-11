@@ -346,13 +346,14 @@ void main() {
       await tester.pumpAndSettle();
       expect(client.inputs, isEmpty);
       await tester.scrollUntilVisible(
-        find.textContaining('Bu karede fincanının hikâyesine ulaşamadık'),
+        find.text('Kayda dön'),
         -400,
       );
       expect(
         find.textContaining('Bu karede fincanının hikâyesine ulaşamadık'),
-        findsOneWidget,
+        findsNothing,
       );
+      expect(find.text('Kayda dön'), findsOneWidget);
       await tester.runAsync(() async {
         await checker.continueWith(
           checkedPhoto,

@@ -155,6 +155,12 @@ extension _AtlasHomePresentation on _ContributionHomeState {
       MaterialPageRoute<void>(
         builder: (_) => AnnotationSequence(
           photos: draft.photos,
+          loadTraces: widget.loadAnnotationTraces == null
+              ? null
+              : () => widget.loadAnnotationTraces!(draft),
+          onTraceShown: widget.onAnnotationTraceShown == null
+              ? null
+              : (photo) => widget.onAnnotationTraceShown!(draft, photo),
           imageFor: (p) => FileImage(widget.store.file(p.localName)),
           onSave: (p) async {
             await _save(_draft!.withPhoto(p));

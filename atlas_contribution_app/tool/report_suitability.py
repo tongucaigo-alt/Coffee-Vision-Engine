@@ -27,32 +27,47 @@ def report(document):
 
     output = {'complete': document.get('complete', False), 'groups': {}}
     passing = output['complete']
-    for label, minimum in [('residue', 30), ('keyboard', 10), ('other', 20), ('empty', 20)]:
+    for label, minimum in [('residue', 30), ('keyboard', 10), ('lighter', 10), ('portrait', 10), ('empty', 20)]:
         selected = groups[label]
         by_group = defaultdict(list)
         for row in selected:
             by_group[row['groupId']].append(row)
         blocked = lambda r: r['candidateStatus'] in ('unsuitable', 'residueFree')
         errors = sum(r['candidateStatus'] == 'error' for r in selected)
+        supported = sum(all(r['candidateStatus'] == 'supported' for r in rs)
+                        for rs in by_group.values())
+        safe_groups = sum(not any(blocked(r) or r['candidateStatus'] == 'error' for r in rs)
+                          for rs in by_group.values())
         if label == 'residue':
-            successes = sum(not any(blocked(r) or r['candidateStatus'] == 'error' for r in rs)
-                            for rs in by_group.values())
-            threshold = .95
+            successes = safe_groups
+            threshold = 1.0
         else:
             # A group succeeds only if every selected view was rejected.
             successes = sum(all(blocked(r) for r in rs) for rs in by_group.values())
             threshold = .80
         rate = successes / len(by_group) if by_group else 0
         accepted = len(by_group) >= minimum and rate >= threshold and errors == 0
+        # The user-facing requirement is zero false blocking. Keep a separate
+        # recognition floor so an uncertain-all positive policy cannot qualify.
+        # Uncertainty remains explicitly reported, never relabelled supported.
+        if label == 'residue':
+            accepted = accepted and supported >= .80 * len(by_group)
         passing = passing and accepted
         output['groups'][label] = {
             'photos': len(selected), 'independentGroups': len(by_group),
             'blockedPhotos': sum(blocked(r) for r in selected), 'errors': errors,
             'uncertainPhotos': sum(r['candidateStatus'] == 'uncertain' for r in selected),
+            'supportedPhotos': sum(r['candidateStatus'] == 'supported' for r in selected),
+            'supportedGroups': supported,
+            'supportedGroupRate': supported / len(by_group) if by_group else 0,
+            'minimumSupportedGroupRate': .80 if label == 'residue' else None,
+            'nonBlockedNonErrorGroups': safe_groups,
             'successfulGroups': successes, 'groupSuccessRate': rate,
             'minimumGroups': minimum, 'passes': accepted,
         }
-    output['releaseGatePassed'] = bool(passing)
+    output['evidenceAuditPassed'] = document.get('evidenceAuditPassed') is True
+    output['criteriaVersion'] = 'zero-false-blocking-and-80-percent-recognition-v2'
+    output['releaseGatePassed'] = bool(passing and output['evidenceAuditPassed'])
     output['productionBlockingEnabled'] = document.get('blockingEnabled', False)
     return output
 

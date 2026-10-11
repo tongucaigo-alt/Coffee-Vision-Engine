@@ -1,3 +1,7 @@
+# Güncel kayıt: Atlas V51 — 11 Ekim 2026
+
+Güncel çalışma ve geri dönüş noktası: [V51 sürüm notları](V51_SURUM_NOTLARI.md). Aşağıdaki Beta 6 özeti tarihsel kayıt olarak korunmuştur.
+
 # Atlas — 28 Eylül 2026 sürüm özeti
 
 Bu kayıt, telefona kurulan beta 6'ya kadar yapılan geliştirmeleri bir araya getirir.

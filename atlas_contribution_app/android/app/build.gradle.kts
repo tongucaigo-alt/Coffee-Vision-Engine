@@ -34,12 +34,17 @@ if (atlasKimiLocalTest && (atlasPlayTest || !atlasAiLab || !atlasDefines.any {
 // Flutter queries the application id separately without the integration target
 // when uninstalling. Keep that query on the diagnostic identity as well.
 val atlasDiagnostic = atlasTestTarget || "ATLAS_DIAGNOSTIC=true" in atlasDefines
+val atlasLocalImageScreen = "ATLAS_IMAGE_SCREEN=true" in atlasDefines
 val signing = Properties().apply { if (signingFile.exists()) signingFile.inputStream().use { load(it) } }
 if (gradle.startParameter.taskNames.any { it.contains("Release", ignoreCase = true) } && !signingFile.exists()) {
     throw GradleException("Founder signing key is required for a release APK. Debug signing is not a distribution key.")
 }
 
 android {
+    if (atlasLocalImageScreen) {
+        sourceSets.getByName("main").java.srcDir("src/imageScreen/kotlin")
+        sourceSets.getByName("main").assets.srcDir("src/imageScreen/assets")
+    }
     namespace = "com.coffeeplatform.atlas_contribution_app"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
@@ -65,7 +70,8 @@ android {
         versionCode = flutter.versionCode
         versionName = flutter.versionName
         manifestPlaceholders["atlasCleartext"] = if (atlasAiLab) "true" else "false"
-        manifestPlaceholders["atlasLabel"] = if (atlasKimiLocalTest) "Atlas Kimi Test" else if (atlasAiLab) "Atlas AI Beta" else if (atlasPlayTest) "Atlas" else "Atlas Katkı"
+        val atlasBaseLabel = if (atlasDiagnostic) "Atlas Fotoğraf Testi" else if (atlasKimiLocalTest) "Atlas Kimi Test" else if (atlasAiLab) "Atlas AI Beta" else if (atlasPlayTest) "Atlas" else "Atlas Katkı"
+        manifestPlaceholders["atlasLabel"] = if (atlasDiagnostic || atlasAiLab) "$atlasBaseLabel V${flutter.versionCode}" else atlasBaseLabel
     }
 
     signingConfigs {
@@ -95,5 +101,7 @@ flutter {
 }
 
 dependencies {
+    implementation("org.opencv:opencv:4.13.0")
     implementation("com.google.mediapipe:tasks-vision:0.10.26.1")
+    if (atlasLocalImageScreen) implementation("com.microsoft.onnxruntime:onnxruntime-android:1.30.0")
 }

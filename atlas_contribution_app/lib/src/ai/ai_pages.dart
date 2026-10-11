@@ -18,6 +18,8 @@ import 'ai_bundled.dart';
 import 'play_access_page.dart';
 import 'narrative.dart';
 import '../fortune_progress.dart';
+import '../opencv_traces.dart';
+import '../trace_overlay.dart';
 
 String _error(Object e) => e is AiFailure
     ? e.message
@@ -336,10 +338,31 @@ class _AiFortunePageState extends State<AiFortunePage> {
   Set<String> _stars = {};
   bool _busy = false, _compare = false, _showScan = false;
   AiCancellation? _cancel;
+  final _resultScroll = ScrollController();
   PhotoSuitabilityFailure? _photoFailure;
   bool _checkingPhotos = false;
   bool _generationCancelled = false;
+  TraceSet _traces = TraceSet.empty;
+  int _traceRun = 0;
   ReviewSession get session => _controller.session;
+  ContributionPhoto _tracePhoto(ReviewPhoto review) =>
+      ContributionPhoto.fromJson({
+        ...review.photo.toJson(),
+        'surface': review.surface.name,
+        'displayCrop': review.visibleCrop.toJson(),
+      });
+  TraceSet get _visibleTraces {
+    final answers = _results.where((r) => (r['answers'] as List).isNotEmpty);
+    return answers.isEmpty ||
+            answers.any(
+              (r) =>
+                  r['sourceFingerprint'] ==
+                  preparationSourceFingerprint(session),
+            )
+        ? _traces
+        : TraceSet.empty;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -359,6 +382,7 @@ class _AiFortunePageState extends State<AiFortunePage> {
           )) {
         _act(_generate);
       } else if (mounted) {
+        unawaited(_loadTraces());
         widget.runtime.preparation.finish();
       }
     });
@@ -377,6 +401,9 @@ class _AiFortunePageState extends State<AiFortunePage> {
 
   @override
   void dispose() {
+    _traceRun++;
+    _generationCancelled = true;
+    _resultScroll.dispose();
     unawaited(_cancel?.cancel());
     _controller.removeListener(_analysisProgress);
     unawaited(_controller.close());
@@ -524,6 +551,41 @@ class _AiFortunePageState extends State<AiFortunePage> {
     return const [];
   }
 
+  Future<void> _loadTraces({bool preparing = false}) async {
+    if (!openCvTracesEnabled) return;
+    final run = ++_traceRun;
+    final snapshot = session;
+    if (snapshot.currentInitialObservation == null) return;
+    final set = await widget.runtime.traces.loadSet(
+      owner: snapshot.id,
+      photos: snapshot.orderedPhotos.map(_tracePhoto).toList(),
+      fileFor: (p) => widget.runtime.reviews.file(p.localName),
+      isCancelled: () =>
+          !mounted || run != _traceRun || (preparing && _generationCancelled),
+      onUpdate: (value, photo) {
+        if (!mounted ||
+            run != _traceRun ||
+            (preparing && _generationCancelled)) {
+          return;
+        }
+        if (preparing) {
+          widget.runtime.progress.value = FortuneProgress(
+            FortunePhase.highlighting,
+            photoId: photo.localName,
+          );
+          widget.runtime.preparation.updateTraces(value);
+        }
+        setState(() => _traces = value);
+      },
+    );
+    if (mounted && run == _traceRun && !(preparing && _generationCancelled)) {
+      setState(() => _traces = set);
+      if (preparing) {
+        widget.runtime.preparation.updateTraces(set);
+      }
+    }
+  }
+
   Future<void> _generate() async {
     _generationCancelled = false;
     final presentation = widget.runtime.preparation;
@@ -543,7 +605,7 @@ class _AiFortunePageState extends State<AiFortunePage> {
         );
       }
       presentation.begin(
-        photos: session.orderedPhotos.map((p) => p.photo).toList(),
+        photos: session.orderedPhotos.map(_tracePhoto).toList(),
         imageFor: (p) => FileImage(widget.runtime.reviews.file(p.localName)),
         anchorsFor: _symbolAnchors,
         onCancel: () {
@@ -586,6 +648,15 @@ class _AiFortunePageState extends State<AiFortunePage> {
         session.currentInitialObservation == null) {
       throw const AiFailure('Önce incelemeyi tamamla.');
     }
+    await _loadTraces(preparing: true);
+    checkCancelled();
+    if (!mounted) return;
+    if (!await widget.runtime.bridge.isCurrent(session)) {
+      throw const AiFailure('Kaynak kayıt değişti; işlem durduruldu.');
+    }
+    widget.runtime.progress.value = const FortuneProgress(
+      FortunePhase.generating,
+    );
     final recent = await widget.runtime.store.recentSuccessfulResults();
     final retry = _results
         .where(
@@ -753,7 +824,8 @@ class _AiFortunePageState extends State<AiFortunePage> {
                     progress: progress,
                     showDecorativeSymbols: true,
                     symbolAnchorsFor: _symbolAnchors,
-                    photos: session.orderedPhotos.map((p) => p.photo).toList(),
+                    photos: session.orderedPhotos.map(_tracePhoto).toList(),
+                    traces: _traces,
                     imageFor: (p) =>
                         FileImage(widget.runtime.reviews.file(p.localName)),
                     onCancel: _cancel == null
@@ -766,7 +838,13 @@ class _AiFortunePageState extends State<AiFortunePage> {
                   ),
                 )
               : ListView(
-                  padding: const EdgeInsets.all(20),
+                  controller: _resultScroll,
+                  padding: EdgeInsets.fromLTRB(
+                    20,
+                    20,
+                    20,
+                    32 + MediaQuery.viewPaddingOf(context).bottom,
+                  ),
                   children: [
                     if (_checkingPhotos)
                       Padding(
@@ -776,10 +854,14 @@ class _AiFortunePageState extends State<AiFortunePage> {
                           child: const Text('Fotoğraflar kontrol ediliyor…'),
                         ),
                       ),
-                    if (_photoFailure != null) ...[
-                      PhotoSuitabilityNotice(
-                        photo: _photoFailure!.photo,
-                        value: _photoFailure!.assessment,
+                    if (_photoFailure != null)
+                      PhotoSuitabilityRecovery(
+                        failure: _photoFailure!,
+                        onReviewPhotos: _busy
+                            ? null
+                            : () {
+                                Navigator.maybePop(context);
+                              },
                         onRetry: _busy
                             ? null
                             : () => _act(() async {
@@ -789,11 +871,6 @@ class _AiFortunePageState extends State<AiFortunePage> {
                                 }
                               }),
                       ),
-                      if (!_photoFailure!.technical)
-                        const Text(
-                          'Fotoğrafı değiştirmek veya kaldırmak için Kayıtlarım ekranındaki kaydı düzenle.',
-                        ),
-                    ],
                     if (_message != null)
                       Padding(
                         padding: const EdgeInsets.only(bottom: 16),
@@ -824,14 +901,14 @@ class _AiFortunePageState extends State<AiFortunePage> {
                                           mainAxisSize: MainAxisSize.min,
                                           children: [
                                             Text(p.title),
-                                            MarkedPhoto(
-                                              photo: p.photo,
+                                            TracePhotoViewer(
+                                              photo: _tracePhoto(p),
                                               image: FileImage(
                                                 widget.runtime.reviews.file(
                                                   p.photo.localName,
                                                 ),
                                               ),
-                                              displayCrop: p.visibleCrop,
+                                              set: _visibleTraces,
                                             ),
                                             TextButton(
                                               onPressed: () =>
@@ -846,14 +923,17 @@ class _AiFortunePageState extends State<AiFortunePage> {
                                 ),
                                 child: Column(
                                   children: [
-                                    AtlasPhoto(
-                                      photo: p.photo,
-                                      image: FileImage(
-                                        widget.runtime.reviews.file(
-                                          p.photo.localName,
-                                        ),
-                                      ),
+                                    SizedBox(
                                       height: 70,
+                                      child: TracePhoto(
+                                        photo: _tracePhoto(p),
+                                        image: FileImage(
+                                          widget.runtime.reviews.file(
+                                            p.photo.localName,
+                                          ),
+                                        ),
+                                        set: _visibleTraces,
+                                      ),
                                     ),
                                     Expanded(
                                       child: Text(
@@ -906,6 +986,30 @@ class _AiFortunePageState extends State<AiFortunePage> {
                           ),
                         ),
                       ExpansionTile(
+                        onExpansionChanged: (expanded) {
+                          if (!expanded) return;
+                          Future<void>.delayed(
+                            const Duration(milliseconds: 250),
+                            () {
+                              WidgetsBinding.instance.addPostFrameCallback((_) {
+                                if (!mounted) return;
+                                if (!_resultScroll.hasClients) return;
+                                final end =
+                                    _resultScroll.position.maxScrollExtent;
+                                if (MediaQuery.disableAnimationsOf(context)) {
+                                  _resultScroll.jumpTo(end);
+                                } else {
+                                  _resultScroll.animateTo(
+                                    end,
+                                    duration: const Duration(milliseconds: 180),
+                                    curve: Curves.easeOut,
+                                  );
+                                }
+                              });
+                              WidgetsBinding.instance.scheduleFrame();
+                            },
+                          );
+                        },
                         title: const Text('Araştırmaya katkı'),
                         children: [
                           CheckboxListTile(

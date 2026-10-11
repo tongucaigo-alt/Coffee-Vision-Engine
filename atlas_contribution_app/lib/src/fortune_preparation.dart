@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'fortune_progress.dart';
 import 'models.dart';
+import 'opencv_traces.dart';
 
 /// One presentation owner across the save route and the AI route.
 /// Contains no persisted data and never starts an AI request itself.
@@ -9,6 +10,13 @@ class FortunePreparationController extends ChangeNotifier {
   final ValueNotifier<FortuneProgress> progress;
   bool attached = false, active = false, cancelled = false;
   List<ContributionPhoto> photos = const [];
+  TraceSet traces = TraceSet.empty;
+  void updateTraces(TraceSet value) {
+    if (!active || cancelled) return;
+    traces = value;
+    notifyListeners();
+  }
+
   ImageProvider Function(ContributionPhoto)? imageFor;
   List<Offset> Function(ContributionPhoto)? anchorsFor;
   VoidCallback? onCancel;
@@ -24,6 +32,7 @@ class FortunePreparationController extends ChangeNotifier {
     if (!active) {
       cancelled = false;
       _images = {};
+      traces = TraceSet.empty;
     }
     // Linked review copies have different file paths. Retain the initial image
     // providers so the save-to-AI handoff does not reload the same photograph.
@@ -53,6 +62,7 @@ class FortunePreparationController extends ChangeNotifier {
     cancelled = false;
     onCancel = null;
     anchorsFor = null;
+    traces = TraceSet.empty;
     photos = const [];
     imageFor = null;
     _images = {};
@@ -113,6 +123,7 @@ class _FortunePreparationHostState extends State<FortunePreparationHost> {
                       ? const FortuneProgress(FortunePhase.cancelled)
                       : progress,
                   photos: flow.photos,
+                  traces: flow.traces,
                   imageFor: flow.imageFor!,
                   symbolAnchorsFor: flow.anchorsFor,
                   showDecorativeSymbols: true,

@@ -252,7 +252,13 @@ class FortuneStory extends StatelessWidget {
   Widget build(BuildContext context) {
     final paragraphs = text.trim().split(RegExp(r'\r?\n\s*\r?\n'));
     const style = TextStyle(fontFamily: 'Literata', fontSize: 16, height: 1.75);
-    if (paragraphs.length != 4) return SelectableText(text, style: style);
+    if (paragraphs.length != 4) {
+      return SelectableText(
+        text,
+        style: style,
+        scrollPhysics: const NeverScrollableScrollPhysics(),
+      );
+    }
     final headings = [
       'Genel Enerji',
       hasSymbols ? 'Senin Gördüğün Semboller' : 'Çağrışımlar',
@@ -284,7 +290,11 @@ class FortuneStory extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 8),
-                SelectableText(paragraphs[i], style: style),
+                SelectableText(
+                  paragraphs[i],
+                  style: style,
+                  scrollPhysics: const NeverScrollableScrollPhysics(),
+                ),
               ],
             ),
           ),

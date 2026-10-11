@@ -149,6 +149,29 @@ class AiStore {
       });
     }
   });
+  Future<void> exposeTraceAid({
+    required String sessionId,
+    required String groupId,
+    required String photoIdentity,
+    required String algorithm,
+  }) => change((data) {
+    if ((data['deleted'] as List).contains(sessionId)) {
+      throw const AiFailure('Bu kayıt silindi.');
+    }
+    final id = 'traceAid:$sessionId:$photoIdentity:$algorithm';
+    final list = data['exposures'] as List;
+    if (!list.any((row) => row['resultId'] == id)) {
+      list.add({
+        'kind': 'coloredTraceAid',
+        'resultId': id,
+        'sessionId': sessionId,
+        'groupId': groupId,
+        'algorithm': algorithm,
+        'exposedAtUtc': DateTime.now().toUtc().toIso8601String(),
+      });
+    }
+  });
+
   Future<List<Map<String, dynamic>>> exposures(String groupId) async =>
       ((await read())['exposures'] as List)
           .where((r) => r['groupId'] == groupId)

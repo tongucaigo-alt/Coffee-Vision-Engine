@@ -25,6 +25,57 @@ class _Checker extends PhotoSuitability {
 }
 
 void main() {
+  testWidgets(
+    'fortune recovery returns to the record without repeating preview warning',
+    (tester) async {
+      var returned = false;
+      final photo = testPhoto(CaptureRole.free);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: PhotoSuitabilityRecovery(
+              failure: PhotoSuitabilityFailure(photo, {'status': 'unsuitable'}),
+              onReviewPhotos: () => returned = true,
+            ),
+          ),
+        ),
+      );
+      expect(find.byType(PhotoSuitabilityNotice), findsNothing);
+      expect(
+        find.textContaining('fincanının hikâyesine ulaşamadık'),
+        findsNothing,
+      );
+      expect(find.byType(AlertDialog), findsNothing);
+      await tester.tap(find.text('Kayda dön'));
+      expect(returned, isTrue);
+    },
+  );
+  testWidgets(
+    'accepted uncertainty stays silent even with an experimental reject candidate',
+    (tester) async {
+      final photo = testPhoto(CaptureRole.free);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: PhotoSuitabilityNotice(
+            photo: photo,
+            value: {
+              'version': suitabilityVersion,
+              'checksum': photo.checksum,
+              'surface': photo.surface.name,
+              'cropKey': jsonEncode(
+                (photo.displayCrop ?? PhotoCrop.full).toJson(),
+              ),
+              'status': 'uncertain',
+              'candidateStatus': 'unsuitable',
+              'experimental': true,
+            },
+          ),
+        ),
+      );
+      expect(find.byType(Text), findsNothing);
+      expect(find.byType(OutlinedButton), findsNothing);
+    },
+  );
   for (final status in [
     'supported',
     'uncertain',

@@ -8,6 +8,8 @@ import 'label_picker.dart';
 import 'photo_crop.dart';
 import 'cropped_photo.dart';
 import 'theme.dart';
+import 'opencv_traces.dart';
+import 'trace_overlay.dart';
 
 class AnnotationPage extends StatefulWidget {
   const AnnotationPage({
@@ -15,6 +17,7 @@ class AnnotationPage extends StatefulWidget {
     required this.image,
     required this.onSave,
     this.displayCrop,
+    this.traces,
     this.modern = false,
     this.navigation,
     this.onComplete,
@@ -24,6 +27,7 @@ class AnnotationPage extends StatefulWidget {
   final ContributionPhoto photo;
   final ImageProvider image;
   final PhotoCrop? displayCrop;
+  final TraceSet? traces;
   final bool modern;
   final Widget? navigation;
   final VoidCallback? onComplete;
@@ -399,6 +403,12 @@ class _AnnotationPageState extends State<AnnotationPage> {
                           photoHeight: _photo.height,
                           semanticLabel: _photo.title,
                         ),
+                        if (widget.traces case final traces?)
+                          TraceOverlay(
+                            set: traces,
+                            photo: _photo,
+                            crop: _displayCrop,
+                          ),
                         for (final region in _photo.regions)
                           if (region.id != _editingId)
                             Positioned.fromRect(

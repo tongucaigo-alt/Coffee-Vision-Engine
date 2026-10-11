@@ -4,11 +4,14 @@ import 'package:flutter/material.dart';
 import 'models.dart';
 import 'cropped_photo.dart';
 import 'photo_crop.dart';
+import 'opencv_traces.dart';
+import 'trace_overlay.dart';
 import 'label_picker.dart' show labelIcons;
 
 enum FortunePhase {
   saving,
   analyzing,
+  highlighting,
   queued,
   generating,
   repairing,
@@ -24,6 +27,7 @@ class FortuneProgress {
   String get message => switch (phase) {
     FortunePhase.saving => 'Gözlemlerin kaydediliyor',
     FortunePhase.analyzing => 'Telve dağılımı inceleniyor',
+    FortunePhase.highlighting => 'Telve izleri belirginleştiriliyor',
     FortunePhase.queued => 'Fincanının hikâyesi sırada',
     FortunePhase.generating => 'Fincanının hikâyesi hazırlanıyor',
     FortunePhase.repairing => 'Hikâyen gözden geçiriliyor',
@@ -41,8 +45,10 @@ class FortuneScan extends StatefulWidget {
     this.onCancel,
     this.showDecorativeSymbols = false,
     this.symbolAnchorsFor,
+    this.traces,
     super.key,
   });
+  final TraceSet? traces;
   final FortuneProgress progress;
   final List<ContributionPhoto> photos;
   final ImageProvider Function(ContributionPhoto) imageFor;
@@ -90,7 +96,9 @@ class _FortuneScanState extends State<FortuneScan>
     _animation.addStatusListener((s) {
       if (s == AnimationStatus.completed && _animate) {
         _symbolCycle++;
-        if (widget.progress.phase != FortunePhase.analyzing && mounted) {
+        if (widget.progress.phase != FortunePhase.analyzing &&
+            widget.progress.phase != FortunePhase.highlighting &&
+            mounted) {
           setState(() => _photo++);
         }
         _animation.forward(from: 0);
@@ -138,7 +146,11 @@ class _FortuneScanState extends State<FortuneScan>
             alignment: Alignment.center,
             children: [
               RepaintBoundary(
-                child: _ScanPhoto(photo: photo, image: widget.imageFor(photo)),
+                child: _ScanPhoto(
+                  photo: photo,
+                  image: widget.imageFor(photo),
+                  traces: widget.traces,
+                ),
               ),
               if (_animate &&
                   widget.showDecorativeSymbols &&
@@ -240,7 +252,7 @@ class _FortuneSymbolsState extends State<_FortuneSymbols> {
       final centre = Offset(bounds.maxWidth / 2, bounds.maxHeight / 2);
       final radius = math.max(
         0.0,
-        math.min(bounds.maxWidth, bounds.maxHeight) * .36 - 22,
+        math.min(bounds.maxWidth, bounds.maxHeight) * .42 - 22,
       );
       final size = Size(bounds.maxWidth, bounds.maxHeight);
       if (_size != size ||
@@ -330,10 +342,24 @@ class _FortuneSymbolsState extends State<_FortuneSymbols> {
                         _labels.length]],
                     key: ValueKey('fortune-symbol-$i'),
                     size: displayIconSize,
-                    color: const Color(0xff7CE59C),
-                    shadows: const [
-                      Shadow(color: Color(0xcc143b23), blurRadius: 4),
-                      Shadow(color: Color(0x803dbf6e), blurRadius: 8),
+                    color:
+                        traceColors[(_generations[i] * 3 + i) %
+                            traceColors.length],
+                    shadows: [
+                      Shadow(
+                        color:
+                            traceColors[(_generations[i] * 3 + i) %
+                                    traceColors.length]
+                                .withValues(alpha: .8),
+                        blurRadius: 4,
+                      ),
+                      Shadow(
+                        color:
+                            traceColors[(_generations[i] * 3 + i) %
+                                    traceColors.length]
+                                .withValues(alpha: .5),
+                        blurRadius: 8,
+                      ),
                     ],
                   ),
                 ),
@@ -346,7 +372,8 @@ class _FortuneSymbolsState extends State<_FortuneSymbols> {
 }
 
 class _ScanPhoto extends StatelessWidget {
-  const _ScanPhoto({required this.photo, required this.image});
+  const _ScanPhoto({required this.photo, required this.image, this.traces});
+  final TraceSet? traces;
   final ContributionPhoto photo;
   final ImageProvider image;
   @override
@@ -370,6 +397,10 @@ class _ScanPhoto extends StatelessWidget {
                     crop: crop,
                   ),
                 ),
+                if (traces != null)
+                  Positioned.fill(
+                    child: TraceOverlay(set: traces!, photo: photo, crop: crop),
+                  ),
                 for (final r in photo.regions)
                   Positioned(
                     left: crop.toDisplayBox(r.box).x * size.maxWidth,
@@ -405,7 +436,7 @@ class _ScanDots extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
-    final radius = math.min(size.width, size.height) * .36;
+    final radius = math.min(size.width, size.height) * .42;
     for (var i = 0; i < 12; i++) {
       final angle = (i / 12 + phase) * math.pi * 2;
       final point = center + Offset(math.cos(angle), math.sin(angle)) * radius;

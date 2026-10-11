@@ -13,8 +13,14 @@ import java.io.ByteArrayOutputStream
 import java.io.File
 
 class MainActivity : FlutterActivity() {
+    private var imageScreen: java.io.Closeable? = null
+    private var traces: OpenCvTraceChannel? = null
     private var suitability: PhotoSuitabilityChannel? = null
     override fun onDestroy() {
+        traces?.close()
+        traces = null
+        imageScreen?.close()
+        imageScreen = null
         suitability?.close()
         suitability = null
         super.onDestroy()
@@ -38,7 +44,13 @@ class MainActivity : FlutterActivity() {
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        traces = OpenCvTraceChannel(flutterEngine.dartExecutor.binaryMessenger)
         suitability = PhotoSuitabilityChannel(this, flutterEngine.dartExecutor.binaryMessenger)
+        if (assets.list("")?.contains("atlas_screen_v5.onnx") == true) {
+            imageScreen = Class.forName("com.coffeeplatform.atlas_contribution_app.LocalImageScreen")
+                .getConstructor(android.app.Activity::class.java, io.flutter.plugin.common.BinaryMessenger::class.java)
+                .newInstance(this, flutterEngine.dartExecutor.binaryMessenger) as java.io.Closeable
+        }
         MethodChannel(
             flutterEngine.dartExecutor.binaryMessenger,
             "atlas.contribution/export",

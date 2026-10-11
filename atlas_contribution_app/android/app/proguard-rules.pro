@@ -24,3 +24,11 @@
     <init>(int, byte[]);
 }
 -keep class com.google.mediapipe.framework.ProtoUtil$SerializedMessage { *; }
+
+# ONNX Runtime's JNI looks up Java types and constructors by their original names.
+# Keep the native bridge intact in release builds, including TensorInfo.
+# https://onnxruntime.ai/docs/build/android.html#note-proguard-rules-for-r8-minimization-android-app-builds-to-work
+-keep class ai.onnxruntime.** { *; }
+
+# OpenCV native code resolves Java wrappers by their original names.
+-keep class org.opencv.** { *; }

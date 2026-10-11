@@ -12,6 +12,7 @@ import 'src/models.dart';
 import 'src/fortune_progress.dart';
 import 'src/fortune_preparation.dart';
 import 'src/photo_suitability.dart';
+import 'src/opencv_traces.dart';
 import 'src/mvp/review_controller.dart';
 import 'src/mvp/review_models.dart';
 import 'src/mvp/review_page.dart';
@@ -73,6 +74,21 @@ class OfflineContributionApp extends StatelessWidget {
               },
         fortuneProgress: ai?.progress,
         preparation: ai?.preparation,
+        loadAnnotationTraces: ai == null || !openCvTracesEnabled
+            ? null
+            : (draft) => ai!.traces.loadSet(
+                owner: ai!.bridge.sessionId(draft.rootId),
+                photos: draft.photos,
+                fileFor: (photo) => store.file(photo.localName),
+              ),
+        onAnnotationTraceShown: ai == null
+            ? null
+            : (draft, photo) => ai!.store.exposeTraceAid(
+                sessionId: ai!.bridge.sessionId(draft.rootId),
+                groupId: draft.groupId,
+                photoIdentity: tracePhotoIdentity(photo),
+                algorithm: traceAlgorithm,
+              ),
         aiDescription: ai == null
             ? null
             : () async {

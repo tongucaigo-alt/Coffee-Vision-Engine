@@ -20,6 +20,7 @@ import 'annotation_sequence.dart';
 import 'research_export_notice.dart';
 import 'fortune_progress.dart';
 import 'fortune_preparation.dart';
+import 'opencv_traces.dart';
 
 part 'contribution_design.dart';
 part 'photo_set_flow.dart';
@@ -76,8 +77,13 @@ class ContributionHome extends StatefulWidget {
     this.onConfirmedRecorded,
     this.recordState,
     this.recordStarred,
+    this.loadAnnotationTraces,
+    this.onAnnotationTraceShown,
     super.key,
   });
+  final Future<TraceSet> Function(ContributionDraft)? loadAnnotationTraces;
+  final Future<void> Function(ContributionDraft, ContributionPhoto)?
+  onAnnotationTraceShown;
   final DraftStore store;
   final ContributionBackend service;
   final Future<void> Function()? onExport;

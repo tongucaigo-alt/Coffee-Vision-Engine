@@ -3,14 +3,19 @@ import 'annotation_page.dart';
 import 'atlas_design.dart';
 import 'models.dart';
 import 'theme.dart';
+import 'opencv_traces.dart';
 
 class AnnotationSequence extends StatefulWidget {
   const AnnotationSequence({
     required this.photos,
     required this.imageFor,
     required this.onSave,
+    this.loadTraces,
+    this.onTraceShown,
     super.key,
   });
+  final Future<TraceSet> Function()? loadTraces;
+  final Future<void> Function(ContributionPhoto)? onTraceShown;
   final List<ContributionPhoto> photos;
   final ImageProvider Function(ContributionPhoto) imageFor;
   final Future<void> Function(ContributionPhoto) onSave;
@@ -22,6 +27,52 @@ class _AnnotationSequenceState extends State<AnnotationSequence> {
   late final _photos = List<ContributionPhoto>.of(widget.photos);
   int _index = 0;
   bool _busy = false;
+  TraceSet _traces = TraceSet.empty;
+  final _exposed = <String>{};
+  bool _loadingTraces = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.loadTraces != null) _loadTraces();
+  }
+
+  Future<void> _loadTraces() async {
+    _loadingTraces = true;
+    try {
+      final traces = await widget.loadTraces!();
+      if (!mounted) return;
+      _traces = traces;
+      await _exposeCurrent();
+    } catch (_) {
+      // Optional visual aid; normal annotation remains available on failure.
+    } finally {
+      if (mounted) setState(() => _loadingTraces = false);
+    }
+  }
+
+  Future<void> _exposeCurrent() async {
+    final photo = _photos[_index];
+    final index = _traces.indexOf(photo);
+    if (!_traces.selected.any((trace) => trace.photoIndex == index) ||
+        _exposed.contains(tracePhotoIdentity(photo))) {
+      return;
+    }
+    try {
+      // Persist provenance before the overlay becomes visible. Failure keeps
+      // the clean photo available rather than creating an unaudited exposure.
+      await widget.onTraceShown?.call(photo);
+      if (!mounted) return;
+      setState(() => _exposed.add(tracePhotoIdentity(photo)));
+    } catch (_) {
+      // Existing observations and gestures are unaffected by audit failure.
+    }
+  }
+
+  void _select(int index) {
+    setState(() => _index = index);
+    _exposeCurrent();
+  }
 
   Future<void> _save(ContributionPhoto p) async {
     setState(() => _busy = true);
@@ -35,7 +86,7 @@ class _AnnotationSequenceState extends State<AnnotationSequence> {
 
   void _next() {
     if (_index < _photos.length - 1) {
-      setState(() => _index++);
+      _select(_index + 1);
     } else {
       Navigator.pop(context);
     }
@@ -78,6 +129,7 @@ class _AnnotationSequenceState extends State<AnnotationSequence> {
         photo: photo,
         image: widget.imageFor(photo),
         displayCrop: photo.visibleCrop,
+        traces: _exposed.contains(tracePhotoIdentity(photo)) ? _traces : null,
         onSave: _save,
         onComplete: _next,
         modern: true,
@@ -86,6 +138,7 @@ class _AnnotationSequenceState extends State<AnnotationSequence> {
             : 'Sonraki Fotoğraf',
         navigation: Column(
           children: [
+            if (_loadingTraces) const LinearProgressIndicator(minHeight: 2),
             Row(
               children: [
                 const SizedBox(width: 16),
@@ -121,9 +174,7 @@ class _AnnotationSequenceState extends State<AnnotationSequence> {
                         child: Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 4),
                           child: InkWell(
-                            onTap: _busy
-                                ? null
-                                : () => setState(() => _index = i),
+                            onTap: _busy ? null : () => _select(i),
                             child: Container(
                               width: 60,
                               padding: const EdgeInsets.all(3),
