@@ -83,6 +83,8 @@ flutter:
     - assets/brand/
     - assets/contribution-labels-v1.json
     - assets/fortune-prompt-v1.json
+    - assets/tarot-prompt-v1.json
+    - assets/tarot/
     - assets/labels/
     - assets/mvp/knowledge_dataset.json
 

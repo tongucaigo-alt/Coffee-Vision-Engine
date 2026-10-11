@@ -1,0 +1,1484 @@
+[
+  {
+    "id": "deli",
+    "ad": "Deli",
+    "gorsel": "DELI.webp",
+    "duz_temalar": [
+      "yeni başlangıç",
+      "saf potansiyel",
+      "özgürlük hissi",
+      "cesur adım",
+      "açık ufuklar"
+    ],
+    "ters_temalar": [
+      "plansızlık",
+      "gözü kapalı risk",
+      "başlangıçta tökezleme",
+      "yön eksikliği",
+      "umursamazlık"
+    ]
+  },
+  {
+    "id": "buyucu",
+    "ad": "Büyücü",
+    "gorsel": "BUYUCU.webp",
+    "duz_temalar": [
+      "irade gücü",
+      "yaratıcılık",
+      "beceri",
+      "kaynakları kullanma",
+      "niyeti eyleme dökme"
+    ],
+    "ters_temalar": [
+      "becerileri kullanmakta zorlanma",
+      "manipülasyon",
+      "odaklanamama",
+      "yeteneklerini saklama",
+      "sahtelik"
+    ]
+  },
+  {
+    "id": "basrahibe",
+    "ad": "Başrahibe",
+    "gorsel": "BASRAHIBE.webp",
+    "duz_temalar": [
+      "sezgi",
+      "iç ses",
+      "bilinçaltı",
+      "bilgelik",
+      "içsel bilgiye güven"
+    ],
+    "ters_temalar": [
+      "sezgileri görmezden gelme",
+      "yüzeysellik",
+      "iç sesi bastırma",
+      "aşırı gizlilik",
+      "sezgiden kopma"
+    ]
+  },
+  {
+    "id": "imparatorice",
+    "ad": "İmparatoriçe",
+    "gorsel": "IMPARATORICE.webp",
+    "duz_temalar": [
+      "bereket",
+      "yaratıcılık",
+      "annelik",
+      "doğa",
+      "duyusal zevk"
+    ],
+    "ters_temalar": [
+      "bağımlılık",
+      "verimsizlik",
+      "kendini ihmal",
+      "duygusal boşluk",
+      "yaratıcı tıkanıklık"
+    ]
+  },
+  {
+    "id": "imparator",
+    "ad": "İmparator",
+    "gorsel": "IMPARATOR.webp",
+    "duz_temalar": [
+      "otorite",
+      "düzen",
+      "kararlılık",
+      "yapı kurma",
+      "koruyuculuk"
+    ],
+    "ters_temalar": [
+      "otorite savaşları",
+      "katılık",
+      "kontrol kaybı",
+      "düzensizlik",
+      "baskı"
+    ]
+  },
+  {
+    "id": "aziz",
+    "ad": "Aziz",
+    "gorsel": "AZIZ.webp",
+    "duz_temalar": [
+      "gelenek",
+      "maneviyat",
+      "rehberlik",
+      "öğreti",
+      "topluluk"
+    ],
+    "ters_temalar": [
+      "baskıcı gelenekler",
+      "kişisel yola çağrı",
+      "dışsal otoriteye direnç",
+      "kalıpları kırma",
+      "anlam arayışı"
+    ]
+  },
+  {
+    "id": "asiklar",
+    "ad": "Âşıklar",
+    "gorsel": "ASIKLAR.webp",
+    "duz_temalar": [
+      "aşk",
+      "uyum",
+      "ortak karar",
+      "değerler birliği",
+      "çekim"
+    ],
+    "ters_temalar": [
+      "uyumsuzluk",
+      "kararsızlık",
+      "değer çatışması",
+      "yanlış tercih",
+      "ilişkide dengesizlik"
+    ]
+  },
+  {
+    "id": "savas_arabasi",
+    "ad": "Savaş Arabası",
+    "gorsel": "SAVAS_ARABASI.webp",
+    "duz_temalar": [
+      "irade",
+      "kararlılık",
+      "zafer",
+      "yön tutturma",
+      "güçlü ilerleyiş"
+    ],
+    "ters_temalar": [
+      "yön kaybı",
+      "kontrolsüz güç",
+      "erteleme",
+      "kafa karışıklığı",
+      "frenlenmiş ilerleme"
+    ]
+  },
+  {
+    "id": "guc",
+    "ad": "Güç",
+    "gorsel": "GUC.webp",
+    "duz_temalar": [
+      "içsel güç",
+      "sabır",
+      "cesaret",
+      "şefkat",
+      "sükûnet"
+    ],
+    "ters_temalar": [
+      "özgüven eksikliği",
+      "sabırsızlık",
+      "içsel güce erişmekte zorlanma",
+      "cesaretini toplamakta zorlanma",
+      "öfkeyi yönetmekte zorlanma"
+    ]
+  },
+  {
+    "id": "ermis",
+    "ad": "Ermiş",
+    "gorsel": "ERMIS.webp",
+    "duz_temalar": [
+      "içe dönüş",
+      "kendini tanıma",
+      "yön arayışı",
+      "sabır",
+      "içsel rehberlik"
+    ],
+    "ters_temalar": [
+      "aşırı geri çekilme",
+      "yalnızlaşma",
+      "yönünü kaybetme",
+      "iletişimden kaçınma",
+      "yardımı reddetme"
+    ]
+  },
+  {
+    "id": "kader_carki",
+    "ad": "Kader Çarkı",
+    "gorsel": "KADER_CARKI.webp",
+    "duz_temalar": [
+      "dönüm noktası",
+      "değişim",
+      "şansın dönüşü",
+      "akışa uyum",
+      "döngüler"
+    ],
+    "ters_temalar": [
+      "değişime direnç",
+      "tekrar eden döngüler",
+      "kontrolsüz değişim",
+      "şanssızlık hissi",
+      "sabırsızlık"
+    ]
+  },
+  {
+    "id": "adalet",
+    "ad": "Adalet",
+    "gorsel": "ADALET.webp",
+    "duz_temalar": [
+      "denge",
+      "dürüstlük",
+      "sorumluluk",
+      "doğru karar",
+      "hesaplaşma"
+    ],
+    "ters_temalar": [
+      "haksızlık",
+      "denge kaybı",
+      "kaçamaklı davranış",
+      "yükümlülüklerden kaçma",
+      "önyargı"
+    ]
+  },
+  {
+    "id": "asilan_adam",
+    "ad": "Asılan Adam",
+    "gorsel": "ASILAN_ADAM.webp",
+    "duz_temalar": [
+      "fedakârlık",
+      "bekleyiş",
+      "farklı bakış",
+      "teslimiyet",
+      "duraklama"
+    ],
+    "ters_temalar": [
+      "boşuna bekleyiş",
+      "erteleme",
+      "değersiz fedakârlık",
+      "harekete geçememe",
+      "kararsızlık"
+    ]
+  },
+  {
+    "id": "olum",
+    "ad": "Ölüm",
+    "gorsel": "OLUM.webp",
+    "duz_temalar": [
+      "dönüşüm",
+      "bitişler",
+      "yeniden doğuş",
+      "geçiş",
+      "bırakma"
+    ],
+    "ters_temalar": [
+      "değişime direnç",
+      "geçmişe tutunma",
+      "korkulu bekleyiş",
+      "yarım kalan kapanışlar",
+      "dönüşümün ertelenmesi"
+    ]
+  },
+  {
+    "id": "denge",
+    "ad": "Denge",
+    "gorsel": "DENGE.webp",
+    "duz_temalar": [
+      "denge",
+      "ılımlılık",
+      "uyum",
+      "farklı unsurları uyumla birleştirme",
+      "orta yol"
+    ],
+    "ters_temalar": [
+      "aşırılıklar",
+      "dengesizlik",
+      "acelecilik",
+      "uyumsuzluk",
+      "ölçüsüzlük"
+    ]
+  },
+  {
+    "id": "seytan",
+    "ad": "Şeytan",
+    "gorsel": "SEYTAN.webp",
+    "duz_temalar": [
+      "bağımlılık",
+      "zincirler",
+      "karanlık çekim",
+      "materyalizm",
+      "kendine zincir vurma"
+    ],
+    "ters_temalar": [
+      "zincirlerden kurtulma",
+      "farkındalık",
+      "bağımsızlık",
+      "gölgeyle yüzleşme",
+      "bağımlılıktan arınma"
+    ]
+  },
+  {
+    "id": "kule",
+    "ad": "Kule",
+    "gorsel": "KULE.webp",
+    "duz_temalar": [
+      "ani değişim",
+      "yıkılan yapılar",
+      "uyandırıcı sarsıntı",
+      "gerçeğin ortaya çıkması",
+      "kriz"
+    ],
+    "ters_temalar": [
+      "kaçınılan çöküş",
+      "ertelenen değişim",
+      "korkuyla direnç",
+      "gizli kalan çatlaklar",
+      "içsel dönüşüm"
+    ]
+  },
+  {
+    "id": "yildiz",
+    "ad": "Yıldız",
+    "gorsel": "YILDIZ.webp",
+    "duz_temalar": [
+      "umut",
+      "ilham",
+      "iyileşme",
+      "rehberlik",
+      "içsel ışık"
+    ],
+    "ters_temalar": [
+      "umutsuzluk",
+      "ilham kaybı",
+      "kendine güvensizlik",
+      "karamsarlık",
+      "yön duygusunu yitirme"
+    ]
+  },
+  {
+    "id": "ay",
+    "ad": "Ay",
+    "gorsel": "AY.webp",
+    "duz_temalar": [
+      "yanılsama",
+      "belirsizlik",
+      "korkular",
+      "bilinçaltı sinyaller",
+      "puslu görünüm"
+    ],
+    "ters_temalar": [
+      "belirsizliğin dağılması",
+      "gerçeğin ortaya çıkması",
+      "korkuların çözülmesi",
+      "netlik",
+      "sezgilerin güçlenmesi"
+    ]
+  },
+  {
+    "id": "gunes",
+    "ad": "Güneş",
+    "gorsel": "GUNES.webp",
+    "duz_temalar": [
+      "neşe",
+      "başarı",
+      "canlılık",
+      "sıcaklık",
+      "aydınlık"
+    ],
+    "ters_temalar": [
+      "geçici keyifsizlik",
+      "enerji düşüklüğü",
+      "kendini gösterememe",
+      "soğukluk",
+      "gecikmiş başarı"
+    ]
+  },
+  {
+    "id": "mahkeme",
+    "ad": "Mahkeme",
+    "gorsel": "MAHKEME.webp",
+    "duz_temalar": [
+      "yeniden doğuş",
+      "içsel çağrı",
+      "hesaplaşma",
+      "affetme",
+      "dönüm noktası"
+    ],
+    "ters_temalar": [
+      "kendini yargılama",
+      "geçmişe takılma",
+      "çağrıyı duymama",
+      "pişmanlık",
+      "affedememe"
+    ]
+  },
+  {
+    "id": "dunya",
+    "ad": "Dünya",
+    "gorsel": "DUNYA.webp",
+    "duz_temalar": [
+      "tamamlanma",
+      "bütünlük",
+      "başarının doruğu",
+      "bütünleşme",
+      "kutlama"
+    ],
+    "ters_temalar": [
+      "eksik kapanış",
+      "yarım kalan işler",
+      "gecikmiş tamamlanma",
+      "bütünlük arayışı",
+      "son adımı atamama"
+    ]
+  },
+  {
+    "id": "kupa_asi",
+    "ad": "Kupa Ası",
+    "gorsel": "KUPA_ASI.webp",
+    "duz_temalar": [
+      "yeni duygu",
+      "sevgi doluluğu",
+      "sezgisel açılım",
+      "duygusal arınma",
+      "kalpten gelen teklif"
+    ],
+    "ters_temalar": [
+      "duygusal kapalılık",
+      "boş his",
+      "bastırılmış duygular",
+      "kalbi kapatma",
+      "duygusal soğukluk"
+    ]
+  },
+  {
+    "id": "kupa_ikilisi",
+    "ad": "Kupa İkilisi",
+    "gorsel": "KUPA_IKILISI.webp",
+    "duz_temalar": [
+      "karşılıklı çekim",
+      "uyum",
+      "bağlantı kurma",
+      "ortak duygu",
+      "yakınlaşma"
+    ],
+    "ters_temalar": [
+      "uyumsuzluk",
+      "kopuk bağ",
+      "kararsızlık",
+      "duygusal gerilim",
+      "yanlış eşleşme"
+    ]
+  },
+  {
+    "id": "kupa_uclusu",
+    "ad": "Kupa Üçlüsü",
+    "gorsel": "KUPA_UCLUSU.webp",
+    "duz_temalar": [
+      "kutlama",
+      "dostluk",
+      "topluluk",
+      "mutlu haberler",
+      "birlikte sevinç"
+    ],
+    "ters_temalar": [
+      "yalnızlık hissi",
+      "sosyal uyumsuzluk",
+      "üçüncü kişi",
+      "kıskançlık",
+      "ertelenen kutlama"
+    ]
+  },
+  {
+    "id": "kupa_dortlusu",
+    "ad": "Kupa Dörtlüsü",
+    "gorsel": "KUPA_DORTLUSU.webp",
+    "duz_temalar": [
+      "duygusal durgunluk",
+      "melankoli",
+      "nostalji",
+      "içe kapanma",
+      "farkındalık molası"
+    ],
+    "ters_temalar": [
+      "yeni ilgi alanları",
+      "kabullenme",
+      "duygusal canlanma",
+      "mevcut anın farkına varma",
+      "toparlanma"
+    ]
+  },
+  {
+    "id": "kupa_beslisi",
+    "ad": "Kupa Beşlisi",
+    "gorsel": "KUPA_BESLISI.webp",
+    "duz_temalar": [
+      "üzüntü",
+      "kayıp hissi",
+      "yas",
+      "pişmanlık",
+      "boşluk"
+    ],
+    "ters_temalar": [
+      "iyileşme",
+      "destek",
+      "geçmişe veda",
+      "umudun dönüşü",
+      "kabullenme"
+    ]
+  },
+  {
+    "id": "kupa_altilisi",
+    "ad": "Kupa Altılısı",
+    "gorsel": "KUPA_ALTILISI.webp",
+    "duz_temalar": [
+      "geçmişe dönüş",
+      "çocuksu neşe",
+      "nostalji",
+      "sadakat",
+      "masumiyet"
+    ],
+    "ters_temalar": [
+      "geçmişten kopamama",
+      "süslü anılar",
+      "olgunlaşma ihtiyacı",
+      "bugüne dönememe",
+      "bağımlı bağlar"
+    ]
+  },
+  {
+    "id": "kupa_yedilisi",
+    "ad": "Kupa Yedilisi",
+    "gorsel": "KUPA_YEDILISI.webp",
+    "duz_temalar": [
+      "hayal kurma",
+      "fazla seçenek",
+      "kararsızlık",
+      "gerçekçi olmayan beklentiler",
+      "arzuların yarattığı belirsizlik"
+    ],
+    "ters_temalar": [
+      "net karar",
+      "hayallerden eyleme",
+      "gerçekçilik",
+      "odaklanma",
+      "seçim yapma"
+    ]
+  },
+  {
+    "id": "kupa_sekizlisi",
+    "ad": "Kupa Sekizlisi",
+    "gorsel": "KUPA_SEKIZLISI.webp",
+    "duz_temalar": [
+      "ayrılık",
+      "geride bırakma",
+      "yürüyüp gitme",
+      "duygusal olgunluk",
+      "yeni yön"
+    ],
+    "ters_temalar": [
+      "takılı kalma",
+      "geriye dönme",
+      "korkuyla kaçma",
+      "geçiş zorluğu",
+      "dönüşümün ertelenmesi"
+    ]
+  },
+  {
+    "id": "kupa_dokuzlusu",
+    "ad": "Kupa Dokuzlusu",
+    "gorsel": "KUPA_DOKUZLUSU.webp",
+    "duz_temalar": [
+      "dileklerin gerçekleşmesi",
+      "tatmin",
+      "huzur",
+      "memnuniyet",
+      "duygusal bolluk"
+    ],
+    "ters_temalar": [
+      "doyumsuzluk",
+      "hayal kırıklığı",
+      "isteklerin gecikmesi",
+      "huzursuzluk",
+      "aşırı beklenti"
+    ]
+  },
+  {
+    "id": "kupa_onlusu",
+    "ad": "Kupa Onlusu",
+    "gorsel": "KUPA_ONLUSU.webp",
+    "duz_temalar": [
+      "aile mutluluğu",
+      "uyum",
+      "duygusal bütünlük",
+      "huzurlu yuva",
+      "kalıcı bağlar"
+    ],
+    "ters_temalar": [
+      "aile çatışması",
+      "uyumsuzluk",
+      "duygusal dağınıklık",
+      "abartılı beklentiler",
+      "evden uzaklaşma"
+    ]
+  },
+  {
+    "id": "kupa_usagi",
+    "ad": "Kupa Uşağı",
+    "gorsel": "KUPA_USAGI.webp",
+    "duz_temalar": [
+      "romantik haber",
+      "yaratıcı teklif",
+      "duygusal açılım",
+      "hayranlık",
+      "nazik yaklaşım"
+    ],
+    "ters_temalar": [
+      "duygusal oyunlar",
+      "boş vaatler",
+      "hayal kırıklığı",
+      "olgunlaşmamışlık",
+      "yanlış anlaşılan mesajlar"
+    ]
+  },
+  {
+    "id": "kupa_sovalyesi",
+    "ad": "Kupa Şövalyesi",
+    "gorsel": "KUPA_SOVALYESI.webp",
+    "duz_temalar": [
+      "zarif ilerleyiş",
+      "romantizm",
+      "hayal gücü",
+      "iyimserlik",
+      "nazik davet"
+    ],
+    "ters_temalar": [
+      "aşırı duygusallık",
+      "abartılı romantizm",
+      "hayal kırıklığı",
+      "duygusal dalgalanma",
+      "gerçekçi olmama"
+    ]
+  },
+  {
+    "id": "kupa_kralicesi",
+    "ad": "Kupa Kraliçesi",
+    "gorsel": "KUPA_KRALICESI.webp",
+    "duz_temalar": [
+      "sezgisel liderlik",
+      "şefkat",
+      "duygusal olgunluk",
+      "destek",
+      "derin anlayış"
+    ],
+    "ters_temalar": [
+      "duygusal dalgalanma",
+      "kırılganlık",
+      "sezgilerin reddi",
+      "aşırı koruma",
+      "bağımlılık"
+    ]
+  },
+  {
+    "id": "kupa_krali",
+    "ad": "Kupa Kralı",
+    "gorsel": "KUPA_KRALI.webp",
+    "duz_temalar": [
+      "duygusal denge",
+      "bilgelik",
+      "sükûnet",
+      "adil yaklaşım",
+      "sözünün eri"
+    ],
+    "ters_temalar": [
+      "duygusal manipülasyon",
+      "ruh hali değişimleri",
+      "soğuk mesafe",
+      "aşırı kontrol",
+      "bastırılmış duygular"
+    ]
+  },
+  {
+    "id": "kilic_asi",
+    "ad": "Kılıç Ası",
+    "gorsel": "KILIC_ASI.webp",
+    "duz_temalar": [
+      "zihinsel açılım",
+      "netlik",
+      "yeni fikir",
+      "doğruluk",
+      "keskin zeka"
+    ],
+    "ters_temalar": [
+      "zihin karışıklığı",
+      "yanlış bilgi",
+      "kötü haber",
+      "bulanık düşünce",
+      "sert sözler"
+    ]
+  },
+  {
+    "id": "kilic_ikilisi",
+    "ad": "Kılıç İkilisi",
+    "gorsel": "KILIC_IKILISI.webp",
+    "duz_temalar": [
+      "ikilem",
+      "zor karar",
+      "kafa karışıklığı",
+      "denge arayışı",
+      "göz ardı edilen gerçekler"
+    ],
+    "ters_temalar": [
+      "kararsızlığın aşılması",
+      "netlik",
+      "gerçeğin kabulü",
+      "bilinçli tercih",
+      "zihinsel ferahlık"
+    ]
+  },
+  {
+    "id": "kilic_uclusu",
+    "ad": "Kılıç Üçlüsü",
+    "gorsel": "KILIC_UCLUSU.webp",
+    "duz_temalar": [
+      "kalp kırıklığı",
+      "acı sözler",
+      "hüzün",
+      "yas",
+      "ayrılık acısı"
+    ],
+    "ters_temalar": [
+      "iyileşme",
+      "affetme",
+      "acının dönüşmesi",
+      "destekle toparlanma",
+      "eski yaraların kapanması"
+    ]
+  },
+  {
+    "id": "kilic_dortlusu",
+    "ad": "Kılıç Dörtlüsü",
+    "gorsel": "KILIC_DORTLUSU.webp",
+    "duz_temalar": [
+      "dinlenme",
+      "geri çekilme",
+      "iyileşme",
+      "meditasyon",
+      "yeniden toplanma"
+    ],
+    "ters_temalar": [
+      "huzursuzluk",
+      "dinlenememe",
+      "zihinsel baskı",
+      "ertelenen toparlanma",
+      "içsel gerginlik"
+    ]
+  },
+  {
+    "id": "kilic_beslisi",
+    "ad": "Kılıç Beşlisi",
+    "gorsel": "KILIC_BESLISI.webp",
+    "duz_temalar": [
+      "çatışma",
+      "yenilgi",
+      "boş tartışma",
+      "ego savaşları",
+      "kaybedilen mücadele"
+    ],
+    "ters_temalar": [
+      "uzlaşma",
+      "barışma",
+      "anlaşmazlığın sonu",
+      "değersiz çekişmelerden vazgeçme",
+      "uzlaşı yolu"
+    ]
+  },
+  {
+    "id": "kilic_altilisi",
+    "ad": "Kılıç Altılısı",
+    "gorsel": "KILIC_ALTILISI.webp",
+    "duz_temalar": [
+      "geçiş",
+      "zorlu dönemden çıkış",
+      "sükûnetli ilerleyiş",
+      "iyileşen dönem",
+      "taşınma"
+    ],
+    "ters_temalar": [
+      "geçmişe takılma",
+      "geçiş zorluğu",
+      "geciken iyileşme",
+      "çetin yolculuk",
+      "bitmeyen gerginlik"
+    ]
+  },
+  {
+    "id": "kilic_yedilisi",
+    "ad": "Kılıç Yedilisi",
+    "gorsel": "KILIC_YEDILISI.webp",
+    "duz_temalar": [
+      "strateji",
+      "kurnazlık",
+      "plan yapma",
+      "gizli hamleler",
+      "esneklik"
+    ],
+    "ters_temalar": [
+      "planların suya düşmesi",
+      "kurnazlığın açığa çıkması",
+      "dürüst olmamanın bedeli",
+      "savunmasız kalma",
+      "yanlış hesaplar"
+    ]
+  },
+  {
+    "id": "kilic_sekizlisi",
+    "ad": "Kılıç Sekizlisi",
+    "gorsel": "KILIC_SEKIZLISI.webp",
+    "duz_temalar": [
+      "sıkışmışlık",
+      "kısıtlanma",
+      "zihinsel hapis",
+      "kör nokta",
+      "felç eden kaygı"
+    ],
+    "ters_temalar": [
+      "özgürleşme",
+      "yeni perspektif",
+      "engellerin kalkması",
+      "cesaretle harekete geçme",
+      "zihinsel açılım"
+    ]
+  },
+  {
+    "id": "kilic_dokuzlusu",
+    "ad": "Kılıç Dokuzlusu",
+    "gorsel": "KILIC_DOKUZLUSU.webp",
+    "duz_temalar": [
+      "endişe",
+      "kabuslar",
+      "aşırı düşünce",
+      "kaygı",
+      "zihinsel yorgunluk"
+    ],
+    "ters_temalar": [
+      "endişelerin dağılması",
+      "uyanış",
+      "yardım isteme",
+      "zihinsel ferahlama",
+      "gereksiz korkuların çözülmesi"
+    ]
+  },
+  {
+    "id": "kilic_onlusu",
+    "ad": "Kılıç Onlusu",
+    "gorsel": "KILIC_ONLUSU.webp",
+    "duz_temalar": [
+      "zorlu dönemin sonu",
+      "en kötünün arkasındaki umut",
+      "kapanış",
+      "yeniden doğuş",
+      "yara almış ama ayakta"
+    ],
+    "ters_temalar": [
+      "krizin uzaması",
+      "tekrar eden zorluklar",
+      "kapanamayan yaralar",
+      "çaresizlik hissine takılma",
+      "dayanıklılığın zorlanması"
+    ]
+  },
+  {
+    "id": "kilic_usagi",
+    "ad": "Kılıç Uşağı",
+    "gorsel": "KILIC_USAGI.webp",
+    "duz_temalar": [
+      "merak",
+      "yeni bilgi",
+      "gözlem",
+      "keskin zeka",
+      "haber bekleyişi"
+    ],
+    "ters_temalar": [
+      "dedikodu",
+      "söylenti",
+      "hazırcılık",
+      "dağınık düşünce",
+      "gereksiz sorgulama"
+    ]
+  },
+  {
+    "id": "kilic_sovalyesi",
+    "ad": "Kılıç Şövalyesi",
+    "gorsel": "KILIC_SOVALYESI.webp",
+    "duz_temalar": [
+      "kararlılık",
+      "hızlı düşünce",
+      "cesur ilerleyiş",
+      "entelektüel enerji",
+      "amaca kilitlenme"
+    ],
+    "ters_temalar": [
+      "düşüncesizlik",
+      "aşırı hız",
+      "sertlik",
+      "plan eksikliği",
+      "kaba iletişim"
+    ]
+  },
+  {
+    "id": "kilic_kralicesi",
+    "ad": "Kılıç Kraliçesi",
+    "gorsel": "KILIC_KRALICESI.webp",
+    "duz_temalar": [
+      "zihinsel netlik",
+      "bağımsız düşünce",
+      "dürüstlük",
+      "uyanıklık",
+      "yüksek standartlar"
+    ],
+    "ters_temalar": [
+      "soğukluk",
+      "aşırı eleştiri",
+      "zihinsel mesafe",
+      "acımasız dürüstlük",
+      "duygusal kopukluk"
+    ]
+  },
+  {
+    "id": "kilic_krali",
+    "ad": "Kılıç Kralı",
+    "gorsel": "KILIC_KRALI.webp",
+    "duz_temalar": [
+      "otorite",
+      "zihinsel güç",
+      "kararlılık",
+      "adalet",
+      "stratejik liderlik"
+    ],
+    "ters_temalar": [
+      "zorba davranış",
+      "katı düşünce",
+      "sert otorite",
+      "duygusuzluk",
+      "manipülatif zekâ"
+    ]
+  },
+  {
+    "id": "tilsim_asi",
+    "ad": "Tılsım Ası",
+    "gorsel": "TILSIM_ASI.webp",
+    "duz_temalar": [
+      "yeni fırsat",
+      "somut potansiyel",
+      "maddi başlangıç",
+      "bereket tohumu",
+      "gerçekçi plan"
+    ],
+    "ters_temalar": [
+      "kaçan fırsat",
+      "boşa giden potansiyel",
+      "maddi kaygı",
+      "plansızlık",
+      "kaynakları verimli kullanamama"
+    ]
+  },
+  {
+    "id": "tilsim_ikilisi",
+    "ad": "Tılsım İkilisi",
+    "gorsel": "TILSIM_IKILISI.webp",
+    "duz_temalar": [
+      "çok yönlülük",
+      "denge",
+      "beceri gelişimi",
+      "esneklik",
+      "birden fazla işi yönetme"
+    ],
+    "ters_temalar": [
+      "dağınıklık",
+      "yeteneklerin dağılması",
+      "dengesiz tempo",
+      "yük altında ezilme",
+      "kararsızlık"
+    ]
+  },
+  {
+    "id": "tilsim_uclusu",
+    "ad": "Tılsım Üçlüsü",
+    "gorsel": "TILSIM_UCLUSU.webp",
+    "duz_temalar": [
+      "iş birliği",
+      "becerinin takdiri",
+      "emeğin karşılığı",
+      "ekip çalışması",
+      "planlama"
+    ],
+    "ters_temalar": [
+      "iş birliğinin bozulması",
+      "tanınmama",
+      "kalitesiz iş",
+      "uyumsuz ekip",
+      "değersizlik hissi"
+    ]
+  },
+  {
+    "id": "tilsim_dortlusu",
+    "ad": "Tılsım Dörtlüsü",
+    "gorsel": "TILSIM_DORTLUSU.webp",
+    "duz_temalar": [
+      "tutumluluk",
+      "güvence",
+      "maddi istikrar",
+      "birikim",
+      "kontrollü harcama"
+    ],
+    "ters_temalar": [
+      "cimrilik",
+      "aşırı tutum",
+      "kaybetme korkusu",
+      "istikrarsızlık",
+      "aşırı sahiplenme"
+    ]
+  },
+  {
+    "id": "tilsim_beslisi",
+    "ad": "Tılsım Beşlisi",
+    "gorsel": "TILSIM_BESLISI.webp",
+    "duz_temalar": [
+      "maddi zorluk",
+      "dışlanma hissi",
+      "kıtlık",
+      "yardım talebi",
+      "zor dönem"
+    ],
+    "ters_temalar": [
+      "destek bulma",
+      "toparlanma",
+      "zorluğun atlatılması",
+      "uzanan yardım eli",
+      "iyileşen koşullar"
+    ]
+  },
+  {
+    "id": "tilsim_altilisi",
+    "ad": "Tılsım Altılısı",
+    "gorsel": "TILSIM_ALTILISI.webp",
+    "duz_temalar": [
+      "cömertlik",
+      "verme-alma dengesi",
+      "borç kapatma",
+      "adil paylaşım",
+      "destek"
+    ],
+    "ters_temalar": [
+      "borçlar",
+      "maddi bağımlılık",
+      "dengesiz verme-alma",
+      "cömertliğin suistimali",
+      "karşılıksızlık"
+    ]
+  },
+  {
+    "id": "tilsim_yedilisi",
+    "ad": "Tılsım Yedilisi",
+    "gorsel": "TILSIM_YEDILISI.webp",
+    "duz_temalar": [
+      "sabır",
+      "uzun vadeli yatırım",
+      "değerlendirme",
+      "emeğin meyvesini bekleme",
+      "stratejik bekleyiş"
+    ],
+    "ters_temalar": [
+      "sabırsızlık",
+      "kötü değerlendirme",
+      "ertelenen kazanç",
+      "boşuna bekleyiş",
+      "yanlış yatırım"
+    ]
+  },
+  {
+    "id": "tilsim_sekizlisi",
+    "ad": "Tılsım Sekizlisi",
+    "gorsel": "TILSIM_SEKIZLISI.webp",
+    "duz_temalar": [
+      "beceri",
+      "ustalık",
+      "disiplin",
+      "kaliteli iş",
+      "mesleki gelişim"
+    ],
+    "ters_temalar": [
+      "acele iş",
+      "yetersiz hazırlık",
+      "monotonluk",
+      "kalite kaybı",
+      "dağınık emek"
+    ]
+  },
+  {
+    "id": "tilsim_dokuzlusu",
+    "ad": "Tılsım Dokuzlusu",
+    "gorsel": "TILSIM_DOKUZLUSU.webp",
+    "duz_temalar": [
+      "bolluk",
+      "maddi bağımsızlık",
+      "konfor",
+      "emeğin karşılığı",
+      "kendine yeterlilik"
+    ],
+    "ters_temalar": [
+      "maddi kaygı",
+      "bağımsızlığın zayıflaması",
+      "konforun esareti",
+      "geçici rahatsızlık",
+      "emeğin karşılığını alamama"
+    ]
+  },
+  {
+    "id": "tilsim_onlusu",
+    "ad": "Tılsım Onlusu",
+    "gorsel": "TILSIM_ONLUSU.webp",
+    "duz_temalar": [
+      "miras",
+      "kalıcı güvence",
+      "aile bütünlüğü",
+      "uzun vadeli istikrar",
+      "köklü yapı"
+    ],
+    "ters_temalar": [
+      "aile yükümlülükleri",
+      "istikrarsız temel",
+      "mirasın yükü",
+      "kısa vadeli düşünce",
+      "köklere mesafe"
+    ]
+  },
+  {
+    "id": "tilsim_usagi",
+    "ad": "Tılsım Uşağı",
+    "gorsel": "TILSIM_USAGI.webp",
+    "duz_temalar": [
+      "yeni girişim",
+      "öğrenme isteği",
+      "somut adım",
+      "fırsat kapısı",
+      "çalışkanlık"
+    ],
+    "ters_temalar": [
+      "erteleme",
+      "sıkılganlık",
+      "yetersiz hazırlık",
+      "kaçan fırsat",
+      "teoride kalma"
+    ]
+  },
+  {
+    "id": "tilsim_sovalyesi",
+    "ad": "Tılsım Şövalyesi",
+    "gorsel": "TILSIM_SOVALYESI.webp",
+    "duz_temalar": [
+      "yöntemlilik",
+      "sorumluluk",
+      "güvenilirlik",
+      "kararlılık",
+      "adım adım ilerleme"
+    ],
+    "ters_temalar": [
+      "aşırı temkin",
+      "sıkıcılık",
+      "ısrarcılığın dozunun kaçması",
+      "yavaşlık",
+      "katı rutin"
+    ]
+  },
+  {
+    "id": "tilsim_kralicesi",
+    "ad": "Tılsım Kraliçesi",
+    "gorsel": "TILSIM_KRALICESI.webp",
+    "duz_temalar": [
+      "pratiklik",
+      "güvenilirlik",
+      "bolluk bilinci",
+      "üretkenlik",
+      "sakin güç"
+    ],
+    "ters_temalar": [
+      "maddiyata fazla odaklanma",
+      "güven sorunu",
+      "pratiklikten uzaklık",
+      "aşırı kontrol",
+      "emeğin karşılığını görmeme"
+    ]
+  },
+  {
+    "id": "tilsim_krali",
+    "ad": "Tılsım Kralı",
+    "gorsel": "TILSIM_KRALI.webp",
+    "duz_temalar": [
+      "maddi başarı",
+      "istikrar",
+      "güvenilir liderlik",
+      "uzun vadeli güvence",
+      "bolluk"
+    ],
+    "ters_temalar": [
+      "maddiyatla övünme",
+      "güven eksikliği",
+      "istikrarsızlık",
+      "cimrilik",
+      "kötü yatırım"
+    ]
+  },
+  {
+    "id": "degnek_asi",
+    "ad": "Değnek Ası",
+    "gorsel": "DEGNEK_ASI.webp",
+    "duz_temalar": [
+      "yaratıcı kıvılcım",
+      "yeni girişim",
+      "tutku",
+      "büyüme potansiyeli",
+      "ilham"
+    ],
+    "ters_temalar": [
+      "gecikmiş başlangıç",
+      "tutkunun sönmesi",
+      "belirsiz potansiyel",
+      "enerji düşüklüğü",
+      "kötü zamanlama"
+    ]
+  },
+  {
+    "id": "degnek_ikilisi",
+    "ad": "Değnek İkilisi",
+    "gorsel": "DEGNEK_IKILISI.webp",
+    "duz_temalar": [
+      "gelecek planlama",
+      "vizyon",
+      "seçenekleri değerlendirme",
+      "uzak ufuklar",
+      "karar anı"
+    ],
+    "ters_temalar": [
+      "kısa vadeli düşünce",
+      "plansızlık",
+      "korkuyla geri adım",
+      "vizyon eksikliği",
+      "kararsız bekleyiş"
+    ]
+  },
+  {
+    "id": "degnek_uclusu",
+    "ad": "Değnek Üçlüsü",
+    "gorsel": "DEGNEK_UCLUSU.webp",
+    "duz_temalar": [
+      "ilerleme",
+      "işaretlerin peşinden gitme",
+      "ufuk genişlemesi",
+      "ticari başarı",
+      "adımların meyvesi"
+    ],
+    "ters_temalar": [
+      "gecikmeler",
+      "engeller",
+      "beklentilerin suya düşmesi",
+      "yön değiştirme",
+      "hayal kırıklığı"
+    ]
+  },
+  {
+    "id": "degnek_dortlusu",
+    "ad": "Değnek Dörtlüsü",
+    "gorsel": "DEGNEK_DORTLUSU.webp",
+    "duz_temalar": [
+      "kutlama",
+      "istikrar",
+      "ev temelli güvence",
+      "topluluk",
+      "ilk meyveler"
+    ],
+    "ters_temalar": [
+      "geçici istikrarsızlık",
+      "evden uzaklaşma",
+      "ertelenen kutlama",
+      "temel eksikliği",
+      "taşınma"
+    ]
+  },
+  {
+    "id": "degnek_beslisi",
+    "ad": "Değnek Beşlisi",
+    "gorsel": "DEGNEK_BESLISI.webp",
+    "duz_temalar": [
+      "rekabet",
+      "çekişme",
+      "fikir ayrılığı",
+      "enerji savaşı",
+      "gerginlik"
+    ],
+    "ters_temalar": [
+      "çekişmelerin sona ermesi",
+      "uzlaşı",
+      "iş birliği",
+      "enerjinin yapıcı kullanımı",
+      "barışma"
+    ]
+  },
+  {
+    "id": "degnek_altilisi",
+    "ad": "Değnek Altılısı",
+    "gorsel": "DEGNEK_ALTILISI.webp",
+    "duz_temalar": [
+      "zafer",
+      "tanınma",
+      "özgüven",
+      "başarının tadını çıkarma",
+      "kamuoyu desteği"
+    ],
+    "ters_temalar": [
+      "özgüven krizi",
+      "tanınmama",
+      "ertelenen başarı",
+      "kibir",
+      "desteğin çekilmesi"
+    ]
+  },
+  {
+    "id": "degnek_yedilisi",
+    "ad": "Değnek Yedilisi",
+    "gorsel": "DEGNEK_YEDILISI.webp",
+    "duz_temalar": [
+      "savunma",
+      "pozisyon koruma",
+      "inatçılık",
+      "zorlu mücadele",
+      "sınırları korumak"
+    ],
+    "ters_temalar": [
+      "bunalmışlık",
+      "pes etmek",
+      "savunmasızlık",
+      "enerji tükenmesi",
+      "gereksiz direnç"
+    ]
+  },
+  {
+    "id": "degnek_sekizlisi",
+    "ad": "Değnek Sekizlisi",
+    "gorsel": "DEGNEK_SEKIZLISI.webp",
+    "duz_temalar": [
+      "hız",
+      "hareket",
+      "hızlı gelişmeler",
+      "ivmelenme",
+      "zamana uyum"
+    ],
+    "ters_temalar": [
+      "gecikmeler",
+      "aksilikler",
+      "dağınık enerji",
+      "plansız acele",
+      "yön değişikliği"
+    ]
+  },
+  {
+    "id": "degnek_dokuzlusu",
+    "ad": "Değnek Dokuzlusu",
+    "gorsel": "DEGNEK_DOKUZLUSU.webp",
+    "duz_temalar": [
+      "direnç",
+      "son çaba",
+      "sınırların korunması",
+      "dayanıklılık",
+      "yorgun ama ayakta"
+    ],
+    "ters_temalar": [
+      "savunmasızlık",
+      "yorgunluk",
+      "son anda pes etme",
+      "tükenmişlik",
+      "sınırların zorlanması"
+    ]
+  },
+  {
+    "id": "degnek_onlusu",
+    "ad": "Değnek Onlusu",
+    "gorsel": "DEGNEK_ONLUSU.webp",
+    "duz_temalar": [
+      "ağır yük",
+      "sorumluluklar",
+      "taşınan yükler",
+      "yorgun ilerleyiş",
+      "son hamleler"
+    ],
+    "ters_temalar": [
+      "yüklerin hafiflemesi",
+      "sorumlulukların paylaşılması",
+      "bırakma",
+      "tükenmişlik riski",
+      "dengesiz yük dağılımı"
+    ]
+  },
+  {
+    "id": "degnek_usagi",
+    "ad": "Değnek Uşağı",
+    "gorsel": "DEGNEK_USAGI.webp",
+    "duz_temalar": [
+      "yeni fikir",
+      "keşif heyecanı",
+      "haber",
+      "cesur deneme",
+      "entelektüel merak"
+    ],
+    "ters_temalar": [
+      "dağınık fikirler",
+      "sabırsızlık",
+      "yarım kalan projeler",
+      "gereksiz riskler",
+      "odaklanamama"
+    ]
+  },
+  {
+    "id": "degnek_sovalyesi",
+    "ad": "Değnek Şövalyesi",
+    "gorsel": "DEGNEK_SOVALYESI.webp",
+    "duz_temalar": [
+      "enerji",
+      "macera",
+      "hızlı hareket",
+      "tutku",
+      "girişimcilik"
+    ],
+    "ters_temalar": [
+      "dürtüsellik",
+      "aceleci kararlar",
+      "tutarsızlık",
+      "güven eksikliği",
+      "yön değiştiren ivme"
+    ]
+  },
+  {
+    "id": "degnek_kralicesi",
+    "ad": "Değnek Kraliçesi",
+    "gorsel": "DEGNEK_KRALICESI.webp",
+    "duz_temalar": [
+      "özgüven",
+      "canlılık",
+      "bağımsızlık",
+      "sıcaklık",
+      "üretkenlik"
+    ],
+    "ters_temalar": [
+      "kıskançlık",
+      "özgüven dalgalanmaları",
+      "baskın davranış",
+      "kendini küçümseme",
+      "bağımsızlık korkusu"
+    ]
+  },
+  {
+    "id": "degnek_krali",
+    "ad": "Değnek Kralı",
+    "gorsel": "DEGNEK_KRALI.webp",
+    "duz_temalar": [
+      "vizyoner liderlik",
+      "girişimcilik",
+      "karizma",
+      "büyük resim",
+      "cesaret"
+    ],
+    "ters_temalar": [
+      "otoriter davranış",
+      "sabırsız liderlik",
+      "hayalperestlik",
+      "başkalarını gölgeleme",
+      "dengesiz hırs"
+    ]
+  }
+]

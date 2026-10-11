@@ -20,6 +20,8 @@ import 'src/mvp/review_store.dart';
 import 'src/ai/ai_contract.dart';
 import 'src/ai/ai_runtime.dart';
 import 'src/ai/ai_pages.dart';
+import 'src/tarot/tarot_runtime.dart';
+import 'src/tarot/tarot_pages.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -33,14 +35,40 @@ Future<void> main() async {
   final ai = (aiLabEnabled || playTestEnabled)
       ? await AiRuntime.create(store)
       : null;
-  runApp(OfflineContributionApp(store: store, ai: ai));
+  TarotRuntime? tarot;
+  String? tarotError;
+  try {
+    tarot = await TarotRuntime.create(
+      Directory('${store.directory.parent.path}/tarot-local'),
+      ai,
+    );
+  } catch (_) {
+    tarotError =
+        'Tarot kayıtları veya kartları okunamadı. Kayıtlar silinmedi. Uygulamayı yeniden açarak deneyebilirsin.';
+  }
+  runApp(
+    OfflineContributionApp(
+      store: store,
+      ai: ai,
+      tarot: tarot,
+      tarotError: tarotError,
+    ),
+  );
 }
 
 class OfflineContributionApp extends StatelessWidget {
-  const OfflineContributionApp({required this.store, this.ai, super.key});
+  const OfflineContributionApp({
+    required this.store,
+    this.ai,
+    this.tarot,
+    this.tarotError,
+    super.key,
+  });
 
   final DraftStore store;
   final AiRuntime? ai;
+  final TarotRuntime? tarot;
+  final String? tarotError;
 
   @override
   Widget build(BuildContext context) => MaterialApp(
@@ -53,6 +81,16 @@ class OfflineContributionApp extends StatelessWidget {
     home: Builder(
       builder: (context) => ContributionHome(
         modern: true,
+        tarotPage: tarot != null
+            ? TarotHomePage(runtime: tarot!)
+            : tarotError != null
+            ? Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: AtlasNotice(tarotError!),
+                ),
+              )
+            : null,
         store: store,
         service: OfflineContributionService(store),
         onAiSettings: ai == null

@@ -74,6 +74,7 @@ class ContributionHome extends StatefulWidget {
     this.cameraLauncher,
     this.saucerLauncher,
     this.modern = false,
+    this.tarotPage,
     this.onConfirmedRecorded,
     this.recordState,
     this.recordStarred,
@@ -100,6 +101,7 @@ class ContributionHome extends StatefulWidget {
   final CameraLauncher? cameraLauncher;
   final Future<CameraCaptureResult?> Function(BuildContext)? saucerLauncher;
   final bool modern;
+  final Widget? tarotPage;
   final Future<RecordPreparationStatus> Function(
     Map<String, dynamic>,
     Set<String>,

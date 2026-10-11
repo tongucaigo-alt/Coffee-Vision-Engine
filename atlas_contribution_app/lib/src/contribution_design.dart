@@ -1,6 +1,9 @@
 part of 'contribution_home.dart';
 
 extension _AtlasHomePresentation on _ContributionHomeState {
+  bool get _hasTarot => widget.tarotPage != null;
+  int get _historyTab => _hasTarot ? 2 : 1;
+  int get _settingsTab => _hasTarot ? 3 : 2;
   bool get _atlasBusy => _busy || _sequenceRunning;
   String _photoIdentity(ContributionPhoto p) => '${p.localName}|${p.checksum}';
 
@@ -308,7 +311,13 @@ extension _AtlasHomePresentation on _ContributionHomeState {
                       ),
                     ],
                   )
-                : Text(_tab == 1 ? 'Kayıtlarım' : 'Ayarlar'),
+                : Text(
+                    _hasTarot && _tab == 1
+                        ? 'Tarot'
+                        : _tab == _historyTab
+                        ? 'Kayıtlarım'
+                        : 'Ayarlar',
+                  ),
             actions: !inFlow && _tab == 0
                 ? [
                     Padding(
@@ -365,17 +374,23 @@ extension _AtlasHomePresentation on _ContributionHomeState {
                           onDestinationSelected: _atlasBusy
                               ? null
                               : (index) => _change(() => _tab = index),
-                          destinations: const [
-                            NavigationDestination(
+                          destinations: [
+                            const NavigationDestination(
                               icon: Icon(Icons.home_outlined),
                               selectedIcon: Icon(Icons.home),
                               label: 'Ana Sayfa',
                             ),
-                            NavigationDestination(
+                            if (_hasTarot)
+                              const NavigationDestination(
+                                icon: Icon(Icons.style_outlined),
+                                selectedIcon: Icon(Icons.style),
+                                label: 'Tarot',
+                              ),
+                            const NavigationDestination(
                               icon: Icon(Icons.history),
                               label: 'Kayıtlarım',
                             ),
-                            NavigationDestination(
+                            const NavigationDestination(
                               icon: Icon(Icons.settings_outlined),
                               label: 'Ayarlar',
                             ),
@@ -390,7 +405,9 @@ extension _AtlasHomePresentation on _ContributionHomeState {
               ? const Center(child: CircularProgressIndicator())
               : inFlow
               ? _atlasDraft()
-              : _tab == 1
+              : _hasTarot && _tab == 1
+              ? widget.tarotPage!
+              : _tab == _historyTab
               ? ContributionHistory(
                   key: ValueKey(_draft?.id),
                   store: widget.store,
@@ -411,7 +428,7 @@ extension _AtlasHomePresentation on _ContributionHomeState {
                     await _startAtlas();
                   },
                 )
-              : _tab == 2
+              : _tab == _settingsTab
               ? _atlasSettings()
               : _atlasLanding(),
         ),
