@@ -1,7 +1,7 @@
 # Atlas V52 — Tarot V1
 
 11 Ekim 2026. Kaynak temeli: V51 `4111f6f604e377e42c81f21de2de5389f2313112`.
-Yerel geliştirme dalı: `codex/atlas-tarot-v1`. V51 geri dönüş etiketi değiştirilmedi.
+Geliştirme dalı: `codex/atlas-tarot-v1`. V51 geri dönüş etiketi değiştirilmedi.
 
 ## Deneyim
 
@@ -41,8 +41,10 @@ Yerel geliştirme dalı: `codex/atlas-tarot-v1`. V51 geri dönüş etiketi deği
 - Tam kahve/tarot test grubu: 333 başarılı, 6 atlanan test. Sonrasında eklenen küçük gezinme ve günlük tarih kontrolleri dahil son tarot widget grubu: 9 başarılı test. Bu gruplar örtüşür, sayıları toplanmaz.
 - Son tarot widget önizlemeleri normal ekran, 320×568 ekran, iki kat yazı, çentik, hareket azaltma ve erişilebilir etiketleri kapsar.
 - APK kimlik/imza doğrulaması teslim raporunda kayıtlıdır.
-- Testler ve release build sırayla çalıştırıldı. Telefonda integration runner veya kurulum çalıştırılmadı.
-- Sonuç ekranı önizlemesindeki yorum sabit test verisidir; canlı Kimi sonucu değildir. Ücretli Kimi isteği bu çalışmada başlatılmadı.
+- Testler ve release build sırayla çalıştırıldı. Telefonda integration runner çalıştırılmadı.
+- Sonuç ekranı önizlemesindeki yorum sabit test verisidir; canlı Kimi sonucu değildir.
+- Kullanıcının sonraki isteğiyle gerçek `TarotRuntime`, `TarotAiClient` ve `AiTransport` üzerinden bilgisayarda bir ücretli `kimi-k2.6` Üç Kart çağrısı yapıldı. Eşzamanlı iki tetikleme yalnız bir HTTP isteği gönderdi; yanıt 25,461 saniyede tamamlandı. Çekim değişmedi, yorum yeniden açılışta korundu.
+- Canlı içerik kontrolü: kart/pozisyon/yön/tema eşleşti, ortak hikâye ve düşünme daveti vardı. Ancak 202 kelimeyle 250–350 hedefi karşılanmadı; kişisel bilgi verilmediği halde geçmiş ve mevcut durum hakkında varsayımlar yazıldı. Bu sürümde prompt iyileştirmesi yapılmadı. Tek örnek, tüm yanıtların kalitesini doğrulamaz; günlük ve ters kart canlı çağrıları sınanmadı.
 
 ## Test dağıtımı
 
@@ -52,4 +54,5 @@ Yerel geliştirme dalı: `codex/atlas-tarot-v1`. V51 geri dönüş etiketi deği
 - Release derlemesi testlerden sonra normal `flutter build apk --release` ile platform dosyalarını yeniden üretir. Bu SDK'da testlerin bıraktığı integration-test registrant'ını koruyabildiği için release adımında `--no-pub` kullanılmaz. Test ve build yine sıralı çalıştırılır.
 - Anahtar ve kurucu imzası harici özel yapılandırmadan gelir. Bu APK sideload test içindir; GitHub veya mağazada yayınlanmaz.
 - APK'nin imzası V51 ile eşleşmelidir. Sonraki telefon kurulumunda kurulu sürüm tekrar kontrol edilerek yalnız `tool/install_preserving_data.py` ile `adb install -r` kullanılır; kaldırma veya veri temizleme yapılmaz.
-- Bu teslim telefon kurulumu, GitHub push, hosting ve iOS/mağaza hazırlığı içermez.
+- Kullanıcının sonraki kurulum isteğiyle Samsung A56 üzerinde V51 doğrulandı, aynı imzalı V52 yalnız bu araçla güncellendi ve açıldı. Kaldırma/veri temizleme yapılmadı; ilk kurulum tarihi ve veri dizini inode değerleri değişmedi. Uygulama içindeki kayıtların tamamı telefonda ayrıca tek tek denetlenmedi.
+- Kullanıcının sonraki GitHub isteğiyle kaynak dalı ve PR yayımlanır. APK, anahtarlar, imza dosyaları ve yerel cihaz raporları GitHub'a gönderilmez. Hosting ve iOS/mağaza hazırlığı kapsam dışındadır.
