@@ -241,7 +241,7 @@ class _AiLabPageState extends State<AiLabPage> {
                 onPressed: busy ? null : () => Navigator.pop(ctx),
                 child: const Text('Vazgeç'),
               ),
-              FilledButton(
+              AtlasPrimaryButton(
                 onPressed: busy
                     ? null
                     : () async {
@@ -305,7 +305,7 @@ class _AiLabPageState extends State<AiLabPage> {
                       : null,
                   onTap: isBundledProfile(p) ? null : () => _edit(p),
                 ),
-              FilledButton(
+              AtlasPrimaryButton(
                 onPressed: () => _edit(),
                 child: const Text('Bağlantı ekle'),
               ),
@@ -502,7 +502,7 @@ class _AiFortunePageState extends State<AiFortunePage> {
                 onPressed: () => Navigator.pop(ctx, false),
                 child: const Text('Geri dön'),
               ),
-              FilledButton(
+              AtlasPrimaryButton(
                 onPressed: () => Navigator.pop(ctx, true),
                 child: const Text('Evet, devam et'),
               ),
@@ -796,6 +796,13 @@ class _AiFortunePageState extends State<AiFortunePage> {
         },
         child: Scaffold(
           appBar: AppBar(
+            toolbarHeight: widget.simple
+                ? 56 *
+                      (MediaQuery.textScalerOf(context).scale(16) / 16).clamp(
+                        1.0,
+                        2.0,
+                      )
+                : null,
             title: Text(modern ? 'Fincanının Hikâyesi' : 'Fal denemesi'),
             actions: [
               if (!widget.simple)
@@ -881,7 +888,11 @@ class _AiFortunePageState extends State<AiFortunePage> {
                       ),
                     if (modern) ...[
                       SizedBox(
-                        height: 108,
+                        height:
+                            80 +
+                            44 *
+                                (MediaQuery.textScalerOf(context).scale(16) /
+                                    16),
                         child: ListView.separated(
                           scrollDirection: Axis.horizontal,
                           itemCount: session.orderedPhotos.length,
@@ -889,7 +900,7 @@ class _AiFortunePageState extends State<AiFortunePage> {
                           itemBuilder: (context, i) {
                             final p = session.orderedPhotos[i];
                             return SizedBox(
-                              width: 96,
+                              width: 148,
                               child: InkWell(
                                 onTap: () => showDialog<void>(
                                   context: context,
@@ -942,9 +953,9 @@ class _AiFortunePageState extends State<AiFortunePage> {
                                         maxLines: 2,
                                         overflow: TextOverflow.ellipsis,
                                         style: const TextStyle(
-                                          fontSize: 11,
+                                          fontSize: 16,
                                           height: 1.4,
-                                          color: Color(0xff887c70),
+                                          color: atlasCoffee,
                                         ),
                                       ),
                                     ),
@@ -956,11 +967,12 @@ class _AiFortunePageState extends State<AiFortunePage> {
                         ),
                       ),
                       const SizedBox(height: 20),
-                      if (hasAnswers) ..._fortuneWidgets(),
+                      if (hasAnswers && !widget.simple) ..._fortuneWidgets(),
                     ],
+                    if (widget.simple && hasAnswers) ..._fortuneWidgets(),
                     if (widget.simple) ...[
                       if (!currentComplete)
-                        FilledButton(
+                        AtlasPrimaryButton(
                           onPressed: _busy
                               ? null
                               : () async {
@@ -985,48 +997,6 @@ class _AiFortunePageState extends State<AiFortunePage> {
                                 : 'Fal Oluştur',
                           ),
                         ),
-                      ExpansionTile(
-                        onExpansionChanged: (expanded) {
-                          if (!expanded) return;
-                          Future<void>.delayed(
-                            const Duration(milliseconds: 250),
-                            () {
-                              WidgetsBinding.instance.addPostFrameCallback((_) {
-                                if (!mounted) return;
-                                if (!_resultScroll.hasClients) return;
-                                final end =
-                                    _resultScroll.position.maxScrollExtent;
-                                if (MediaQuery.disableAnimationsOf(context)) {
-                                  _resultScroll.jumpTo(end);
-                                } else {
-                                  _resultScroll.animateTo(
-                                    end,
-                                    duration: const Duration(milliseconds: 180),
-                                    curve: Curves.easeOut,
-                                  );
-                                }
-                              });
-                              WidgetsBinding.instance.scheduleFrame();
-                            },
-                          );
-                        },
-                        title: const Text('Araştırmaya katkı'),
-                        children: [
-                          CheckboxListTile(
-                            value: session.researchConsentAtUtc != null,
-                            title: const Text(
-                              'Bu kaydı araştırma paketine eklemeye izin veriyorum.',
-                            ),
-                            onChanged: _busy
-                                ? null
-                                : (value) => _act(
-                                    () => _controller.save(
-                                      session.next(researchAllowed: value),
-                                    ),
-                                  ),
-                          ),
-                        ],
-                      ),
                     ],
                     if (!widget.simple)
                       ExpansionTile(
@@ -1131,7 +1101,7 @@ class _AiFortunePageState extends State<AiFortunePage> {
                                         ),
                                       ),
                               ),
-                              FilledButton(
+                              AtlasPrimaryButton(
                                 onPressed: _busy || !session.ready
                                     ? null
                                     : () => _act(() => _controller.analyze()),
@@ -1219,7 +1189,7 @@ class _AiFortunePageState extends State<AiFortunePage> {
                                 p.id == _first || (_compare && p.id == _second),
                           ))
                             Text('Metin gönderilecek: ${p.url}'),
-                          FilledButton(
+                          AtlasPrimaryButton(
                             onPressed:
                                 _busy ||
                                     !eligible ||
@@ -1324,7 +1294,7 @@ class _AiFortunePageState extends State<AiFortunePage> {
               onPressed: () => Navigator.pop(ctx, false),
               child: const Text('Vazgeç'),
             ),
-            FilledButton(
+            AtlasPrimaryButton(
               onPressed: () => Navigator.pop(ctx, true),
               child: const Text('Bildir'),
             ),
@@ -1399,7 +1369,7 @@ class _AiFortunePageState extends State<AiFortunePage> {
             style: const TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w600,
-              color: atlasSage,
+              color: atlasSageInk,
             ),
           ),
         ),

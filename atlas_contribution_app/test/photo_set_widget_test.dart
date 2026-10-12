@@ -41,7 +41,8 @@ void main() {
         Set<String>? confirmed;
         await tester.pumpWidget(
           MaterialApp(
-            home: ContributionHome(photoSuitability: SupportedSuitability(),
+            home: ContributionHome(
+              photoSuitability: SupportedSuitability(),
               modern: true,
               store: store,
               service: service,
@@ -61,7 +62,7 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
-        await tester.tap(find.text('Kaldığın Yerden Devam Et'));
+        await tester.tap(find.byTooltip('Kaldığın Yerden Devam Et'));
         await tester.pumpAndSettle();
         if (count == 1) {
           await tester.ensureVisible(find.text('Bu fotoğraflarla devam et'));
@@ -69,14 +70,14 @@ void main() {
           await tester.pumpAndSettle();
           expect(
             find.text('Tabak fotoğrafı da eklemek ister misin?'),
-            findsOneWidget,
+            findsNothing,
           );
           await tester.ensureVisible(find.text('Tabaksız devam et'));
           await tester.tap(find.text('Tabaksız devam et'));
           await tester.pumpAndSettle();
           expect(find.byType(CheckboxListTile), findsNothing);
         } else {
-          expect(find.text('3 fincan · 1 tabak'), findsOneWidget);
+          expect(find.text('Fotoğraf 1/4'), findsOneWidget);
           expect(find.byType(CheckboxListTile), findsOneWidget);
         }
         for (var i = 0; i < (count == 1 ? 0 : 1); i++) {
@@ -85,20 +86,10 @@ void main() {
           await tester.tap(check);
           await tester.pump();
         }
-        await tester.ensureVisible(
-          find.text('Şekilleri İncele'),
-        );
-        await tester.tap(find.text('Şekilleri İncele'));
+        await tester.ensureVisible(find.text('Şekilleri Seç'));
+        await tester.tap(find.text('Şekilleri Seç'));
         await tester.pumpAndSettle();
-        await tester.tap(find.text('Atla'));
-        await tester.pumpAndSettle();
-        expect(
-          store.draft!.photos.every((p) => p.decision == PhotoDecision.skipped),
-          true,
-        );
-        final action = find.text(
-          auto ? 'Kaydet ve Falını Oluştur' : 'Yalnız Kaydet',
-        );
+        final action = find.text(auto ? 'Falımı Oluştur' : 'Yalnız Kaydet');
         await tester.ensureVisible(action);
         await tester.tap(action);
         await tester.tap(

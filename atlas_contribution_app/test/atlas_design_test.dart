@@ -141,14 +141,13 @@ void main() {
             ),
           );
           await tester.pumpAndSettle();
-          if (count == 0) {
-            expect(find.text('Çekime hazır taslak'), findsOneWidget);
-          }
+          expect(find.byTooltip('Kaldığın Yerden Devam Et'), findsOneWidget);
+          expect(find.byType(Scrollable), findsNothing);
           final heading = find.text('Fincanını Keşfet');
           await tester.ensureVisible(heading);
           await tester.pumpAndSettle();
           final viewport = tester.getRect(
-            find.byKey(const ValueKey('atlas-home-scroll')),
+            find.byKey(const ValueKey('atlas-home-frame')),
           );
           final bounds = tester.getRect(heading);
           expect(bounds.top, greaterThanOrEqualTo(viewport.top));
@@ -171,6 +170,10 @@ void main() {
     (const Size(320, 640), 1.8),
     (const Size(360, 800), 1.0),
     (const Size(320, 640), 1.0),
+    (const Size(360, 700), 1.0),
+    (const Size(360, 700), 2.0),
+    (const Size(412, 700), 1.0),
+    (const Size(412, 700), 2.0),
   ]) {
     testWidgets('Atlas navigation is usable at $size and text scale $scale', (
       tester,
@@ -216,11 +219,17 @@ void main() {
       );
       await tester.tap(find.text('Kapat'));
       await tester.pumpAndSettle();
-      final galleryButton = find.widgetWithText(
-        OutlinedButton,
-        'Galeriden Seç',
+      final galleryButton = find.widgetWithText(TextButton, 'Galeriden Seç');
+      expect(tester.widget<TextButton>(galleryButton).onPressed, isNotNull);
+      expect(tester.getSize(galleryButton).height, greaterThanOrEqualTo(48));
+      expect(
+        tester
+            .widget<TextButton>(galleryButton)
+            .style!
+            .foregroundColor!
+            .resolve({}),
+        atlasCopperInk,
       );
-      expect(tester.widget<OutlinedButton>(galleryButton).onPressed, isNotNull);
       final captureLabel = tester.getRect(find.text('3 Açılı Çekim'));
       expect(captureLabel.left, greaterThanOrEqualTo(24));
       expect(
@@ -232,10 +241,17 @@ void main() {
       final headingBounds = tester.getRect(find.text('Fincanını Keşfet'));
       if (size.height >= 800) {
         expect(find.text('Fincanını Keşfet').hitTestable(), findsOneWidget);
-        expect(find.text('Kahvende bir hikâye.').hitTestable(), findsOneWidget);
+        expect(
+          find
+              .text(
+                'Fincanının fotoğrafını çek, kahvenin hikâyesini birlikte okuyalım.',
+              )
+              .hitTestable(),
+          findsOneWidget,
+        );
       }
-      expect(headingBounds.left, greaterThanOrEqualTo(frameBounds.left + 20));
-      expect(headingBounds.right, lessThanOrEqualTo(frameBounds.right - 20));
+      expect(headingBounds.left, greaterThanOrEqualTo(frameBounds.left + 16));
+      expect(headingBounds.right, lessThanOrEqualTo(frameBounds.right - 16));
       expect(
         (headingBounds.center.dx - frameBounds.center.dx).abs(),
         lessThanOrEqualTo(.5),
@@ -247,7 +263,23 @@ void main() {
       await tester.pumpAndSettle();
       frameBounds = tester.getRect(frame);
       expect(tester.widget<FilledButton>(scanButton).onPressed, isNotNull);
+      expect(
+        tester
+            .widget<FilledButton>(scanButton)
+            .style!
+            .backgroundColor!
+            .resolve({}),
+        atlasCoffee,
+      );
+      expect(find.byType(Scrollable), findsNothing);
       expect(scanButton.hitTestable(), findsOneWidget);
+      if (scale == 1 && size.width >= 360) {
+        expect(tester.getSize(scanButton).width, 280);
+        expect(
+          tester.getSize(scanButton).width,
+          lessThan(frameBounds.width - 32),
+        );
+      }
       expect(
         (tester.getRect(scanButton).center.dx - frameBounds.center.dx).abs(),
         lessThanOrEqualTo(.5),
@@ -347,19 +379,19 @@ void main() {
           _captureKey.currentContext!,
         );
       });
-      await tester.tap(find.text('Kaldığın Yerden Devam Et'));
+      await tester.tap(find.byTooltip('Kaldığın Yerden Devam Et'));
       await tester.pumpAndSettle();
-      expect(find.text('Şekilleri İncele'), findsOneWidget);
+      expect(find.text('Şekilleri Seç'), findsOneWidget);
       expect(tester.takeException(), isNull);
       await _snapshot(tester, 'preview-$scale');
-      await tester.tap(find.text('Şekilleri İncele'));
+      await tester.tap(find.text('Şekilleri Seç'));
       await tester.pumpAndSettle();
       expect(find.text('Sen ne görüyorsun?'), findsOneWidget);
       expect(tester.takeException(), isNull);
       await _snapshot(tester, 'annotation-$scale');
-      await tester.tap(find.byTooltip('Kalanları Atla'));
+      await tester.tap(find.text('Kalanları geç'));
       await tester.pumpAndSettle();
-      expect(find.text('Kaydet ve Falını Oluştur'), findsOneWidget);
+      expect(find.text('Falımı Oluştur'), findsOneWidget);
       expect(find.text('Yalnız Kaydet'), findsOneWidget);
       expect(find.text('İşaretleri Gözden Geçir'), findsOneWidget);
       expect(tester.takeException(), isNull);
@@ -541,7 +573,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
       await _snapshot(tester, 'annotation-large');
-      await tester.tap(find.byTooltip('Kalanları Atla'));
+      await tester.tap(find.text('Kalanları geç'));
       await tester.pumpAndSettle();
       expect(saved, hasLength(1));
       expect(saved.single.role, CaptureRole.handleLeft);

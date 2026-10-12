@@ -24,6 +24,18 @@ const labelIcons = <String, IconData>{
   'humanFigure': LucideIcons.personStanding,
   'airplane': LucideIcons.plane,
   'flower': LucideIcons.flower2,
+  'cat': LucideIcons.cat,
+  'star': LucideIcons.star,
+  'key': LucideIcons.keyRound,
+  'boat': LucideIcons.ship,
+  'turtle': LucideIcons.turtle,
+  'rabbit': LucideIcons.rabbit,
+  'lion': Icons.pets,
+  'book': LucideIcons.bookOpen,
+  'ladder': Icons.stairs,
+  'bridge': Icons.architecture,
+  'cloud': LucideIcons.cloud,
+  'elephant': Icons.pets,
 };
 
 class LabelIcon extends StatelessWidget {
@@ -38,6 +50,10 @@ class LabelIcon extends StatelessWidget {
       'horse' => 'horse',
       'ring' => 'ring',
       'road' => 'road-horizon',
+      'lion' => 'lion',
+      'elephant' => 'elephant',
+      'bridge' => 'bridge',
+      'ladder' => 'ladder',
       _ => null,
     };
     return asset == null
@@ -62,82 +78,186 @@ Future<String?> pickContributionLabel(BuildContext context) =>
       builder: (_) => const LabelPicker(),
     );
 
-class LabelPicker extends StatelessWidget {
+const labelCategories = <String, List<String>>{
+  'Öne çıkan': ['bird', 'heart', 'humanFigure', 'tree', 'fish', 'road'],
+  'Hayvanlar': [
+    'bird',
+    'fish',
+    'snake',
+    'dog',
+    'butterfly',
+    'horse',
+    'cat',
+    'turtle',
+    'rabbit',
+    'lion',
+    'elephant',
+  ],
+  'Doğa': ['tree', 'mountain', 'moon', 'sun', 'flower', 'star', 'cloud'],
+  'İnsan ve nesneler': [
+    'heart',
+    'eye',
+    'crown',
+    'ring',
+    'anchor',
+    'house',
+    'humanFigure',
+    'airplane',
+    'key',
+    'boat',
+    'book',
+    'ladder',
+    'bridge',
+    'road',
+  ],
+};
+
+String _searchText(String text) => text
+    .replaceAll('İ', 'i')
+    .replaceAll('I', 'ı')
+    .toLowerCase()
+    .replaceAll('ı', 'i')
+    .replaceAll('ş', 's')
+    .replaceAll('ğ', 'g')
+    .replaceAll('ü', 'u')
+    .replaceAll('ö', 'o')
+    .replaceAll('ç', 'c');
+
+class LabelPicker extends StatefulWidget {
   const LabelPicker({super.key});
   @override
+  State<LabelPicker> createState() => _LabelPickerState();
+}
+
+class _LabelPickerState extends State<LabelPicker> {
+  final _search = TextEditingController();
+  String _query = '', _category = 'Öne çıkan';
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final large = MediaQuery.textScalerOf(context).scale(16) > 21;
-    return FractionallySizedBox(
-      heightFactor: .92,
-      child: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 12, 8, 4),
-            child: Row(
-              children: [
-                const Expanded(
-                  child: Text(
-                    'Neye benziyor?',
-                    style: TextStyle(
-                      fontFamily: 'Literata',
-                      fontSize: 22,
-                      fontWeight: FontWeight.w500,
+    final scale = MediaQuery.textScalerOf(context).scale(16) / 16;
+    final items = contributionLabels.entries
+        .where(
+          (e) => _query.isNotEmpty
+              ? _searchText(e.value).contains(_searchText(_query))
+              : _category == 'Tümü' ||
+                    labelCategories[_category]!.contains(e.key),
+        )
+        .toList();
+    final columns = MediaQuery.sizeOf(context).width < 380 || scale > 1.3
+        ? 2
+        : 3;
+    return Padding(
+      padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight:
+              (MediaQuery.sizeOf(context).height -
+                  MediaQuery.viewInsetsOf(context).bottom) *
+              .92,
+        ),
+        child: ListView(
+          shrinkWrap: true,
+          children: [
+            const Padding(
+              padding: EdgeInsets.fromLTRB(16, 8, 16, 12),
+              child: Text(
+                'Neye benziyor?',
+                style: TextStyle(
+                  fontFamily: 'Literata',
+                  fontSize: 18,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: TextField(
+                controller: _search,
+                decoration: const InputDecoration(
+                  labelText: 'Şekil ara',
+                  prefixIcon: Icon(Icons.search),
+                ),
+                onChanged: (v) => setState(() => _query = v),
+              ),
+            ),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.all(12),
+              child: Row(
+                children: [
+                  for (final category in ['Tümü', ...labelCategories.keys])
+                    Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: ChoiceChip(
+                        label: Text(category),
+                        selected: _category == category,
+                        onSelected: (_) => setState(() {
+                          _category = category;
+                          _query = '';
+                          _search.clear();
+                        }),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            items.isEmpty
+                ? const Center(child: Text('Bu adla şekil bulunamadı.'))
+                : GridView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                    itemCount: items.length,
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: columns,
+                      mainAxisExtent: 84 + 88 * (scale - 1).clamp(0, 2),
+                      mainAxisSpacing: 10,
+                      crossAxisSpacing: 10,
+                    ),
+                    itemBuilder: (context, i) => OutlinedButton(
+                      onPressed: () => Navigator.pop(context, items[i].key),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.all(8),
+                      ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          LabelIcon(items[i].key, size: 20),
+                          const SizedBox(height: 4),
+                          Text(
+                            items[i].value,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(fontSize: 16, height: 1.3),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                ),
-                IconButton(
-                  tooltip: 'Kapat',
-                  onPressed: () => Navigator.pop(context),
-                  icon: const Icon(LucideIcons.x),
-                ),
-              ],
-            ),
-          ),
-          Expanded(
-            child: GridView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: contributionLabels.length,
-              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: large ? 2 : 3,
-                mainAxisExtent: large ? 208 : 136,
-                mainAxisSpacing: 10,
-                crossAxisSpacing: 10,
-              ),
-              itemBuilder: (context, i) {
-                final item = contributionLabels.entries.elementAt(i);
-                return OutlinedButton(
-                  onPressed: () => Navigator.pop(context, item.key),
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.all(8),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+              child: Wrap(
+                alignment: WrapAlignment.center,
+                spacing: 12,
+                children: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context, 'uncertain'),
+                    child: const Text('Emin değilim'),
                   ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      LabelIcon(item.key),
-                      const SizedBox(height: 8),
-                      Text(
-                        item.value,
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(fontSize: 13, height: 1.4),
-                      ),
-                    ],
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Vazgeç'),
                   ),
-                );
-              },
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-            child: SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: () => Navigator.pop(context, 'uncertain'),
-                icon: const Icon(LucideIcons.helpCircle),
-                label: const Text('Emin değilim'),
+                ],
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

@@ -5,8 +5,8 @@ import '../atlas_design.dart';
 import 'tarot_models.dart';
 import 'tarot_runtime.dart';
 
-const _forest = Color(0xff182e24);
-const _gold = Color(0xffc8ac70);
+const _forest = Color(0xff334b42);
+const _gold = Color(0xffc9a77e);
 const _back = 'assets/tarot/KART_ARKASI.webp';
 String _dateLabel(String iso) {
   final date = DateTime.parse(iso).toLocal();
@@ -156,7 +156,7 @@ class _TarotHomePageState extends State<TarotHomePage> {
                         style: TextStyle(
                           fontFamily: 'Literata',
                           fontSize: 24,
-                          color: Color(0xfffaf7f2),
+                          color: atlasCream,
                         ),
                       ),
                       const SizedBox(height: 10),
@@ -490,7 +490,7 @@ class _TarotDrawPageState extends State<TarotDrawPage>
                         key: const ValueKey('tarot-reading'),
                         padding: const EdgeInsets.all(22),
                         decoration: BoxDecoration(
-                          color: const Color(0xfffffdf9),
+                          color: atlasCard,
                           borderRadius: BorderRadius.circular(24),
                           border: Border.all(color: atlasBorder),
                         ),
@@ -881,7 +881,7 @@ class _TarotCardViewState extends State<TarotCardView>
                   border: Border.all(color: _gold.withValues(alpha: .55)),
                   boxShadow: const [
                     BoxShadow(
-                      color: Color(0x26182e24),
+                      color: Color(0x26334b42),
                       blurRadius: 10,
                       offset: Offset(0, 4),
                     ),

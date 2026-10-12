@@ -10,6 +10,8 @@ import 'cropped_photo.dart';
 import 'theme.dart';
 import 'opencv_traces.dart';
 import 'trace_overlay.dart';
+import 'atlas_design.dart';
+import 'coffee_controls.dart';
 
 class AnnotationPage extends StatefulWidget {
   const AnnotationPage({
@@ -21,6 +23,9 @@ class AnnotationPage extends StatefulWidget {
     this.modern = false,
     this.navigation,
     this.onComplete,
+    this.onFinish,
+    this.onSaveOnly,
+    this.onSkip,
     this.completionLabel = 'Fotoğrafı tamamla',
     super.key,
   });
@@ -30,7 +35,7 @@ class AnnotationPage extends StatefulWidget {
   final TraceSet? traces;
   final bool modern;
   final Widget? navigation;
-  final VoidCallback? onComplete;
+  final VoidCallback? onComplete, onFinish, onSaveOnly, onSkip;
   final String completionLabel;
   final Future<void> Function(ContributionPhoto) onSave;
   @override
@@ -51,7 +56,7 @@ class _AnnotationPageState extends State<AnnotationPage> {
   RegionBox? _box;
   String? _editingId;
   bool _saving = false;
-  bool _markMode = false;
+  late bool _markMode = widget.modern;
   Size _viewport = Size.zero;
   final _transform = TransformationController();
   final _pointers = <int, Offset>{};
@@ -227,6 +232,7 @@ class _AnnotationPageState extends State<AnnotationPage> {
 
   void _pointerEnd(PointerEvent event, {bool cancelled = false}) {
     if (!_pointers.containsKey(event.pointer)) return;
+    var choose = false, saveMove = false;
     setState(() {
       if (cancelled) _abortGesture();
       if (!cancelled &&
@@ -243,6 +249,7 @@ class _AnnotationPageState extends State<AnnotationPage> {
         } else {
           final scene = _transform.toScene(event.localPosition);
           _editingId = null;
+          choose = widget.modern;
           _box = RegionBox(
             (scene.dx / _viewport.width - .075).clamp(0, .85),
             (scene.dy / _viewport.height - .075).clamp(0, .85),
@@ -250,6 +257,15 @@ class _AnnotationPageState extends State<AnnotationPage> {
             .15,
           );
         }
+      }
+      if (widget.modern &&
+          !cancelled &&
+          !_blocked &&
+          !_multi &&
+          _editingId != null &&
+          _box != null) {
+        final moved = (event.localPosition - _downPoint).distance > kTouchSlop;
+        saveMove = moved && (_action == -1 || _action >= 0);
       }
       _pointers.remove(event.pointer);
       if (_pointers.length >= 2 && !_blocked) _rebasePinch();
@@ -259,6 +275,21 @@ class _AnnotationPageState extends State<AnnotationPage> {
         _blocked = false;
       }
     });
+    if (choose) _choose();
+    if (saveMove) {
+      final regions = _photo.regions
+          .map(
+            (r) => r.id == _editingId
+                ? RegionAnnotation(
+                    id: r.id,
+                    box: _displayCrop.toFullBox(_box!),
+                    label: r.label,
+                  )
+                : r,
+          )
+          .toList();
+      _persist(_photo.annotated(regions, PhotoDecision.marked));
+    }
   }
 
   @override
@@ -488,23 +519,421 @@ class _AnnotationPageState extends State<AnnotationPage> {
       );
     },
   );
+  Widget _selectedName(
+    RegionAnnotation region,
+    BoxConstraints constraints,
+    double insetY,
+  ) => ValueListenableBuilder<Matrix4>(
+    valueListenable: _transform,
+    builder: (context, matrix, _) {
+      final ratio = _displayCrop.aspectRatio(_photo.width, _photo.height);
+      final width = math.min(
+        constraints.maxWidth,
+        constraints.maxHeight * ratio,
+      );
+      final size = Size(width, width / ratio);
+      final origin = Offset(
+        (constraints.maxWidth - width) / 2,
+        (constraints.maxHeight - size.height) / 2,
+      );
+      final visible = Rect.fromLTWH(
+        origin.dx,
+        origin.dy,
+        size.width,
+        size.height,
+      );
+      final style = DefaultTextStyle.of(context).style.merge(
+        const TextStyle(
+          fontFamily: 'Plus Jakarta Sans',
+          fontSize: 14,
+          height: 1.3,
+          color: atlasCoffee,
+          fontWeight: FontWeight.w700,
+        ),
+      );
+      final text = TextPainter(
+        text: TextSpan(text: region.title, style: style),
+        textDirection: Directionality.of(context),
+        textScaler: MediaQuery.textScalerOf(context),
+      )..layout(maxWidth: math.max(1, width - 16));
+      final labelSize = Size(
+        math.min(width, text.width.ceilToDouble() + 14),
+        text.height.ceilToDouble() + 8,
+      );
+      final box = _box ?? _displayCrop.toDisplayBox(region.box);
+      final transformed = MatrixUtils.transformRect(
+        matrix,
+        _boxRect(box, size),
+      ).shift(origin);
+      final modeText = TextPainter(
+        text: const TextSpan(
+          text: 'Taşı İşaret',
+          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+        ),
+        textDirection: Directionality.of(context),
+        textScaler: MediaQuery.textScalerOf(context),
+      )..layout();
+      final obstacles = <Rect>[
+        Rect.fromLTWH(
+          8,
+          insetY,
+          math.max(96, modeText.width + 40),
+          math.max(48, modeText.height + 16),
+        ),
+        Rect.fromLTWH(
+          constraints.maxWidth - 152,
+          constraints.maxHeight - insetY - 48,
+          144,
+          48,
+        ),
+        for (var i = 0; i < 4; i++)
+          MatrixUtils.transformRect(
+            matrix,
+            _cornerRect(box, i, size),
+          ).shift(origin),
+      ];
+      Rect candidate(Offset at) => Rect.fromLTWH(
+        at.dx.clamp(
+          visible.left,
+          math.max(visible.left, visible.right - labelSize.width),
+        ),
+        at.dy.clamp(
+          visible.top,
+          math.max(visible.top, visible.bottom - labelSize.height),
+        ),
+        labelSize.width,
+        labelSize.height,
+      );
+      final candidates = <Rect>[
+        candidate(
+          Offset(transformed.left, transformed.top - labelSize.height - 26),
+        ),
+        candidate(Offset(transformed.left, transformed.bottom + 26)),
+        candidate(Offset(transformed.right + 26, transformed.center.dy)),
+        candidate(
+          Offset(
+            transformed.left - labelSize.width - 26,
+            transformed.center.dy,
+          ),
+        ),
+        for (var row = 0; row < 6; row++)
+          for (var col = 0; col < 4; col++)
+            candidate(
+              Offset(
+                visible.left + col * math.max(0, width - labelSize.width) / 3,
+                visible.top +
+                    row * math.max(0, size.height - labelSize.height) / 5,
+              ),
+            ),
+      ];
+      double overlap(Rect rect) => obstacles.fold(0.0, (sum, obstacle) {
+        final intersection = rect.intersect(obstacle);
+        return sum +
+            (intersection.isEmpty
+                ? 0
+                : intersection.width * intersection.height);
+      });
+      var best = candidates.first;
+      for (final rect in candidates) {
+        if (overlap(rect) < overlap(best)) best = rect;
+        if (overlap(best) == 0) break;
+      }
+      return Positioned.fromRect(
+        rect: best,
+        child: IgnorePointer(
+          child: Container(
+            key: const ValueKey('coffee-selected-name'),
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+            decoration: BoxDecoration(
+              color: atlasCream,
+              border: Border.all(color: atlasSage),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Text(region.title, style: style),
+          ),
+        ),
+      );
+    },
+  );
+
+  Future<void> _remove(RegionAnnotation region) async {
+    final remaining = _photo.regions.where((r) => r.id != region.id).toList();
+    await _persist(
+      _photo.annotated(
+        remaining,
+        remaining.isEmpty ? PhotoDecision.unreviewed : PhotoDecision.marked,
+      ),
+    );
+  }
+
+  Widget _modernBody() {
+    final selected = _photo.regions
+        .where((r) => r.id == _editingId)
+        .firstOrNull;
+    final scale = MediaQuery.textScalerOf(context).scale(16) / 16;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+      child: Column(
+        key: const ValueKey('coffee-annotation-body'),
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Expanded(
+            child: Container(
+              key: const ValueKey('coffee-photo-frame'),
+              decoration: BoxDecoration(
+                color: atlasCard,
+                border: Border.all(color: atlasBorder),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final ratio = _displayCrop.aspectRatio(
+                    _photo.width,
+                    _photo.height,
+                  );
+                  final photoWidth = math.min(
+                    constraints.maxWidth,
+                    constraints.maxHeight * ratio,
+                  );
+                  final insetY =
+                      (constraints.maxHeight - photoWidth / ratio) / 2 + 8;
+                  return Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      _canvas(),
+                      if (selected != null)
+                        _selectedName(selected, constraints, insetY),
+                      Positioned(
+                        top: insetY,
+                        left: 8,
+                        child: Material(
+                          key: const ValueKey('coffee-mode-control'),
+                          color: Colors.transparent,
+                          borderRadius: BorderRadius.circular(8),
+                          child: SegmentedButton<bool>(
+                            showSelectedIcon: false,
+                            style: SegmentedButton.styleFrom(
+                              minimumSize: const Size(48, 48),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                              ),
+                              textStyle: const TextStyle(
+                                fontFamily: 'Plus Jakarta Sans',
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            segments: const [
+                              ButtonSegment(value: false, label: Text('Taşı')),
+                              ButtonSegment(value: true, label: Text('İşaret')),
+                            ],
+                            selected: {_markMode},
+                            onSelectionChanged: _saving
+                                ? null
+                                : (v) => setState(() {
+                                    _abortGesture();
+                                    _markMode = v.single;
+                                  }),
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        right: 8,
+                        bottom: insetY,
+                        child: Material(
+                          key: const ValueKey('coffee-zoom-control'),
+                          color: atlasCream.withValues(alpha: .8),
+                          borderRadius: BorderRadius.circular(8),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                tooltip: 'Uzaklaştır',
+                                onPressed: _saving ? null : () => _zoom(.8),
+                                icon: const Icon(LucideIcons.zoomOut, size: 20),
+                              ),
+                              IconButton(
+                                tooltip: 'Yakınlaştır',
+                                onPressed: _saving ? null : () => _zoom(1.25),
+                                icon: const Icon(LucideIcons.zoomIn, size: 20),
+                              ),
+                              IconButton(
+                                tooltip: 'Fotoğrafı sığdır',
+                                onPressed: _saving
+                                    ? null
+                                    : () {
+                                        setState(_abortGesture);
+                                        _transform.value = Matrix4.identity();
+                                      },
+                                icon: const Icon(
+                                  LucideIcons.maximize,
+                                  size: 20,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          if (widget.navigation != null) widget.navigation!,
+          if (_photo.regions.isEmpty)
+            CoffeeActions([
+              CoffeeAction(
+                'Göremedim',
+                _saving ? null : () => _decision(PhotoDecision.notSeen),
+              ),
+              CoffeeAction(
+                'Emin değilim',
+                _saving ? null : () => _decision(PhotoDecision.uncertain),
+              ),
+              CoffeeAction(
+                'Bu fotoğrafı geç',
+                _saving ? null : () => _decision(PhotoDecision.skipped),
+              ),
+            ])
+          else ...[
+            Row(
+              children: [
+                Semantics(
+                  label: '${_photo.regions.length} şekil seçildi',
+                  child: Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: Text(
+                      '${_photo.regions.length}',
+                      style: const TextStyle(fontSize: 12, color: atlasSage),
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: SizedBox(
+                    height: 48 + 16 * (scale - 1).clamp(0, 2),
+                    child: ListView.separated(
+                      key: const ValueKey('coffee-selected-symbols'),
+                      scrollDirection: Axis.horizontal,
+                      itemCount: _photo.regions.length,
+                      separatorBuilder: (_, _) => const SizedBox(width: 8),
+                      itemBuilder: (_, i) {
+                        final region = _photo.regions[i];
+                        return ChoiceChip(
+                          showCheckmark: false,
+                          avatar: LabelIcon(region.label, size: 20),
+                          label: Text(region.title),
+                          selected: _editingId == region.id,
+                          onSelected: _saving
+                              ? null
+                              : (_) => setState(() {
+                                  _abortGesture();
+                                  _editingId = region.id;
+                                  _box = _displayCrop.toDisplayBox(region.box);
+                                  _markMode = true;
+                                }),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            Row(
+              children: [
+                Expanded(
+                  child: Semantics(
+                    label: selected?.title ?? 'Bir şekil seç',
+                    child: Text(
+                      selected?.title ?? 'Bir şekil seç',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 12, color: atlasCoffee),
+                    ),
+                  ),
+                ),
+                TextButton(
+                  onPressed: selected == null || _saving ? null : _choose,
+                  child: const Text('Değiştir'),
+                ),
+                TextButton(
+                  onPressed: selected == null || _saving
+                      ? null
+                      : () => _remove(selected),
+                  child: const Text('Kaldır'),
+                ),
+              ],
+            ),
+          ],
+          if (_box != null && _editingId == null)
+            TextButton(
+              onPressed: _saving ? null : _choose,
+              child: const Text('Bu alanı seç'),
+            ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(
       toolbarHeight: widget.modern
-          ? kToolbarHeight *
-                (MediaQuery.textScalerOf(context).scale(16) / 16).clamp(1, 1.8)
+          ? 56 +
+                24 *
+                    (MediaQuery.textScalerOf(context).scale(16) / 16 - 1).clamp(
+                      0,
+                      1,
+                    )
           : null,
       title: Text(
         widget.modern ? 'Sen ne görüyorsun?' : _photo.title,
         style: widget.modern
-            ? const TextStyle(fontSize: 20, fontWeight: FontWeight.w600)
+            ? const TextStyle(
+                fontFamily: 'Literata',
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+              )
             : null,
       ),
     ),
+    bottomNavigationBar: widget.modern
+        ? SafeArea(
+            top: false,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SizedBox(
+                    width: double.infinity,
+                    child: AtlasPrimaryButton.icon(
+                      onPressed: _saving ? null : widget.onFinish,
+                      icon: const Icon(Icons.auto_awesome),
+                      label: const Text('Falımı Oluştur'),
+                    ),
+                  ),
+                  CoffeeActions([
+                    CoffeeAction(
+                      'Yalnız Kaydet',
+                      _saving ? null : widget.onSaveOnly,
+                    ),
+                    CoffeeAction(
+                      'Kalanları geç',
+                      _saving ? null : widget.onSkip,
+                    ),
+                  ]),
+                ],
+              ),
+            ),
+          )
+        : null,
     body: SafeArea(
       child: LayoutBuilder(
         builder: (context, constraints) {
+          if (widget.modern) return _modernBody();
           final content = Column(
             children: [
               if (widget.navigation != null) widget.navigation!,
@@ -583,7 +1012,7 @@ class _AnnotationPageState extends State<AnnotationPage> {
                 child: PageBody(
                   children: [
                     if (_box != null)
-                      FilledButton(
+                      AtlasPrimaryButton(
                         onPressed: _saving ? null : _choose,
                         child: const Text('Bu alanı seç'),
                       ),
@@ -623,7 +1052,7 @@ class _AnnotationPageState extends State<AnnotationPage> {
                         ),
                       ),
                     if (_photo.regions.isNotEmpty)
-                      FilledButton(
+                      AtlasPrimaryButton(
                         onPressed: _saving ? null : _complete,
                         child: Text(widget.completionLabel),
                       ),

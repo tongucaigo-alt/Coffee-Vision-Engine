@@ -102,12 +102,12 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Kaldığın Yerden Devam Et'));
+      await tester.tap(find.byTooltip('Kaldığın Yerden Devam Et'));
       await tester.pumpAndSettle();
       await tester.tap(find.byType(CheckboxListTile).first);
       await tester.pump();
       final button = find.text(
-        mode == 'onlySave' ? 'Yalnız Kaydet' : 'Kaydet ve Falını Oluştur',
+        mode == 'onlySave' ? 'Yalnız Kaydet' : 'Falımı Oluştur',
       );
       await tester.ensureVisible(button);
       // Two invocations before the rebuild must still submit only once.
@@ -119,7 +119,7 @@ void main() {
                 .onPressed!
           : tester
                 .widget<FilledButton>(
-                  find.widgetWithText(FilledButton, 'Kaydet ve Falını Oluştur'),
+                  find.widgetWithText(FilledButton, 'Falımı Oluştur'),
                 )
                 .onPressed!;
       callback();

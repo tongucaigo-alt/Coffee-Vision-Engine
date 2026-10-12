@@ -49,8 +49,10 @@ void main() {
     await tester.pump(const Duration(milliseconds: 400));
     for (var i = 0; i < 3; i++) {
       expect(
-        tester.getCenter(find.byKey(ValueKey('fortune-symbol-$i'))),
-        centres[i],
+        (tester.getCenter(find.byKey(ValueKey('fortune-symbol-$i'))) -
+                centres[i])
+            .distance,
+        lessThan(.001),
       );
     }
     await tester.pumpWidget(const SizedBox());

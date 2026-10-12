@@ -159,7 +159,7 @@ void main() {
   for (final size in [const Size(360, 800), const Size(412, 915)]) {
     for (final scale in [1.0, 2.0]) {
       testWidgets(
-        'annotation and 20-symbol picker ${size.width} scale $scale',
+        'annotation and searchable symbol picker ${size.width} scale $scale',
         (tester) async {
           tester.view.physicalSize = size;
           tester.view.devicePixelRatio = 1;
@@ -195,13 +195,30 @@ void main() {
           await tester.pumpAndSettle();
           expect(find.byType(LabelPicker), findsOneWidget);
           expect(tester.takeException(), isNull);
+          await tester.enterText(find.byType(TextField), 'yildiz');
+          await tester.pumpAndSettle();
+          expect(find.text('Yıldız'), findsOneWidget);
+          await tester.ensureVisible(find.widgetWithText(ChoiceChip, 'Tümü'));
+          await tester.pumpAndSettle();
+          await tester.tap(find.widgetWithText(ChoiceChip, 'Tümü'));
+          await tester.pumpAndSettle();
+          expect(
+            tester.widget<TextField>(find.byType(TextField)).controller!.text,
+            isEmpty,
+          );
+          await tester.ensureVisible(find.widgetWithText(ChoiceChip, 'Öne çıkan'));
+          await tester.pumpAndSettle();
+          await tester.tap(find.widgetWithText(ChoiceChip, 'Öne çıkan'));
+          await tester.pumpAndSettle();
           await tester.scrollUntilVisible(
             find.text('İnsan Figürü'),
             280,
-            scrollable: find.descendant(
-              of: find.byType(LabelPicker),
-              matching: find.byType(Scrollable),
-            ),
+            scrollable: find
+                .descendant(
+                  of: find.byType(LabelPicker),
+                  matching: find.byType(Scrollable),
+                )
+                .first,
           );
           await tester.pumpAndSettle();
           expect(tester.takeException(), isNull);

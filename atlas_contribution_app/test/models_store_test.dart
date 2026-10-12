@@ -8,8 +8,9 @@ import 'package:atlas_contribution_app/src/local_store.dart';
 import 'fixtures.dart';
 
 void main() {
-  test('20 fixed research labels and three ordered roles', () {
-    expect(contributionLabels.values.toList(), [
+  test('original labels retain order within expanded catalog and three roles', () {
+    expect(contributionLabels, hasLength(32));
+    expect(contributionLabels.values.take(20).toList(), [
       'Kuş',
       'Kalp',
       'Balık',

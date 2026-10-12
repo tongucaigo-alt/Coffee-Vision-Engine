@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'annotation_page.dart';
+import 'photo_navigation.dart';
 import 'atlas_design.dart';
 import 'models.dart';
 import 'theme.dart';
@@ -92,7 +93,7 @@ class _AnnotationSequenceState extends State<AnnotationSequence> {
     }
   }
 
-  Future<void> _skipRemaining() async {
+  Future<void> _skipRemaining({bool? generate}) async {
     if (_busy) return;
     setState(() => _busy = true);
     try {
@@ -106,7 +107,7 @@ class _AnnotationSequenceState extends State<AnnotationSequence> {
         await widget.onSave(next);
         _photos[i] = next;
       }
-      if (mounted) Navigator.pop(context);
+      if (mounted) Navigator.pop(context, generate);
     } catch (_) {
       if (mounted) {
         showNotice(
@@ -124,80 +125,33 @@ class _AnnotationSequenceState extends State<AnnotationSequence> {
     final photo = _photos[_index];
     return PopScope(
       canPop: !_busy,
-      child: AnnotationPage(
-        key: ValueKey(photo.localName),
-        photo: photo,
-        image: widget.imageFor(photo),
-        displayCrop: photo.visibleCrop,
-        traces: _exposed.contains(tracePhotoIdentity(photo)) ? _traces : null,
-        onSave: _save,
-        onComplete: _next,
-        modern: true,
-        completionLabel: _index == _photos.length - 1
-            ? 'İncelemeyi Tamamla'
-            : 'Sonraki Fotoğraf',
-        navigation: Column(
-          children: [
-            if (_loadingTraces) const LinearProgressIndicator(minHeight: 2),
-            Row(
-              children: [
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Text(
-                    '${_index + 1} / ${_photos.length} · ${photo.title}',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: Color(0xff887c70),
-                      height: 1.5,
-                    ),
-                  ),
-                ),
-                TextButton(
-                  onPressed: _busy ? null : _skipRemaining,
-                  child: const Tooltip(
-                    message: 'Kalanları Atla',
-                    child: Text('Atla'),
-                  ),
-                ),
-              ],
-            ),
-            if (_photos.length > 1)
-              SizedBox(
-                height: 60,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    for (var i = 0; i < _photos.length; i++)
-                      Semantics(
-                        label: '${i + 1}. fotoğraf: ${_photos[i].title}',
-                        selected: _index == i,
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 4),
-                          child: InkWell(
-                            onTap: _busy ? null : () => _select(i),
-                            child: Container(
-                              width: 60,
-                              padding: const EdgeInsets.all(3),
-                              decoration: BoxDecoration(
-                                border: Border.all(
-                                  color: i == _index ? atlasSage : atlasBorder,
-                                  width: i == _index ? 1.5 : .8,
-                                ),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: AtlasPhoto(
-                                photo: _photos[i],
-                                image: widget.imageFor(_photos[i]),
-                                height: 48,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
+      child: Theme(
+        data: coffeeFlowTheme(Theme.of(context)),
+        child: AnnotationPage(
+          key: ValueKey(photo.localName),
+          photo: photo,
+          image: widget.imageFor(photo),
+          displayCrop: photo.visibleCrop,
+          traces: _exposed.contains(tracePhotoIdentity(photo)) ? _traces : null,
+          onSave: _save,
+          onComplete: _next,
+          modern: true,
+          onFinish: _busy ? null : () => _skipRemaining(generate: true),
+          onSaveOnly: _busy ? null : () => _skipRemaining(generate: false),
+          onSkip: _busy ? null : () => _skipRemaining(),
+          completionLabel: _index == _photos.length - 1
+              ? 'Tamamla'
+              : 'Sonraki Fotoğraf',
+          navigation: Column(
+            children: [
+              if (_loadingTraces) const LinearProgressIndicator(minHeight: 2),
+              PhotoNavigation(
+                index: _index,
+                count: _photos.length,
+                onSelect: _busy ? null : _select,
               ),
-          ],
+            ],
+          ),
         ),
       ),
     );

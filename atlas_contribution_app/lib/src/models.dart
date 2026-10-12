@@ -54,6 +54,18 @@ const contributionLabels = <String, String>{
   'humanFigure': 'İnsan Figürü',
   'airplane': 'Uçak',
   'flower': 'Çiçek',
+  'cat': 'Kedi',
+  'star': 'Yıldız',
+  'key': 'Anahtar',
+  'boat': 'Tekne',
+  'turtle': 'Kaplumbağa',
+  'rabbit': 'Tavşan',
+  'lion': 'Aslan',
+  'book': 'Kitap',
+  'ladder': 'Merdiven',
+  'bridge': 'Köprü',
+  'cloud': 'Bulut',
+  'elephant': 'Fil',
 };
 
 enum PhotoDecision { unreviewed, marked, uncertain, notSeen, skipped }

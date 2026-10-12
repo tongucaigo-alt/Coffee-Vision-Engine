@@ -248,7 +248,7 @@ void main() {
     final store = _CaptureStore(temp, _draft(ContributionKind.freeThreeAngle));
     final camera = _FakeCamera([pending.future]);
     await _mount(tester, store, camera, modern: true);
-    final next = find.text('Kaldığın Yerden Devam Et');
+    final next = find.byTooltip('Kaldığın Yerden Devam Et');
     await tester.ensureVisible(next);
     await tester.tap(next);
     await tester.pump();
@@ -345,7 +345,7 @@ void main() {
       await _mount(tester, store, camera, modern: true, checker: checker);
       await _tapAndWait(
         tester,
-        find.text('Kaldığın Yerden Devam Et'),
+        find.byTooltip('Kaldığın Yerden Devam Et'),
         () => store.current!.cupSelectionDone,
       );
       expect(camera.requests, hasLength(3));
@@ -357,7 +357,7 @@ void main() {
       expect(store.current!.complete, false);
       expect(
         find.text('Tabak fotoğrafı da eklemek ister misin?'),
-        findsOneWidget,
+        findsNothing,
       );
       await tester.ensureVisible(find.text('Tabaksız devam et'));
       await tester.tap(find.text('Tabaksız devam et'));
@@ -611,7 +611,7 @@ void main() {
       await _mount(tester, store, camera, modern: true);
       await _tapAndWait(
         tester,
-        find.text('Kaldığın Yerden Devam Et'),
+        find.byTooltip('Kaldığın Yerden Devam Et'),
         () => store.current!.photos.length == 3,
       );
       expect(find.byType(NavigationBar), findsNothing);
@@ -627,7 +627,7 @@ void main() {
           ][i],
         );
       }
-      final next = find.widgetWithText(FilledButton, 'Şekilleri İncele');
+      final next = find.widgetWithText(FilledButton, 'Şekilleri Seç');
       expect(tester.widget<FilledButton>(next).onPressed, isNull);
       for (var i = 0; i < 1; i++) {
         final check = find.byType(CheckboxListTile).at(i);
@@ -642,7 +642,7 @@ void main() {
       expect(find.byType(NavigationBar), findsNothing);
       await _tapAndWait(
         tester,
-        find.byTooltip('Kalanları Atla'),
+        find.byTooltip('Kalanları geç'),
         () => store.current!.reviewed,
       );
       expect(
@@ -669,11 +669,11 @@ void main() {
       tester.view.physicalSize = const Size(412, 915);
       await tester.pumpAndSettle();
       // A replacement invalidates the replaced confirmation and the group declaration.
+      await tester.tap(find.byKey(const ValueKey('coffee-next-photo')));
+      await tester.pumpAndSettle();
       await _tapAndWait(
         tester,
-        find.byWidgetPredicate(
-          (w) => w is IconButton && w.tooltip == 'Kulp sağda yeniden çek',
-        ),
+        find.byTooltip('Kulp sağda yeniden çek'),
         () =>
             camera.requests.length == 4 &&
             store.current!.photos[1].decision == PhotoDecision.unreviewed,
@@ -712,7 +712,7 @@ void main() {
     await _mount(tester, store, camera, modern: true);
     await _tapAndWait(
       tester,
-      find.text('Kaldığın Yerden Devam Et'),
+      find.byTooltip('Kaldığın Yerden Devam Et'),
       () => camera.requests.length == 2,
     );
     expect(store.current!.photos, hasLength(1));
@@ -754,7 +754,7 @@ void main() {
       await _mount(tester, store, camera, modern: true);
       await _tapAndWait(
         tester,
-        find.text('Kaldığın Yerden Devam Et'),
+        find.byTooltip('Kaldığın Yerden Devam Et'),
         () => !store.failSecond,
       );
       expect(store.current!.photos, hasLength(1));

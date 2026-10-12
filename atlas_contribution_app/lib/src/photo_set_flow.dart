@@ -1,43 +1,17 @@
 part of 'contribution_home.dart';
 
 extension _PhotoSetFlow on _ContributionHomeState {
-  Future<void> _startSetGallery() async {
-    if (_atlasBusy || !widget.service.isOffline) return;
-    if (_draft != null) {
-      _change(() {
-        _flowOpen = true;
-        _resumePrompt = false;
-      });
-      showNotice(context, 'Önce mevcut çalışmanı tamamla veya taslağı sil.');
-      return;
-    }
-    if (!await _consent() || !mounted) return;
-    final now = DateTime.now().toUtc().toIso8601String();
-    final id = const Uuid().v4();
-    await _save(
-      ContributionDraft(
-        id: id,
-        rootId: id,
-        groupId: const Uuid().v4(),
-        createdAt: now,
-        consentedAt: now,
-        kind: ContributionKind.photoSet,
-        galleryStart: true,
-      ),
-    );
-    _change(() {
-      _flowOpen = true;
-      _resumePrompt = false;
-    });
-    await _setGallery();
-  }
+  Future<void> _startSetGallery() => _startNewCoffee(gallery: true);
 
   Future<void> _setGallery({
     PhotoSurface surface = PhotoSurface.cup,
     ContributionPhoto? replace,
   }) async {
     if (_atlasBusy || _draft == null || _draft!.queued) return;
-    _change(() => _busy = true);
+    _change(() {
+      _busy = true;
+      _galleryRetry = null;
+    });
     try {
       final next = await PhotoSetGallery(
         widget.store,
@@ -49,9 +23,10 @@ extension _PhotoSetFlow on _ContributionHomeState {
       }
     } catch (_) {
       if (mounted) {
-        showNotice(
-          context,
-          'Fotoğraflar eklenemedi. En fazla 3 fincan ve 1 tabak seçebilirsin. Önceki fotoğrafların korunuyor.',
+        _change(
+          () =>
+              _galleryRetry = () =>
+                  _setGallery(surface: surface, replace: replace),
         );
       }
     } finally {
@@ -66,6 +41,7 @@ extension _PhotoSetFlow on _ContributionHomeState {
       );
       _sameSample = false;
       _savePhase = _SavePhase.idle;
+      _galleryRetry = null;
     });
   }
 
@@ -160,243 +136,352 @@ extension _PhotoSetFlow on _ContributionHomeState {
     _photoSetChanged();
   }
 
+  Widget _coffeePreview({
+    required ContributionPhoto? photo,
+    required List<Widget> tools,
+    required List<Widget> phase,
+  }) {
+    final draft = _draft!;
+    final index = _previewIndex.clamp(
+      0,
+      draft.photos.isEmpty ? 0 : draft.photos.length - 1,
+    );
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+      child: Column(
+        key: const ValueKey('coffee-preview-body'),
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Text(
+              draft.isSet && !draft.cupSelectionDone
+                  ? 'Fotoğraflar'
+                  : draft.isSet && !draft.saucerDecided
+                  ? 'İsteğe bağlı tabak'
+                  : 'Fotoğrafları onayla',
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 12, color: atlasSage),
+            ),
+          ),
+          Expanded(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: atlasCard,
+                border: Border.all(color: atlasBorder),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: photo == null
+                  ? const Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(16),
+                        child: Text(
+                          'Henüz fotoğraf eklemedin',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(fontSize: 14, color: atlasSage),
+                        ),
+                      ),
+                    )
+                  : LayoutBuilder(
+                      builder: (_, constraints) {
+                        final ratio = photo.visibleCrop.aspectRatio(
+                          photo.width,
+                          photo.height,
+                        );
+                        final width = (constraints.maxHeight * ratio)
+                            .clamp(0.0, constraints.maxWidth)
+                            .toDouble();
+                        return Center(
+                          child: SizedBox(
+                            width: width,
+                            height: width / ratio,
+                            child: AtlasPhoto(
+                              photo: photo,
+                              image: FileImage(
+                                widget.store.file(photo.localName),
+                              ),
+                              height: width / ratio,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          if (photo != null) ...[
+            PhotoNavigation(
+              index: index,
+              count: draft.photos.length,
+              onSelect: _atlasBusy || draft.queued
+                  ? null
+                  : (i) => _change(() => _previewIndex = i),
+            ),
+          ],
+          if (tools.isNotEmpty)
+            Wrap(alignment: WrapAlignment.center, spacing: 4, children: tools),
+          if (_galleryRetry != null)
+            Row(
+              children: [
+                const Expanded(
+                  child: Text(
+                    'Fotoğraflar eklenemedi. Önceki fotoğrafların korunuyor. En fazla 3 fincan ve 1 tabak seç.',
+                    style: TextStyle(fontSize: 12),
+                  ),
+                ),
+                TextButton(
+                  onPressed: _atlasBusy ? null : _galleryRetry,
+                  child: const Text('Yeniden dene'),
+                ),
+              ],
+            )
+          else if (photo != null)
+            _coffeeCheckStatus(photo),
+          ...phase,
+          if (_atlasBusy) const LinearProgressIndicator(minHeight: 2),
+        ],
+      ),
+    );
+  }
+
+  Widget _coffeeCheckStatus(ContributionPhoto photo) {
+    final value = _photoChecks[suitabilityIdentity(photo)];
+    if (value == null) {
+      return const Text(
+        'Fotoğraf kontrol ediliyor…',
+        style: TextStyle(fontSize: 12),
+      );
+    }
+    if (suitabilityAccepted(value, photo)) return const SizedBox.shrink();
+    final failure = PhotoSuitabilityFailure(photo, value);
+    final message =
+        '${photo.title}: ${failure.message}'
+        '${value['experimental'] == true && value['status'] == 'uncertain' ? ' Kontrol henüz deneme aşamasında; mevcut fotoğrafla devam edebilirsin.' : ''}';
+    return Row(
+      children: [
+        Expanded(
+          child: Tooltip(
+            message: message,
+            child: Semantics(
+              liveRegion: true,
+              child: Text(
+                message,
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 12),
+              ),
+            ),
+          ),
+        ),
+        if (failure.technical)
+          IconButton(
+            tooltip: 'Kontrolü Yeniden Dene',
+            onPressed:
+                _atlasBusy ||
+                    _checkingPhotos.contains(suitabilityIdentity(photo))
+                ? null
+                : () => _checkPhoto(photo, retry: true),
+            icon: const Icon(Icons.refresh, size: 20),
+          ),
+      ],
+    );
+  }
+
   Widget _photoSetDraft() {
     final draft = _draft!;
     final disabled = _atlasBusy || draft.queued;
-    final selecting = !draft.cupSelectionDone;
-    return PageBody(
-      children: [
-        Text(
-          draft.photoSummary,
-          style: const TextStyle(
-            fontFamily: 'Literata',
-            fontSize: 22,
-            height: 1.4,
-          ),
+    final index = _previewIndex.clamp(
+      0,
+      draft.photos.isEmpty ? 0 : draft.photos.length - 1,
+    );
+    final p = draft.photos.isEmpty ? null : draft.photos[index];
+    final actions = <CoffeeAction>[
+      if (p != null) ...[
+        CoffeeAction(
+          'Değiştir',
+          disabled
+              ? null
+              : () async {
+                  if (p.surface == PhotoSurface.saucer) {
+                    await _setSaucerCamera(replace: p);
+                  } else if (p.origin == 'gallery') {
+                    await _setGallery(replace: p);
+                  } else {
+                    await _capture(p.angle!);
+                  }
+                },
+          icon: Icons.refresh,
+          tooltip: p.surface == PhotoSurface.saucer
+              ? 'Tabak çek'
+              : 'Fotoğrafı değiştir',
         ),
-        const SizedBox(height: 12),
-        if (draft.isGallery && draft.cups.length < 3)
-          const AtlasHint(
-            'Farklı açılardan üç fotoğraf ekleyebilirsin. Tek fincan fotoğrafıyla da devam edebilirsin.',
-          ),
-        if (draft.complete)
-          const AtlasHint(
-            'Fotoğrafların netliğini ve aynı fincana ait olduğunu kontrol et. Tabak varsa bu fincana ait olmalı.',
-          ),
-        const SizedBox(height: 16),
-        for (final p in draft.photos) ...[
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Text(
-                    p.title,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: atlasSage,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  AtlasPhoto(
-                    photo: p,
-                    image: FileImage(widget.store.file(p.localName)),
-                    height: 190,
-                  ),
-                  if (p.surface == PhotoSurface.cup && p.origin == 'gallery')
-                    Padding(
-                      padding: const EdgeInsets.only(top: 14),
-                      child: DropdownButtonFormField<String>(
-                        key: ValueKey('${p.id}-${p.angle?.name}'),
-                        initialValue:
-                            (p.angle == CaptureRole.top
-                                    ? CaptureRole.free
-                                    : p.angle)
-                                ?.name ??
-                            'unknown',
-                        isExpanded: true,
-                        decoration: const InputDecoration(
-                          labelText: 'Fotoğrafın açısı',
-                        ),
-                        items: [
-                          const DropdownMenuItem(
-                            value: 'unknown',
-                            child: Text('Açı belirtilmedi'),
-                          ),
-                          for (final angle in freeCaptureRoles)
-                            if (p.angle == angle ||
-                                !draft.cups.any(
-                                  (q) =>
-                                      q.id != p.id &&
-                                      (q.angle == CaptureRole.top
-                                              ? CaptureRole.free
-                                              : q.angle) ==
-                                          angle,
-                                ))
-                              DropdownMenuItem(
-                                value: angle.name,
-                                child: Text(angle.title),
-                              ),
-                        ],
-                        onChanged: disabled
-                            ? null
-                            : (v) {
-                                if (v != null) _setAngle(p, v);
-                              },
-                      ),
-                    ),
-                  Wrap(
-                    spacing: 8,
-                    children: [
-                      TextButton.icon(
-                        onPressed: disabled
-                            ? null
-                            : () async {
-                                if (p.surface == PhotoSurface.saucer) {
-                                  await _setSaucerCamera(replace: p);
-                                } else if (p.origin == 'gallery') {
-                                  await _setGallery(replace: p);
-                                } else {
-                                  await _capture(p.angle!);
-                                }
-                              },
-                        icon: const Icon(Icons.refresh),
-                        label: Text(
-                          p.surface == PhotoSurface.saucer
-                              ? 'Tabak çek'
-                              : 'Değiştir',
-                        ),
-                      ),
-                      if (p.surface == PhotoSurface.saucer)
-                        TextButton(
-                          onPressed: disabled
-                              ? null
-                              : () => _setGallery(
-                                  surface: PhotoSurface.saucer,
-                                  replace: p,
-                                ),
-                          child: const Text('Galeriden değiştir'),
-                        ),
-                      TextButton(
-                        onPressed: disabled ? null : () => _removeSetPhoto(p),
-                        child: const Text('Kaldır'),
-                      ),
-                      if (draft.isGallery && p.surface == PhotoSurface.cup) ...[
-                        IconButton(
-                          tooltip: 'Öne taşı',
-                          onPressed: disabled || draft.cups.first.id == p.id
-                              ? null
-                              : () => _moveSetPhoto(p, -1),
-                          icon: const Icon(Icons.arrow_upward),
-                        ),
-                        IconButton(
-                          tooltip: 'Sona taşı',
-                          onPressed: disabled || draft.cups.last.id == p.id
-                              ? null
-                              : () => _moveSetPhoto(p, 1),
-                          icon: const Icon(Icons.arrow_downward),
-                        ),
-                      ],
-                    ],
-                  ),
-                  _photoCheckNotice(p),
-                  if (draft.complete)
-                    Text(
-                      _decisionText(p),
-                      style: const TextStyle(
-                        fontSize: 12,
-                        height: 1.5,
-                        color: Color(0xff887c70),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-        ],
-        if (draft.isGallery && draft.cups.length < 3)
-          OutlinedButton.icon(
-            onPressed: disabled ? null : _setGallery,
-            icon: const Icon(Icons.add_photo_alternate),
-            label: const Text('Fincan fotoğrafı ekle'),
-          ),
-        if (!draft.isGallery && draft.cups.length < 3)
-          FilledButton.icon(
-            onPressed: disabled ? null : _continueAtlasCapture,
-            icon: const Icon(Icons.camera_alt),
-            label: const Text('Çekime Devam Et'),
-          ),
-        if (selecting && draft.cupsComplete)
-          FilledButton(
-            onPressed: disabled
+        if (p.surface == PhotoSurface.saucer)
+          CoffeeAction(
+            'Galeriden değiştir',
+            disabled
                 ? null
-                : () => _save(draft.copy(cupSelectionDone: true)),
-            child: const Text('Bu fotoğraflarla devam et'),
+                : () => _setGallery(surface: PhotoSurface.saucer, replace: p),
+            icon: Icons.photo_library_outlined,
           ),
-        if (draft.cupSelectionDone && !draft.saucerDecided) ...[
-          Text(
-            'Tabak fotoğrafı da eklemek ister misin?',
-            style: Theme.of(context).textTheme.titleLarge,
-          ),
-          const Padding(
-            padding: EdgeInsets.only(top: 8, bottom: 16),
-            child: Text(
-              'İsteğe bağlı. Tabak eklemeden de falını oluşturabilirsin.',
-              style: TextStyle(
-                fontSize: 12,
-                height: 1.6,
-                color: Color(0xff887c70),
-              ),
-            ),
-          ),
-        ],
-        if (draft.cupSelectionDone && draft.saucers.isEmpty) ...[
-          OutlinedButton.icon(
-            onPressed: disabled ? null : _setSaucerCamera,
-            icon: const Icon(Icons.camera_alt),
-            label: const Text('Tabak çek'),
-          ),
-          OutlinedButton.icon(
-            onPressed: disabled
-                ? null
-                : () => _setGallery(surface: PhotoSurface.saucer),
-            icon: const Icon(Icons.photo_library_outlined),
-            label: const Text('Galeriden tabak seç'),
-          ),
-          const SizedBox(height: 8),
-          if (!draft.saucerDecided)
-            FilledButton(
-              onPressed: disabled
-                  ? null
-                  : () => _save(draft.copy(saucerDecided: true)),
-              child: const Text('Tabaksız devam et'),
-            ),
-        ],
-        if (draft.complete) ...[
-          if (draft.photos.length > 1)
-            CheckboxListTile(
-              contentPadding: EdgeInsets.zero,
-              value: _sameSample,
-              title: const Text(
-                'Fotoğraflar aynı fincana ve varsa ona ait tabağa ait.',
-              ),
-              onChanged: disabled
-                  ? null
-                  : (v) => _change(() => _sameSample = v == true),
-            ),
-          const Text(
-            'Şekil bulman gerekmiyor. İnceleme ekranından atlayabilirsin.',
-          ),
-        ],
-        if (_atlasBusy) ...[const LinearProgressIndicator(), Text(_saveLabel)],
-        TextButton(
-          onPressed: disabled ? null : _discard,
-          child: const Text('Taslağı sil'),
+        CoffeeAction(
+          'Kaldır',
+          disabled ? null : () => _removeSetPhoto(p),
+          icon: Icons.remove_circle_outline,
         ),
       ],
-    );
+      if (draft.complete && draft.saucers.isEmpty)
+        CoffeeAction(
+          'Tabak ekle',
+          disabled ? null : () => _save(draft.copy(saucerDecided: false)),
+          icon: Icons.add_circle_outline,
+          tooltip: 'Tabak fotoğrafı ekle',
+        ),
+      if (draft.cupSelectionDone && !draft.saucerDecided) ...[
+        CoffeeAction(
+          'Tabak çek',
+          disabled ? null : _setSaucerCamera,
+          icon: Icons.camera_alt,
+        ),
+        CoffeeAction(
+          'Galeriden seç',
+          disabled ? null : () => _setGallery(surface: PhotoSurface.saucer),
+          icon: Icons.photo_library_outlined,
+          tooltip: 'Galeriden tabak seç',
+        ),
+      ],
+    ];
+    final tools = <Widget>[
+      if (actions.isNotEmpty)
+        SizedBox(
+          width: double.infinity,
+          child: CoffeeActions(
+            actions,
+            compact: true,
+            referenceLabels:
+                draft.cupSelectionDone && p?.surface == PhotoSurface.cup
+                ? const ['Değiştir', 'Kaldır', 'Tabak çek', 'Galeriden seç']
+                : const [],
+          ),
+        ),
+      if (draft.isGallery &&
+          draft.cups.length > 1 &&
+          p?.surface == PhotoSurface.cup)
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            IconButton(
+              tooltip: 'Öne taşı',
+              onPressed: disabled || draft.cups.first.id == p!.id
+                  ? null
+                  : () => _moveSetPhoto(p, -1),
+              icon: const Icon(Icons.arrow_back, size: 20),
+            ),
+            Text(
+              'Sıra ${draft.cups.indexWhere((q) => q.id == p!.id) + 1}/${draft.cups.length}',
+              style: const TextStyle(fontSize: 12),
+            ),
+            IconButton(
+              tooltip: 'Sona taşı',
+              onPressed: disabled || draft.cups.last.id == p!.id
+                  ? null
+                  : () => _moveSetPhoto(p, 1),
+              icon: const Icon(Icons.arrow_forward, size: 20),
+            ),
+          ],
+        ),
+    ];
+    final phase = <Widget>[
+      if (p != null && p.surface == PhotoSurface.cup && p.origin == 'gallery')
+        DropdownButtonFormField<String>(
+          key: ValueKey('${p.id}-${p.angle?.name}'),
+          initialValue:
+              (p.angle == CaptureRole.top ? CaptureRole.free : p.angle)?.name ??
+              'unknown',
+          isExpanded: true,
+          style: const TextStyle(fontSize: 12, color: atlasCoffee),
+          decoration: const InputDecoration(
+            labelText: 'Fotoğrafın açısı',
+            contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          ),
+          items: [
+            const DropdownMenuItem(
+              value: 'unknown',
+              child: Text('Açı seç — isteğe bağlı'),
+            ),
+            for (final angle in freeCaptureRoles)
+              if (p.angle == angle ||
+                  !draft.cups.any(
+                    (q) =>
+                        q.id != p.id &&
+                        (q.angle == CaptureRole.top
+                                ? CaptureRole.free
+                                : q.angle) ==
+                            angle,
+                  ))
+                DropdownMenuItem(value: angle.name, child: Text(angle.title)),
+          ],
+          onChanged: disabled
+              ? null
+              : (v) {
+                  if (v != null) _setAngle(p, v);
+                },
+        ),
+      if (!draft.cupSelectionDone) ...[
+        if (draft.photos.isEmpty)
+          CoffeeActions([
+            CoffeeAction(
+              draft.isGallery ? 'Galeriden fotoğraf seç' : 'Çekime Devam Et',
+              disabled
+                  ? null
+                  : draft.isGallery
+                  ? _setGallery
+                  : _continueAtlasCapture,
+              icon: draft.isGallery
+                  ? Icons.photo_library_outlined
+                  : Icons.camera_alt,
+            ),
+            CoffeeAction(
+              draft.isGallery ? 'Kameraya geç' : 'Galeriden seç',
+              disabled
+                  ? null
+                  : draft.isGallery
+                  ? _startNewCamera
+                  : _startSetGallery,
+            ),
+          ])
+        else if (draft.isGallery && draft.cups.length < 3)
+          OutlinedButton.icon(
+            onPressed: disabled ? null : _setGallery,
+            icon: const Icon(Icons.add_photo_alternate, size: 20),
+            label: const Text(
+              'Fincan fotoğrafı ekle',
+              textAlign: TextAlign.center,
+            ),
+          )
+        else if (!draft.isGallery && draft.cups.length < 3)
+          OutlinedButton.icon(
+            onPressed: disabled ? null : _continueAtlasCapture,
+            icon: const Icon(Icons.camera_alt, size: 20),
+            label: const Text('Çekime Devam Et'),
+          ),
+      ] else if (draft.complete && draft.photos.length > 1)
+        CheckboxListTile(
+          contentPadding: EdgeInsets.zero,
+          dense: true,
+          visualDensity: VisualDensity.compact,
+          value: _sameSample,
+          title: const Tooltip(
+            message: 'Fotoğraflar aynı fincana ve varsa ona ait tabağa ait.',
+            child: Text(
+              'Hepsi aynı fincana ait.',
+              style: TextStyle(fontSize: 12),
+            ),
+          ),
+          onChanged: disabled
+              ? null
+              : (v) => _change(() => _sameSample = v == true),
+        ),
+    ];
+    return _coffeePreview(photo: p, tools: tools, phase: phase);
   }
 }

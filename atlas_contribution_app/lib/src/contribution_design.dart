@@ -7,11 +7,25 @@ extension _AtlasHomePresentation on _ContributionHomeState {
   bool get _atlasBusy => _busy || _sequenceRunning;
   String _photoIdentity(ContributionPhoto p) => '${p.localName}|${p.checksum}';
 
-  Future<void> _startNewCamera() async {
+  Future<void> _startNewCamera() => _startNewCoffee(gallery: false);
+
+  Future<void> _startNewCoffee({required bool gallery}) async {
     if (_atlasBusy || _startChoiceOpen) return;
+    if (gallery && !widget.service.isOffline) return;
     _startChoiceOpen = true;
     try {
       final draft = _draft;
+      if (draft?.queued == true) {
+        _change(() {
+          _flowOpen = true;
+          _resumePrompt = false;
+        });
+        showNotice(
+          context,
+          'Çalışman gönderim kuyruğunda. Gönderim durumunu buradan takip edebilirsin.',
+        );
+        return;
+      }
       if (draft != null && draft.photos.isNotEmpty) {
         final choice = await showDialog<String>(
           context: context,
@@ -31,7 +45,11 @@ extension _AtlasHomePresentation on _ContributionHomeState {
               ),
               TextButton(
                 onPressed: () => Navigator.pop(ctx, 'new'),
-                child: const Text('Taslağı sil ve yeni çekim başlat'),
+                child: Text(
+                  gallery
+                      ? 'Taslağı sil ve galeriden başlat'
+                      : 'Taslağı sil ve yeni çekim başlat',
+                ),
               ),
             ],
           ),
@@ -43,6 +61,7 @@ extension _AtlasHomePresentation on _ContributionHomeState {
         }
       }
       if (_atlasBusy) return;
+      if (gallery && (!await _consent() || !mounted)) return;
       if (_draft != null) {
         await widget.store.clear();
         if (!mounted) return;
@@ -52,14 +71,37 @@ extension _AtlasHomePresentation on _ContributionHomeState {
           _sameSample = false;
           _savePhase = _SavePhase.idle;
           _error = null;
+          _galleryRetry = null;
+          _previewIndex = 0;
         });
       }
-      await _startAtlas();
+      if (gallery) {
+        final now = DateTime.now().toUtc().toIso8601String();
+        final id = const Uuid().v4();
+        await _save(
+          ContributionDraft(
+            id: id,
+            rootId: id,
+            groupId: const Uuid().v4(),
+            createdAt: now,
+            consentedAt: now,
+            kind: ContributionKind.photoSet,
+            galleryStart: true,
+          ),
+        );
+        _change(() {
+          _flowOpen = true;
+          _resumePrompt = false;
+        });
+        await _setGallery();
+      } else {
+        await _startAtlas();
+      }
     } catch (_) {
       if (mounted) {
         showNotice(
           context,
-          'Yeni çekim başlatılamadı. Mevcut kayıtların korunuyor; tekrar dene.',
+          'Yeni çalışma başlatılamadı. Mevcut kayıtların korunuyor; tekrar dene.',
         );
       }
     } finally {
@@ -67,40 +109,122 @@ extension _AtlasHomePresentation on _ContributionHomeState {
     }
   }
 
-  Widget _atlasFlowActions() => ConstrainedBox(
-    constraints: BoxConstraints(
-      maxHeight: MediaQuery.sizeOf(context).height * .4,
+  Widget _coffeeSecondaryActions(VoidCallback? save) => CoffeeActions([
+    CoffeeAction(
+      _savePhase == _SavePhase.idle ? 'Yalnız Kaydet' : _saveLabel,
+      save,
     ),
-    child: SingleChildScrollView(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          if (_draft!.reviewed) ...[
-            OutlinedButton.icon(
-              onPressed: _atlasBusy ? null : _atlasAnnotations,
-              icon: const Icon(Icons.draw_outlined),
-              label: const Text('İşaretleri Gözden Geçir'),
+    CoffeeAction(
+      'Taslağı sil',
+      _atlasBusy || _draft?.queued == true ? null : _discard,
+    ),
+  ]);
+
+  Widget _atlasFlowActions() {
+    final draft = _draft!;
+    final disabled = _atlasBusy || draft.queued;
+    final selecting = draft.isSet && !draft.cupSelectionDone;
+    final saucer =
+        draft.isSet && draft.cupSelectionDone && !draft.saucerDecided;
+    final same = draft.photos.length == 1 || _sameSample;
+    final hint = draft.queued
+        ? 'Çalışman gönderim kuyruğunda.'
+        : _atlasBusy
+        ? 'İşlem tamamlanıyor…'
+        : !draft.cupsComplete
+        ? draft.isGallery
+              ? 'Devam etmek için bir fincan fotoğrafı seç.'
+              : 'Üç açıdan çekimi tamamla (${draft.cups.length}/3).'
+        : !selecting && !saucer && !same
+        ? 'Aynı fincanı onayla.'
+        : null;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (hint != null)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Semantics(
+              liveRegion: true,
+              child: Text(
+                hint,
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 12),
+              ),
             ),
-            const SizedBox(height: 8),
+          ),
+        if (selecting || saucer) ...[
+          AtlasPrimaryButton(
+            onPressed: disabled || !draft.cupsComplete
+                ? null
+                : () => _save(
+                    selecting
+                        ? draft.copy(cupSelectionDone: true)
+                        : draft.copy(saucerDecided: true),
+                  ),
+            child: Text(
+              selecting ? 'Bu fotoğraflarla devam et' : 'Tabaksız devam et',
+              textAlign: TextAlign.center,
+            ),
+          ),
+          _coffeeSecondaryActions(null),
+        ] else ...[
+          AtlasPrimaryButton.icon(
+            onPressed: disabled || !draft.complete || !same
+                ? null
+                : _atlasAnnotations,
+            icon: const Icon(Icons.draw_outlined, size: 20),
+            label: Text(
+              draft.reviewed ? 'İşaretleri Gözden Geçir' : 'Şekilleri Seç',
+            ),
+          ),
+          if (draft.reviewed) ...[
+            if (widget.onGenerateFortune != null) const SizedBox(height: 8),
             _saveActions(
-              !_atlasBusy && (_draft!.photos.length == 1 || _sameSample),
+              !_atlasBusy &&
+                  same &&
+                  (!draft.queued || _savePhase == _SavePhase.failed),
             ),
           ] else
-            FilledButton.icon(
-              onPressed:
-                  _atlasBusy ||
-                      !_draft!.complete ||
-                      !(_draft!.photos.length == 1 || _sameSample)
-                  ? null
-                  : _atlasAnnotations,
-              icon: const Icon(Icons.draw_outlined),
-              label: const Text('Şekilleri İncele'),
+            _coffeeSecondaryActions(
+              disabled || !draft.complete || !same ? null : _saveWithoutShapes,
             ),
         ],
-      ),
-    ),
-  );
+      ],
+    );
+  }
+
+  Future<void> _saveWithoutShapes() async {
+    if (_atlasBusy || _draft == null) return;
+    _change(() => _sequenceRunning = true);
+    try {
+      for (final p in _draft!.photos.toList()) {
+        if (p.decision == PhotoDecision.unreviewed) {
+          await _save(
+            _draft!.withPhoto(
+              p.annotated(
+                p.regions,
+                p.regions.isEmpty
+                    ? PhotoDecision.skipped
+                    : PhotoDecision.marked,
+              ),
+            ),
+          );
+        }
+      }
+      await _send();
+    } catch (_) {
+      if (mounted) {
+        showNotice(
+          context,
+          'Fotoğrafların korunuyor. Kaydetmeyi yeniden deneyebilirsin.',
+        );
+      }
+    } finally {
+      _change(() => _sequenceRunning = false);
+    }
+  }
 
   Future<void> _startAtlas() async {
     if (_atlasBusy) return;
@@ -137,7 +261,6 @@ extension _AtlasHomePresentation on _ContributionHomeState {
 
   Future<void> _atlasGallery() async {
     await _pickGallery();
-    if (mounted && _draft != null) _change(() => _flowOpen = true);
   }
 
   Future<void> _atlasAnnotations() async {
@@ -153,9 +276,9 @@ extension _AtlasHomePresentation on _ContributionHomeState {
       _change(() => _busy = false);
     }
     if (!mounted) return;
-    await Navigator.push(
+    final generate = await Navigator.push<bool>(
       context,
-      MaterialPageRoute<void>(
+      MaterialPageRoute<bool>(
         builder: (_) => AnnotationSequence(
           photos: draft.photos,
           loadTraces: widget.loadAnnotationTraces == null
@@ -172,6 +295,9 @@ extension _AtlasHomePresentation on _ContributionHomeState {
       ),
     );
     _change(() {});
+    if (generate != null && mounted && _draft?.reviewed == true) {
+      await _send(generate: generate);
+    }
   }
 
   Future<void> _atlasExport() async {
@@ -248,26 +374,44 @@ extension _AtlasHomePresentation on _ContributionHomeState {
         }
       },
       child: Theme(
-        data: Theme.of(context).copyWith(
-          snackBarTheme: !inFlow && _tab == 0
-              ? Theme.of(context).snackBarTheme.copyWith(
-                  behavior: SnackBarBehavior.floating,
-                  insetPadding: EdgeInsets.fromLTRB(
-                    16,
-                    0,
-                    16,
-                    MediaQuery.textScalerOf(context).scale(16) > 22 ||
-                            MediaQuery.sizeOf(context).height < 800
-                        ? 184
-                        : 224,
-                  ),
-                )
-              : Theme.of(context).snackBarTheme,
-        ),
+        data: (inFlow ? coffeeFlowTheme(Theme.of(context)) : Theme.of(context))
+            .copyWith(
+              snackBarTheme: inFlow
+                  ? Theme.of(context).snackBarTheme.copyWith(
+                      behavior: SnackBarBehavior.floating,
+                      insetPadding: EdgeInsets.fromLTRB(
+                        16,
+                        0,
+                        16,
+                        MediaQuery.sizeOf(context).height * .4,
+                      ),
+                    )
+                  : !inFlow && _tab == 0
+                  ? Theme.of(context).snackBarTheme.copyWith(
+                      behavior: SnackBarBehavior.floating,
+                      insetPadding: EdgeInsets.fromLTRB(
+                        16,
+                        0,
+                        16,
+                        MediaQuery.textScalerOf(context).scale(16) > 22 ||
+                                MediaQuery.sizeOf(context).height < 800
+                            ? 184
+                            : 224,
+                      ),
+                    )
+                  : Theme.of(context).snackBarTheme,
+            ),
         child: Scaffold(
           appBar: AppBar(
             automaticallyImplyLeading: false,
-            toolbarHeight: !inFlow && _tab == 0 ? 72 : null,
+            toolbarHeight: inFlow
+                ? 56 +
+                      24 *
+                          (MediaQuery.textScalerOf(context).scale(16) / 16 - 1)
+                              .clamp(0, 1)
+                : _tab == 0
+                ? 72
+                : null,
             leading: inFlow
                 ? IconButton(
                     tooltip: 'Ana sayfaya dön',
@@ -278,10 +422,9 @@ extension _AtlasHomePresentation on _ContributionHomeState {
                   )
                 : null,
             title: inFlow
-                ? Text(
-                    _draft!.isGallery
-                        ? 'Fotoğrafını İncele'
-                        : 'Çekimlerini Doğrula',
+                ? const Text(
+                    'Fotoğraflarına Bak',
+                    style: TextStyle(fontFamily: 'Literata', fontSize: 18),
                   )
                 : _tab == 0
                 ? Row(
@@ -304,7 +447,10 @@ extension _AtlasHomePresentation on _ContributionHomeState {
                             Text(
                               'Kahve Ritüeli',
                               style: Theme.of(context).textTheme.bodySmall
-                                  ?.copyWith(fontSize: 10, color: atlasSage),
+                                  ?.copyWith(
+                                    fontSize: 10,
+                                    color: atlasCopperInk,
+                                  ),
                             ),
                           ],
                         ),
@@ -440,123 +586,101 @@ extension _AtlasHomePresentation on _ContributionHomeState {
     bottom: false,
     child: LayoutBuilder(
       builder: (context, constraints) {
+        final short = constraints.maxHeight < 390;
         final compact =
-            constraints.maxHeight < 500 ||
-            _draft != null ||
-            MediaQuery.textScalerOf(context).scale(16) > 22;
-        return SingleChildScrollView(
-          key: const ValueKey('atlas-home-scroll'),
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+            short || MediaQuery.textScalerOf(context).scale(16) > 22;
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
           child: Center(
             child: ConstrainedBox(
-              constraints: BoxConstraints.tightFor(
-                width: (constraints.maxWidth - 40).clamp(0, 460),
-              ),
-              child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  minHeight: (constraints.maxHeight - 12).clamp(
-                    0,
-                    double.infinity,
+              constraints: const BoxConstraints(maxWidth: 460),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  const IgnorePointer(
+                    child: CustomPaint(
+                      key: ValueKey('atlas-home-frame'),
+                      painter: _AtlasOrnamentalFramePainter(),
+                    ),
                   ),
-                ),
-                child: IntrinsicHeight(
-                  child: Stack(
-                    fit: StackFit.passthrough,
-                    children: [
-                      const Positioned.fill(
-                        child: IgnorePointer(
-                          child: CustomPaint(
-                            key: ValueKey('atlas-home-frame'),
-                            painter: _AtlasOrnamentalFramePainter(),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+                    child: Column(
+                      children: [
+                        if (_error != null) AtlasNotice(_error!),
+                        const Spacer(),
+                        if (short)
+                          const AtlasBrand(size: 40, showName: false)
+                        else
+                          _atlasLandingHero(compact),
+                        const SizedBox(height: 8),
+                        const Text(
+                          'Fincanını Keşfet',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontFamily: 'Literata',
+                            fontSize: 20,
+                            height: 1.2,
+                            fontWeight: FontWeight.w500,
                           ),
                         ),
-                      ),
-                      Padding(
-                        padding: EdgeInsets.fromLTRB(
-                          compact ? 20 : 28,
-                          16,
-                          compact ? 20 : 28,
-                          12,
-                        ),
-                        child: Column(
-                          children: [
-                            if (_draft != null) ...[
-                              Text(
-                                _draft!.photos.isEmpty
-                                    ? 'Çekime hazır taslak'
-                                    : '${_draft!.photoSummary} kayıtlı',
-                                textAlign: TextAlign.center,
-                              ),
-                              const SizedBox(height: 6),
-                              FilledButton.icon(
-                                onPressed: _atlasBusy ? null : _startAtlas,
-                                icon: const Icon(Icons.play_arrow),
-                                label: const Text('Kaldığın Yerden Devam Et'),
-                              ),
-                              const SizedBox(height: 12),
+                        const SizedBox(height: 8),
+                        if (!short)
+                          Text(
+                            widget.onReadFortune == null
+                                ? 'Fincanının fotoğrafını çek, gözlemlerini keşfet.'
+                                : constraints.maxHeight < 500
+                                ? 'Fotoğrafını çek, birlikte okuyalım.'
+                                : 'Fincanının fotoğrafını çek, kahvenin hikâyesini birlikte okuyalım.',
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              height: 1.4,
+                              color: atlasMuted,
+                            ),
+                          ),
+                        const Spacer(),
+                        if (short)
+                          Row(
+                            children: [
+                              Expanded(child: _atlasLandingGalleryButton()),
+                              const SizedBox(width: 8),
+                              Expanded(child: _atlasLandingScanButton(true)),
                             ],
-                            if (_error != null) AtlasNotice(_error!),
-                            if (!compact) const Spacer(),
-                            _atlasLandingHero(compact),
-                            SizedBox(height: compact ? 10 : 22),
-                            Text(
-                              'Fincanını Keşfet',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontFamily: 'Literata',
-                                fontSize: compact ? 20 : 26,
-                                height: 1.2,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              widget.onReadFortune == null
-                                  ? 'Gözlemlerini keşfet.'
-                                  : 'Kahvende bir hikâye.',
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(
-                                fontSize: 12,
-                                height: 1.4,
-                                color: Color(0xff7c6b5e),
-                              ),
-                            ),
-                            const Spacer(),
-                            SizedBox(height: compact ? 20 : 12),
-                            SizedBox(
-                              width: compact ? double.infinity : 192,
-                              child: OutlinedButton.icon(
-                                style: OutlinedButton.styleFrom(
-                                  minimumSize: const Size(48, 48),
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 12,
-                                  ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(14),
-                                  ),
-                                  side: const BorderSide(
-                                    color: Color(0xffcfbba9),
-                                    width: .7,
-                                  ),
-                                ),
-                                onPressed: _atlasBusy ? null : _atlasGallery,
-                                icon: const Icon(
-                                  Icons.photo_library_outlined,
-                                  color: atlasSage,
-                                ),
-                                label: const Text('Galeriden Seç'),
-                              ),
-                            ),
-                            SizedBox(height: compact ? 12 : 14),
-                            _atlasLandingScanButton(compact),
-                            const SizedBox(height: 8),
-                          ],
+                          )
+                        else ...[
+                          _atlasLandingGalleryButton(),
+                          const SizedBox(height: 8),
+                          _atlasLandingScanButton(compact),
+                        ],
+                      ],
+                    ),
+                  ),
+                  if (_draft != null && !_draft!.queued)
+                    Positioned(
+                      top: 8,
+                      right: 8,
+                      child: IconButton(
+                        key: const ValueKey('coffee-resume'),
+                        tooltip: 'Kaldığın Yerden Devam Et',
+                        onPressed: _atlasBusy ? null : _startAtlas,
+                        style: IconButton.styleFrom(
+                          backgroundColor: Colors.transparent,
+                          foregroundColor: atlasCoffee,
+                          minimumSize: const Size(48, 48),
+                        ),
+                        icon: Container(
+                          width: 32,
+                          height: 32,
+                          decoration: const BoxDecoration(
+                            color: atlasCard,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.play_arrow_rounded, size: 22),
                         ),
                       ),
-                    ],
-                  ),
-                ),
+                    ),
+                ],
               ),
             ),
           ),
@@ -605,30 +729,32 @@ extension _AtlasHomePresentation on _ContributionHomeState {
   );
   Widget _atlasLandingHero(bool compact) {
     final emblem = SizedBox(
-      width: compact ? 76 : 136,
-      height: compact ? 76 : 136,
+      width: compact ? 56 : 136,
+      height: compact ? 56 : 136,
       child: DecoratedBox(
         decoration: const BoxDecoration(
           shape: BoxShape.circle,
-          gradient: RadialGradient(colors: [Color(0xffead9bf), atlasCream]),
+          gradient: RadialGradient(colors: [Color(0xffeee1d2), atlasCream]),
         ),
         child: Center(
-          child: AtlasBrand(size: compact ? 72 : 128, showName: false),
+          child: AtlasBrand(size: compact ? 52 : 128, showName: false),
         ),
       ),
     );
     final caption = Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        const Icon(Icons.camera_alt_outlined, size: 13, color: atlasSage),
+        const Icon(Icons.camera_alt_outlined, size: 13, color: atlasSageInk),
         const SizedBox(width: 5),
-        Text(
-          '3 Açılı Çekim',
-          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-            fontSize: 11,
-            fontWeight: FontWeight.w600,
-            color: atlasSage,
-            letterSpacing: .2,
+        Flexible(
+          child: Text(
+            '3 Açılı Çekim',
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: atlasSageInk,
+              letterSpacing: .2,
+            ),
           ),
         ),
       ],
@@ -636,66 +762,46 @@ extension _AtlasHomePresentation on _ContributionHomeState {
     return Column(children: [emblem, const SizedBox(height: 12), caption]);
   }
 
-  Widget _atlasLandingScanButton(bool compact) => FilledButton(
-    onPressed: _atlasBusy || _error != null ? null : _startNewCamera,
-    style: FilledButton.styleFrom(
-      textStyle: Theme.of(context).textTheme.labelLarge,
-      minimumSize: const Size(96, 48),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-      backgroundColor: Colors.transparent,
-      foregroundColor: atlasCoffee,
-      disabledBackgroundColor: Colors.transparent,
-      elevation: 0,
-      shadowColor: Colors.transparent,
-      shape: const StadiumBorder(),
+  Widget _atlasLandingGalleryButton() => SizedBox(
+    width: double.infinity,
+    child: TextButton(
+      onPressed: _atlasBusy ? null : _atlasGallery,
+      style: TextButton.styleFrom(
+        minimumSize: const Size(48, 48),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+        foregroundColor: atlasCopperInk,
+        textStyle: const TextStyle(
+          fontFamily: 'Plus Jakarta Sans',
+          fontSize: 13,
+          fontWeight: FontWeight.w500,
+          decoration: TextDecoration.underline,
+        ),
+      ),
+      child: const Text('Galeriden Seç', textAlign: TextAlign.center),
     ),
-    child: Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: compact ? 60 : 66,
-          height: compact ? 60 : 66,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            border: Border.all(color: const Color(0xffdbcbb3), width: .8),
-          ),
-          child: Container(
-            width: compact ? 52 : 58,
-            height: compact ? 52 : 58,
-            alignment: Alignment.center,
-            decoration: const BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [Color(0xff4b3023), atlasCoffee],
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Color(0x182c1810),
-                  blurRadius: 10,
-                  offset: Offset(0, 3),
-                ),
-              ],
-            ),
-            child: const Icon(
-              Icons.camera_alt,
-              size: 23,
-              color: Color(0xff71b285),
-            ),
-          ),
+  );
+
+  Widget _atlasLandingScanButton(bool compact) => SizedBox(
+    width: double.infinity,
+    child: AtlasPrimaryButton.icon(
+      onPressed: _atlasBusy || _error != null ? null : _startNewCamera,
+      style: FilledButton.styleFrom(
+        textStyle: const TextStyle(
+          fontFamily: 'Plus Jakarta Sans',
+          fontSize: 14,
+          fontWeight: FontWeight.w700,
         ),
-        const SizedBox(height: 4),
-        const Text(
-          'Fincanını Tara',
-          style: TextStyle(
-            fontFamily: 'Plus Jakarta Sans',
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-      ],
+        minimumSize: Size(48, compact ? 48 : 56),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        backgroundColor: atlasCoffee,
+        foregroundColor: atlasCard,
+        elevation: 2,
+        shadowColor: atlasCoffee.withValues(alpha: .2),
+        side: BorderSide.none,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      ),
+      icon: const Icon(Icons.camera_alt, size: 20, color: atlasCard),
+      label: const Text('Fincanını Tara', textAlign: TextAlign.center),
     ),
   );
 
@@ -704,8 +810,8 @@ extension _AtlasHomePresentation on _ContributionHomeState {
     style: TextButton.styleFrom(
       minimumSize: const Size(48, 48),
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-      foregroundColor: const Color(0xff887c70),
-      disabledForegroundColor: const Color(0xff887c70),
+      foregroundColor: atlasMuted,
+      disabledForegroundColor: atlasMuted,
       shape: const StadiumBorder(),
       textStyle: const TextStyle(
         fontFamily: 'Plus Jakarta Sans',
@@ -769,10 +875,10 @@ extension _AtlasHomePresentation on _ContributionHomeState {
         width: 36,
         height: 36,
         decoration: const BoxDecoration(
-          color: Color(0xfff0e9dd),
+          color: atlasCard,
           shape: BoxShape.circle,
         ),
-        child: Icon(icon, color: atlasSage, size: 19),
+        child: Icon(icon, color: atlasSageInk, size: 19),
       ),
       title: Text(
         label,
@@ -791,15 +897,11 @@ extension _AtlasHomePresentation on _ContributionHomeState {
                 style: const TextStyle(
                   fontSize: 11,
                   height: 1.6,
-                  color: Color(0xff887c70),
+                  color: atlasMuted,
                 ),
               ),
             ),
-      trailing: const Icon(
-        Icons.chevron_right,
-        color: Color(0xffa99b8b),
-        size: 18,
-      ),
+      trailing: const Icon(Icons.chevron_right, color: atlasMuted, size: 18),
       onTap: onPressed,
     ),
   );
@@ -807,109 +909,75 @@ extension _AtlasHomePresentation on _ContributionHomeState {
   Widget _atlasDraft() {
     final draft = _draft!;
     if (draft.isSet) return _photoSetDraft();
-    return PageBody(
-      children: [
-        Text(
-          '${draft.photos.length} / ${draft.requiredPhotos} fotoğraf',
-          style: Theme.of(context).textTheme.titleMedium,
-        ),
-        const SizedBox(height: 12),
-        if (!draft.isGallery)
-          const AtlasHint(
-            'Fotoğrafların aynı fincana ait olduğunu ve telvenin net göründüğünü kontrol et.',
-          ),
-        const SizedBox(height: 16),
-        for (final p in draft.photos) ...[
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(14),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          p.title,
-                          style: Theme.of(context).textTheme.titleMedium,
-                        ),
-                      ),
-                      IconButton(
-                        tooltip: '${p.title} yeniden çek',
-                        onPressed: _atlasBusy || draft.queued
-                            ? null
-                            : () async {
-                                if (draft.isGallery) {
-                                  await _pickGallery(replace: true);
-                                } else {
-                                  await _capture(p.role!);
-                                }
-                              },
-                        icon: const Icon(Icons.refresh),
-                      ),
-                    ],
-                  ),
-                  AtlasPhoto(
-                    photo: p,
-                    image: FileImage(widget.store.file(p.localName)),
-                    height: 190,
-                  ),
-                  const SizedBox(height: 8),
-                  _photoCheckNotice(p),
-                  Text(
-                    _decisionText(p),
-                    style: const TextStyle(
-                      fontSize: 12,
-                      height: 1.5,
-                      color: Color(0xff887c70),
-                    ),
-                  ),
-                ],
+    final index = _previewIndex.clamp(
+      0,
+      draft.photos.isEmpty ? 0 : draft.photos.length - 1,
+    );
+    final photo = draft.photos.isEmpty ? null : draft.photos[index];
+    final disabled = _atlasBusy || draft.queued;
+    return _coffeePreview(
+      photo: photo,
+      tools: [
+        if (photo != null)
+          SizedBox(
+            width: double.infinity,
+            child: CoffeeActions([
+              CoffeeAction(
+                'Değiştir',
+                disabled
+                    ? null
+                    : () async {
+                        if (draft.isGallery) {
+                          await _pickGallery(replace: true);
+                        } else {
+                          await _capture(photo.role!);
+                        }
+                      },
+                icon: Icons.refresh,
+                tooltip: '${photo.title} yeniden çek',
               ),
-            ),
+            ]),
           ),
-          const SizedBox(height: 12),
-        ],
-        if (!draft.complete && !draft.isGallery)
-          FilledButton.icon(
-            onPressed: _atlasBusy ? null : _continueAtlasCapture,
-            icon: const Icon(Icons.camera_alt),
+      ],
+      phase: [
+        if (photo == null)
+          CoffeeActions([
+            CoffeeAction(
+              draft.isGallery ? 'Galeriden fotoğraf seç' : 'Çekime Devam Et',
+              disabled
+                  ? null
+                  : draft.isGallery
+                  ? _startSetGallery
+                  : _continueAtlasCapture,
+            ),
+            CoffeeAction(
+              draft.isGallery ? 'Kameraya geç' : 'Galeriden seç',
+              disabled
+                  ? null
+                  : draft.isGallery
+                  ? _startNewCamera
+                  : _startSetGallery,
+            ),
+          ])
+        else if (!draft.complete && !draft.isGallery)
+          OutlinedButton.icon(
+            onPressed: disabled ? null : _continueAtlasCapture,
+            icon: const Icon(Icons.camera_alt, size: 20),
             label: const Text('Çekime Devam Et'),
           ),
-        if (draft.complete) ...[
-          if (!draft.isGallery)
-            CheckboxListTile(
-              contentPadding: EdgeInsets.zero,
-              value: _sameSample,
-              title: const Text('Üç fotoğraf aynı fincan / telve grubuna ait.'),
-              onChanged: _atlasBusy || draft.queued
-                  ? null
-                  : (v) => _change(() => _sameSample = v == true),
+        if (draft.complete && !draft.isGallery)
+          CheckboxListTile(
+            contentPadding: EdgeInsets.zero,
+            dense: true,
+            value: _sameSample,
+            title: const Text(
+              'Üç fotoğraf aynı fincan / telve grubuna ait.',
+              style: TextStyle(fontSize: 12),
             ),
-          const SizedBox(height: 12),
-          if (!draft.reviewed)
-            const Padding(
-              padding: EdgeInsets.only(top: 8),
-              child: Text(
-                'Şekil bulman gerekmiyor. İnceleme ekranından atlayabilirsin.',
-              ),
-            ),
-        ],
-        if (_atlasBusy) ...[
-          const SizedBox(height: 12),
-          const LinearProgressIndicator(),
-          Text(
-            _savePhase == _SavePhase.saving ||
-                    _savePhase == _SavePhase.analyzing
-                ? _saveLabel
-                : 'İşlem sürüyor…',
+            onChanged: disabled
+                ? null
+                : (v) => _change(() => _sameSample = v == true),
           ),
-        ],
-        const SizedBox(height: 12),
-        TextButton(
-          onPressed: _atlasBusy ? null : _discard,
-          child: const Text('Taslağı sil'),
-        ),
       ],
     );
   }
@@ -933,9 +1001,7 @@ extension _AtlasHistoryPresentation on _ContributionHistoryState {
                     backgroundColor: _filter == i
                         ? atlasCoffee
                         : Colors.transparent,
-                    foregroundColor: _filter == i
-                        ? atlasCream
-                        : const Color(0xff817366),
+                    foregroundColor: _filter == i ? atlasCream : atlasMuted,
                     textStyle: const TextStyle(
                       fontFamily: 'Plus Jakarta Sans',
                       fontSize: 12,
@@ -968,16 +1034,16 @@ extension _AtlasHistoryPresentation on _ContributionHistoryState {
               if ((_filter == 0 || _filter == 2) &&
                   widget.currentDraft != null) ...[
                 Card(
-                  color: const Color(0xffedf2eb),
+                  color: atlasSageSurface,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(22),
-                    side: const BorderSide(color: Color(0xffdce5d9)),
+                    side: const BorderSide(color: atlasBorder),
                   ),
                   child: ListTile(
                     contentPadding: const EdgeInsets.all(16),
                     leading: const Icon(
                       Icons.timelapse_rounded,
-                      color: atlasSage,
+                      color: atlasSageInk,
                       size: 24,
                     ),
                     title: const Text(
@@ -992,12 +1058,12 @@ extension _AtlasHistoryPresentation on _ContributionHistoryState {
                       style: const TextStyle(
                         fontSize: 12,
                         height: 1.5,
-                        color: Color(0xff6c7d68),
+                        color: atlasSageInk,
                       ),
                     ),
                     trailing: const Icon(
                       Icons.chevron_right,
-                      color: atlasSage,
+                      color: atlasSageInk,
                       size: 20,
                     ),
                     onTap: widget.onContinue,
@@ -1027,7 +1093,7 @@ extension _AtlasHistoryPresentation on _ContributionHistoryState {
                         height: 88,
                         decoration: const BoxDecoration(
                           shape: BoxShape.circle,
-                          color: Color(0xfff0e9dd),
+                          color: atlasCard,
                         ),
                         alignment: Alignment.center,
                         child: const AtlasBrand(size: 64, showName: false),
@@ -1057,7 +1123,7 @@ extension _AtlasHistoryPresentation on _ContributionHistoryState {
                         style: const TextStyle(
                           fontSize: 12,
                           height: 1.6,
-                          color: Color(0xff887c70),
+                          color: atlasMuted,
                         ),
                       ),
                     ],
@@ -1080,7 +1146,7 @@ extension _AtlasHistoryPresentation on _ContributionHistoryState {
     final count = draft.photos.fold<int>(0, (sum, p) => sum + p.regions.length);
     final status = _recordStates[row['root_id']] ?? 'Telefona kaydedildi';
     return Card(
-      color: const Color(0xfffffdf9),
+      color: atlasCard,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(22),
         side: const BorderSide(color: atlasBorder, width: .8),
@@ -1152,17 +1218,13 @@ extension _AtlasHistoryPresentation on _ContributionHistoryState {
                           style: const TextStyle(
                             fontSize: 11,
                             height: 1.5,
-                            color: Color(0xff887c70),
+                            color: atlasMuted,
                           ),
                         ),
                       ],
                     ),
                   ),
-                  const Icon(
-                    Icons.chevron_right,
-                    size: 18,
-                    color: Color(0xffa99b8b),
-                  ),
+                  const Icon(Icons.chevron_right, size: 18, color: atlasMuted),
                 ],
               ),
               const SizedBox(height: 12),
@@ -1174,7 +1236,7 @@ extension _AtlasHistoryPresentation on _ContributionHistoryState {
                   Text(
                     '${_starredRoots.contains(row['root_id']) ? '★ · ' : ''}$status',
                     style: const TextStyle(
-                      color: atlasSage,
+                      color: atlasSageInk,
                       fontSize: 11,
                       height: 1.5,
                     ),
@@ -1185,7 +1247,7 @@ extension _AtlasHistoryPresentation on _ContributionHistoryState {
                       style: const TextStyle(
                         fontSize: 10,
                         height: 1.65,
-                        color: Color(0xff887c70),
+                        color: atlasMuted,
                       ),
                     ),
                 ],
@@ -1221,17 +1283,17 @@ class _AtlasOrnamentalFramePainter extends CustomPainter {
       ),
     );
     final copper = Paint()
-      ..color = const Color(0x46a67845)
+      ..color = const Color(0x46b0714f)
       ..style = PaintingStyle.stroke
       ..strokeWidth = .7
       ..strokeCap = StrokeCap.round;
     final sage = Paint()
-      ..color = const Color(0x504a7c59)
+      ..color = const Color(0x507ba294)
       ..style = PaintingStyle.stroke
       ..strokeWidth = .55
       ..strokeCap = StrokeCap.round;
     final leafFill = Paint()
-      ..color = const Color(0x284a7c59)
+      ..color = const Color(0x287ba294)
       ..style = PaintingStyle.fill;
     canvas.drawRRect(
       RRect.fromRectAndRadius(bounds.deflate(6), const Radius.circular(26)),

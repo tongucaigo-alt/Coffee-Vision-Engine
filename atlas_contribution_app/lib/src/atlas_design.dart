@@ -3,18 +3,39 @@ import 'cropped_photo.dart';
 import 'models.dart';
 import 'theme.dart';
 
-const atlasCoffee = Color(0xff2c1810);
-const atlasCream = Color(0xfffaf7f2);
-const atlasSage = Color(0xff4a7c59);
-const atlasBorder = Color(0xffe6dfd5);
+// Reference palette. Ink companions keep small labels readable on cream.
+const atlasCoffee = Color(0xff4a342a);
+const atlasCream = Color(0xfff5efe3);
+const atlasCard = Color(0xfffbf7ee);
+const atlasInk = Color(0xff2e241f);
+const atlasCopper = Color(0xffb0714f);
+const atlasCopperInk = Color(0xff975b3d);
+const atlasSage = Color(0xff7ba294);
+const atlasSageInk = Color(0xff4e7468);
+const atlasMuted = Color(0xff786c60);
+const atlasBorder = Color(0xffdfd2bb);
+const atlasSageSurface = Color(0xffe4ebe2);
 
 ThemeData atlasTheme() {
   final base = contributionTheme();
   final colors = ColorScheme.fromSeed(seedColor: atlasCoffee).copyWith(
     primary: atlasCoffee,
-    secondary: atlasSage,
+    secondary: atlasSageInk,
+    onPrimary: atlasCard,
+    onSecondary: atlasCard,
+    surfaceContainerLowest: atlasCard,
+    surfaceContainerLow: atlasCard,
+    surfaceContainer: atlasCream,
+    surfaceContainerHigh: const Color(0xffeee5d4),
+    surfaceContainerHighest: const Color(0xffe9dfcd),
+    primaryContainer: const Color(0xffeee1d2),
+    onPrimaryContainer: atlasInk,
+    secondaryContainer: atlasSageSurface,
+    onSecondaryContainer: atlasInk,
     surface: atlasCream,
-    onSurface: atlasCoffee,
+    onSurface: atlasInk,
+    onSurfaceVariant: atlasMuted,
+    outline: atlasBorder,
     outlineVariant: atlasBorder,
   );
   return base.copyWith(
@@ -23,26 +44,26 @@ ThemeData atlasTheme() {
     textTheme: base.textTheme
         .apply(
           fontFamily: 'Plus Jakarta Sans',
-          bodyColor: atlasCoffee,
-          displayColor: atlasCoffee,
+          bodyColor: atlasInk,
+          displayColor: atlasInk,
         )
         .copyWith(
           titleLarge: const TextStyle(
             fontFamily: 'Plus Jakarta Sans',
             fontSize: 20,
             fontWeight: FontWeight.w600,
-            color: atlasCoffee,
+            color: atlasInk,
           ),
         ),
     appBarTheme: const AppBarTheme(
       backgroundColor: atlasCream,
-      foregroundColor: atlasCoffee,
+      foregroundColor: atlasInk,
       surfaceTintColor: Colors.transparent,
       centerTitle: false,
     ),
     navigationBarTheme: NavigationBarThemeData(
-      backgroundColor: Colors.white,
-      indicatorColor: const Color(0xffeaf2ec),
+      backgroundColor: atlasCream,
+      indicatorColor: atlasSageSurface,
       labelTextStyle: WidgetStateProperty.all(
         const TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 13),
       ),
@@ -59,8 +80,8 @@ ThemeData atlasTheme() {
         ),
         backgroundColor: WidgetStateProperty.resolveWith(
           (states) => states.contains(WidgetState.selected)
-              ? const Color(0xffeaf2ec)
-              : Colors.white,
+              ? atlasSageSurface
+              : atlasCard,
         ),
         foregroundColor: const WidgetStatePropertyAll(atlasCoffee),
         side: const WidgetStatePropertyAll(BorderSide(color: atlasBorder)),
@@ -69,7 +90,7 @@ ThemeData atlasTheme() {
     filledButtonTheme: FilledButtonThemeData(
       style: FilledButton.styleFrom(
         backgroundColor: atlasCoffee,
-        foregroundColor: Colors.white,
+        foregroundColor: atlasCard,
         textStyle: const TextStyle(
           fontFamily: 'Plus Jakarta Sans',
           fontSize: 13,
@@ -83,20 +104,20 @@ ThemeData atlasTheme() {
     outlinedButtonTheme: OutlinedButtonThemeData(
       style: OutlinedButton.styleFrom(
         minimumSize: const Size(48, 52),
-        foregroundColor: atlasCoffee,
+        foregroundColor: atlasInk,
         textStyle: const TextStyle(
           fontFamily: 'Plus Jakarta Sans',
           fontSize: 13,
           fontWeight: FontWeight.w600,
         ),
-        backgroundColor: const Color(0xfffffdf9),
+        backgroundColor: atlasCard,
         side: const BorderSide(color: atlasBorder),
         padding: const EdgeInsets.all(14),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
       ),
     ),
     cardTheme: CardThemeData(
-      color: const Color(0xfffffdf9),
+      color: atlasCard,
       elevation: 0,
       margin: EdgeInsets.zero,
       shape: RoundedRectangleBorder(
@@ -107,7 +128,7 @@ ThemeData atlasTheme() {
     textButtonTheme: TextButtonThemeData(
       style: TextButton.styleFrom(
         minimumSize: const Size(48, 48),
-        foregroundColor: atlasSage,
+        foregroundColor: atlasSageInk,
         textStyle: const TextStyle(
           fontFamily: 'Plus Jakarta Sans',
           fontSize: 13,
@@ -117,9 +138,9 @@ ThemeData atlasTheme() {
     ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
-      fillColor: const Color(0xfffffdf9),
+      fillColor: atlasCard,
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      labelStyle: const TextStyle(fontSize: 12, color: Color(0xff887c70)),
+      labelStyle: const TextStyle(fontSize: 12, color: atlasMuted),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(18),
         borderSide: const BorderSide(color: atlasBorder),
@@ -139,6 +160,120 @@ ThemeData atlasTheme() {
     dialogTheme: DialogThemeData(
       backgroundColor: atlasCream,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+    ),
+  );
+}
+
+ThemeData coffeeFlowTheme(ThemeData base) => base.copyWith(
+  chipTheme: base.chipTheme.copyWith(
+    backgroundColor: atlasCard,
+    selectedColor: atlasSageSurface,
+    secondarySelectedColor: atlasSageSurface,
+    checkmarkColor: atlasSageInk,
+    side: const BorderSide(color: atlasBorder),
+    labelStyle: const TextStyle(
+      fontFamily: 'Plus Jakarta Sans',
+      fontSize: 13,
+      color: atlasInk,
+    ),
+    secondaryLabelStyle: const TextStyle(
+      fontFamily: 'Plus Jakarta Sans',
+      fontSize: 13,
+      color: atlasInk,
+    ),
+  ),
+  filledButtonTheme: FilledButtonThemeData(
+    style: (base.filledButtonTheme.style ?? const ButtonStyle()).copyWith(
+      minimumSize: const WidgetStatePropertyAll(Size(48, 48)),
+      padding: const WidgetStatePropertyAll(
+        EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      ),
+      textStyle: const WidgetStatePropertyAll(
+        TextStyle(
+          fontFamily: 'Plus Jakarta Sans',
+          fontSize: 14,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    ),
+  ),
+  outlinedButtonTheme: OutlinedButtonThemeData(
+    style: (base.outlinedButtonTheme.style ?? const ButtonStyle()).copyWith(
+      minimumSize: const WidgetStatePropertyAll(Size(48, 48)),
+      padding: const WidgetStatePropertyAll(
+        EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      ),
+      textStyle: const WidgetStatePropertyAll(
+        TextStyle(
+          fontFamily: 'Plus Jakarta Sans',
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    ),
+  ),
+  textButtonTheme: TextButtonThemeData(
+    style: (base.textButtonTheme.style ?? const ButtonStyle()).copyWith(
+      minimumSize: const WidgetStatePropertyAll(Size(48, 48)),
+      padding: const WidgetStatePropertyAll(
+        EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+      ),
+      textStyle: const WidgetStatePropertyAll(
+        TextStyle(
+          fontFamily: 'Plus Jakarta Sans',
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    ),
+  ),
+);
+
+/// A centered primary action: keep the existing height, style and callbacks.
+/// More room is available when the user enlarges text; never shrink their font.
+class AtlasPrimaryButton extends StatelessWidget {
+  const AtlasPrimaryButton({
+    required this.onPressed,
+    required this.child,
+    this.style,
+    super.key,
+  }) : icon = null;
+
+  const AtlasPrimaryButton.icon({
+    required this.onPressed,
+    required Widget label,
+    required this.icon,
+    this.style,
+    super.key,
+  }) : child = label;
+
+  final VoidCallback? onPressed;
+  final Widget child;
+  final Widget? icon;
+  final ButtonStyle? style;
+  static const preferredWidth = 280.0;
+
+  @override
+  Widget build(BuildContext context) => Align(
+    alignment: Alignment.center,
+    heightFactor: 1,
+    child: ConstrainedBox(
+      constraints: BoxConstraints(
+        maxWidth:
+            preferredWidth *
+            (MediaQuery.textScalerOf(context).scale(14) / 14).clamp(1, 2),
+      ),
+      child: SizedBox(
+        width: double.infinity,
+        child: icon == null
+            ? FilledButton(onPressed: onPressed, style: style, child: child)
+            : FilledButton.icon(
+                onPressed: onPressed,
+                style: style,
+                icon: icon!,
+                label: child,
+              ),
+      ),
     ),
   );
 }
@@ -175,13 +310,13 @@ class AtlasNotice extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.all(14),
     decoration: BoxDecoration(
-      color: const Color(0xffedf2eb),
+      color: atlasSageSurface,
       borderRadius: BorderRadius.circular(20),
     ),
     child: Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, color: atlasSage, size: 18),
+        Icon(icon, color: atlasSageInk, size: 18),
         const SizedBox(width: 10),
         Expanded(
           child: Text(
@@ -189,7 +324,7 @@ class AtlasNotice extends StatelessWidget {
             style: const TextStyle(
               fontSize: 12,
               height: 1.6,
-              color: Color(0xff60715d),
+              color: atlasSageInk,
             ),
           ),
         ),
@@ -206,11 +341,7 @@ class AtlasHint extends StatelessWidget {
     padding: const EdgeInsets.symmetric(vertical: 6),
     child: Text(
       text,
-      style: const TextStyle(
-        fontSize: 12,
-        height: 1.6,
-        color: Color(0xff887c70),
-      ),
+      style: const TextStyle(fontSize: 12, height: 1.6, color: atlasMuted),
     ),
   );
 }
@@ -274,7 +405,7 @@ class FortuneStory extends StatelessWidget {
             padding: EdgeInsets.all(i == 1 ? 16 : 0),
             decoration: i == 1
                 ? BoxDecoration(
-                    color: const Color(0xfff3ede2),
+                    color: atlasCard,
                     borderRadius: BorderRadius.circular(22),
                   )
                 : null,
@@ -284,7 +415,7 @@ class FortuneStory extends StatelessWidget {
                 Text(
                   headings[i],
                   style: const TextStyle(
-                    color: atlasSage,
+                    color: atlasSageInk,
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
                   ),

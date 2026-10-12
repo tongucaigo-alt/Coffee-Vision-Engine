@@ -12,6 +12,8 @@ import 'models.dart';
 import 'service.dart';
 import 'theme.dart';
 import 'photo_view.dart';
+import 'photo_navigation.dart';
+import 'coffee_controls.dart';
 import 'gallery_import.dart';
 import 'capture_settings.dart';
 import 'cropped_photo.dart';
@@ -118,6 +120,7 @@ class _ContributionHomeState extends State<ContributionHome>
   ContributionDraft? _draft;
   bool _loading = true, _busy = false, _resumePrompt = false;
   bool _fortuneWorkflow = false, _startChoiceOpen = false;
+  VoidCallback? _galleryRetry;
   String? _error;
   int _uploaded = 0;
   bool _stopRequested = false;
@@ -137,18 +140,24 @@ class _ContributionHomeState extends State<ContributionHome>
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         if (widget.onGenerateFortune != null)
-          FilledButton(
+          AtlasPrimaryButton.icon(
+            icon: const Icon(Icons.auto_awesome),
             onPressed: enabled && snapshot.data != null
                 ? () => _send(generate: true)
                 : null,
-            child: const Text('Kaydet ve Falını Oluştur'),
+            label: Text(
+              widget.modern ? 'Falımı Oluştur' : 'Kaydet ve Falını Oluştur',
+            ),
           ),
-        TextButton(
-          onPressed: enabled ? () => _send() : null,
-          child: Text(
-            widget.onGenerateFortune == null ? _saveLabel : 'Yalnız Kaydet',
+        if (widget.modern)
+          _coffeeSecondaryActions(enabled ? () => _send() : null)
+        else
+          TextButton(
+            onPressed: enabled ? () => _send() : null,
+            child: Text(
+              widget.onGenerateFortune == null ? _saveLabel : 'Yalnız Kaydet',
+            ),
           ),
-        ),
         if (widget.onGenerateFortune != null &&
             snapshot.connectionState == ConnectionState.done &&
             snapshot.data == null)
@@ -167,6 +176,7 @@ class _ContributionHomeState extends State<ContributionHome>
   );
 
   int _tab = 0;
+  int _previewIndex = 0;
   bool _flowOpen = false, _sequenceRunning = false, _sameSample = false;
   final Set<String> _usable = {};
   final _photoChecks = <String, Map<String, dynamic>>{};
@@ -199,13 +209,6 @@ class _ContributionHomeState extends State<ContributionHome>
     }
   }
 
-  Widget _photoCheckNotice(ContributionPhoto p) => PhotoSuitabilityNotice(
-    photo: p,
-    value: _photoChecks[suitabilityIdentity(p)],
-    onRetry: _atlasBusy || _checkingPhotos.contains(suitabilityIdentity(p))
-        ? null
-        : () => _checkPhoto(p, retry: true),
-  );
   late final _suitability =
       widget.photoSuitability ??
       PhotoSuitability(
@@ -318,7 +321,7 @@ class _ContributionHomeState extends State<ContributionHome>
                   children: [
                     Text(
                       widget.service.isOffline && widget.onReadFortune != null
-                          ? 'Fotoğrafların ve ilk gözlemlerin bu telefonda saklanır. Fal oluşturmayı seçersen yalnız metinsel özet seçtiğin AI sunucusuna iletilir. Araştırma paketini dışa aktarmayı sen yönetirsin.'
+                          ? 'Fotoğrafların ve ilk gözlemlerin bu telefonda saklanır. Fal oluşturmayı seçersen yalnız metinsel özet fal hizmetine iletilir.'
                           : widget.service.isOffline
                           ? 'Fotoğrafların ve işaretlerin yalnız bu telefonda saklanacak. Paketi dışa aktardığında inceleme ve gelecekteki şekil tanıma çalışmaları için kullanılabilecek. Dışa aktarılan paketleri sen yönetirsin.'
                           : 'Fincan fotoğrafların ve işaretlerin Atlas ekibi tarafından incelenecek; ileride şekil tanıma sistemini geliştirmekte kullanılabilecek. Katkın herkese açık paylaşılmayacak. En fazla 180 gün saklanacak. Gönderdiklerim ekranından silebilirsin.',
@@ -333,7 +336,7 @@ class _ContributionHomeState extends State<ContributionHome>
                       contentPadding: EdgeInsets.zero,
                       title: Text(
                         widget.service.isOffline
-                            ? 'Yerel kayıt ve fal hizmeti açıklamasını okudum. Araştırmaya katkı vermek isteğe bağlıdır.'
+                            ? 'Yerel kayıt ve fal hizmeti açıklamasını okudum.'
                             : 'Kendi çektiğim fotoğrafların ve işaretlerimin bu amaçla kullanılmasına izin veriyorum.',
                       ),
                       value: permission,
@@ -347,7 +350,7 @@ class _ContributionHomeState extends State<ContributionHome>
                   onPressed: () => Navigator.pop(context, false),
                   child: const Text('Vazgeç'),
                 ),
-                FilledButton(
+                AtlasPrimaryButton(
                   onPressed: adult && permission
                       ? () => Navigator.pop(context, true)
                       : null,
@@ -463,7 +466,7 @@ class _ContributionHomeState extends State<ContributionHome>
               onPressed: () => Navigator.pop(context, false),
               child: const Text('Çalışmaya dön'),
             ),
-            FilledButton(
+            AtlasPrimaryButton(
               onPressed: () => Navigator.pop(context, true),
               child: const Text('Taslağı sil ve galeriye geç'),
             ),
@@ -620,7 +623,7 @@ class _ContributionHomeState extends State<ContributionHome>
                   onPressed: () => Navigator.pop(ctx, false),
                   child: const Text('Daha sonra'),
                 ),
-                FilledButton(
+                AtlasPrimaryButton(
                   onPressed: () => Navigator.pop(ctx, true),
                   child: Text(
                     preparation == RecordPreparationStatus.failed ||
@@ -703,7 +706,7 @@ class _ContributionHomeState extends State<ContributionHome>
             onPressed: () => Navigator.pop(context, false),
             child: const Text('Çekime dön'),
           ),
-          FilledButton(
+          AtlasPrimaryButton(
             onPressed: () => Navigator.pop(context, true),
             child: const Text('Taslağı sil'),
           ),
@@ -828,7 +831,7 @@ class _ContributionHomeState extends State<ContributionHome>
                     child: const Text('AI Laboratuvarı'),
                   ),
                 if (widget.onReview != null) ...[
-                  FilledButton.icon(
+                  AtlasPrimaryButton.icon(
                     onPressed: _busy ? null : widget.onReview,
                     icon: const Icon(LucideIcons.scanSearch),
                     label: const Text('Fincanı incele'),
@@ -892,7 +895,7 @@ class _ContributionHomeState extends State<ContributionHome>
                     'Fincanını üç açıdan çek, gördüğün şekilleri paylaş.',
                   ),
                   const SizedBox(height: 32),
-                  FilledButton.icon(
+                  AtlasPrimaryButton.icon(
                     onPressed: () => _new(),
                     icon: const Icon(LucideIcons.camera),
                     label: const Text('Fincan çek'),
@@ -928,7 +931,7 @@ class _ContributionHomeState extends State<ContributionHome>
                     '${draft.photos.length} / ${draft.requiredPhotos} fotoğraf kayıtlı',
                   ),
                   const SizedBox(height: 24),
-                  FilledButton.icon(
+                  AtlasPrimaryButton.icon(
                     onPressed: () => setState(() => _resumePrompt = false),
                     icon: const Icon(LucideIcons.play),
                     label: const Text('Kaldığın yerden devam et'),
@@ -1076,7 +1079,7 @@ class _ContributionHomeState extends State<ContributionHome>
                         const SizedBox(height: 4),
                         Text(cameraCaptureInstruction(role)),
                         const SizedBox(height: 12),
-                        FilledButton.icon(
+                        AtlasPrimaryButton.icon(
                           onPressed: _busy ? null : () => _capture(role),
                           icon: const Icon(LucideIcons.camera),
                           label: Text('${role.title} çek'),
@@ -1095,7 +1098,7 @@ class _ContributionHomeState extends State<ContributionHome>
                     const SizedBox(height: 12),
                   ],
                   if (draft.complete)
-                    FilledButton.icon(
+                    AtlasPrimaryButton.icon(
                       onPressed: !_busy && draft.reviewed ? _send : null,
                       icon: const Icon(LucideIcons.send),
                       label: Text(
@@ -1232,7 +1235,7 @@ class _ContributionHistoryState extends State<ContributionHistory> {
             onPressed: () => Navigator.pop(context, false),
             child: const Text('Vazgeç'),
           ),
-          FilledButton(
+          AtlasPrimaryButton(
             onPressed: () => Navigator.pop(context, true),
             child: const Text('Katkımı sil'),
           ),
@@ -1307,7 +1310,7 @@ class _ContributionHistoryState extends State<ContributionHistory> {
                     _recordStates[_rows[i]['root_id']] ?? 'Telefona kaydedildi',
                   ),
                   if (widget.onReadFortune != null)
-                    FilledButton(
+                    AtlasPrimaryButton(
                       onPressed: _busy
                           ? null
                           : () => _act(() => widget.onReadFortune!(_rows[i])),
@@ -1408,7 +1411,7 @@ class _ContributionHistoryState extends State<ContributionHistory> {
                             widget.onReadFortune != null &&
                             ((_rows[i]['document'] as Map)['photos'] as List)
                                 .isNotEmpty)
-                          FilledButton(
+                          AtlasPrimaryButton(
                             onPressed: _busy
                                 ? null
                                 : () => _act(

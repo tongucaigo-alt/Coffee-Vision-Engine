@@ -1,6 +1,8 @@
-# Güncel kayıt: Atlas V51 — 11 Ekim 2026
+# Güncel kayıt: Atlas V59 — En güvenilir sürüm — 12 Ekim 2026
 
-Güncel çalışma ve geri dönüş noktası: [V51 sürüm notları](V51_SURUM_NOTLARI.md). Aşağıdaki Beta 6 özeti tarihsel kayıt olarak korunmuştur.
+Güncel çalışma ve önerilen geri dönüş noktası: **Atlas V59 — En güvenilir sürüm**. Kullanıcının değerlendirmesiyle bu sürüm güncel güvenilir referans olarak işaretlenmiştir; 400 test ve gerçek telefon kontrolleriyle doğrulanmıştır. [V59 sürüm notları](V59_SURUM_NOTLARI.md).
+
+Önceki [V51 sürüm notları](V51_SURUM_NOTLARI.md) ve aşağıdaki Beta 6 özeti tarihsel kayıt olarak korunmuştur.
 
 # Atlas — 28 Eylül 2026 sürüm özeti
 

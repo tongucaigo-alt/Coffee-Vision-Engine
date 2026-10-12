@@ -123,7 +123,7 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
-        await tester.tap(find.text('Kaldığın Yerden Devam Et'));
+        await tester.tap(find.byTooltip('Kaldığın Yerden Devam Et'));
         await tester.pumpAndSettle();
         for (var i = 0; i < 1; i++) {
           await tester.ensureVisible(find.byType(CheckboxListTile).at(i));
@@ -134,8 +134,8 @@ void main() {
         await tester.pumpAndSettle();
         await tester.pageBack();
         await tester.pumpAndSettle();
-        await tester.ensureVisible(find.text('Gözlemleri Kaydet'));
-        await tester.tap(find.text('Gözlemleri Kaydet'));
+        await tester.ensureVisible(find.text('Yalnız Kaydet'));
+        await tester.tap(find.text('Yalnız Kaydet'));
         await tester.pump();
         expect(find.text('Kaydediliyor…'), findsWidgets);
         expect(find.text('Kaydı Yeniden Dene'), findsNothing);
