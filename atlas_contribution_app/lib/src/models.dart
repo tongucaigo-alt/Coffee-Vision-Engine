@@ -298,6 +298,7 @@ final class ContributionDraft {
     this.galleryStart = false,
     this.cupSelectionDone = false,
     this.saucerDecided = false,
+    this.captureSequenceFinished = false,
   }) : photos = List.unmodifiable(photos) {
     if (kind == ContributionKind.photoSet) {
       final angles = cups
@@ -333,6 +334,7 @@ final class ContributionDraft {
   final String id, rootId, groupId, createdAt, consentedAt;
   final ContributionKind kind;
   final bool galleryStart, cupSelectionDone, saucerDecided;
+  final bool captureSequenceFinished;
   bool get isSet => kind == ContributionKind.photoSet;
   bool get isGallery =>
       kind == ContributionKind.gallerySingle || (isSet && galleryStart);
@@ -342,7 +344,10 @@ final class ContributionDraft {
       photos.where((p) => p.surface == PhotoSurface.saucer).toList();
   String get photoSummary =>
       '${cups.length} fincan${saucers.isEmpty ? '' : ' · ${saucers.length} tabak'}';
-  bool get cupsComplete => isGallery ? cups.isNotEmpty : cups.length == 3;
+  bool get cupsComplete => isGallery
+      ? cups.isNotEmpty
+      : cups.length == 3 ||
+            (isSet && captureSequenceFinished && cups.isNotEmpty);
   List<CaptureRole> get captureRoles => switch (kind) {
     ContributionKind.threeAngle => legacyCaptureRoles,
     ContributionKind.freeThreeAngle => freeCaptureRoles,
@@ -402,6 +407,7 @@ final class ContributionDraft {
     bool? queued,
     bool? cupSelectionDone,
     bool? saucerDecided,
+    bool? captureSequenceFinished,
   }) => ContributionDraft(
     id: id,
     rootId: rootId,
@@ -412,6 +418,8 @@ final class ContributionDraft {
     galleryStart: galleryStart,
     cupSelectionDone: cupSelectionDone ?? this.cupSelectionDone,
     saucerDecided: saucerDecided ?? this.saucerDecided,
+    captureSequenceFinished:
+        captureSequenceFinished ?? this.captureSequenceFinished,
     revision: revision,
     supersedesId: supersedesId,
     photos: photos ?? this.photos,
@@ -426,6 +434,7 @@ final class ContributionDraft {
       'galleryStart': galleryStart,
       'cupSelectionDone': cupSelectionDone,
       'saucerDecided': saucerDecided,
+      if (captureSequenceFinished) 'captureSequenceFinished': true,
     },
     if (kind == ContributionKind.freeThreeAngle) 'recordVersion': 3,
     if (isGallery) 'physicalIndependence': 'unverified',
@@ -459,6 +468,7 @@ final class ContributionDraft {
       galleryStart: j['galleryStart'] as bool? ?? false,
       cupSelectionDone: j['cupSelectionDone'] as bool? ?? false,
       saucerDecided: j['saucerDecided'] as bool? ?? false,
+      captureSequenceFinished: j['captureSequenceFinished'] as bool? ?? false,
       rootId: j['rootId'] as String,
       groupId: j['groupId'] as String,
       revision: j['revision'] as int,

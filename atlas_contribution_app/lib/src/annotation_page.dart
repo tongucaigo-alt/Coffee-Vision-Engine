@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -12,6 +13,7 @@ import 'opencv_traces.dart';
 import 'trace_overlay.dart';
 import 'atlas_design.dart';
 import 'coffee_controls.dart';
+import 'coffee_photo_layout.dart';
 
 class AnnotationPage extends StatefulWidget {
   const AnnotationPage({
@@ -56,6 +58,8 @@ class _AnnotationPageState extends State<AnnotationPage> {
   RegionBox? _box;
   String? _editingId;
   bool _saving = false;
+  bool _highlight = false;
+  Timer? _highlightTimer;
   late bool _markMode = widget.modern;
   Size _viewport = Size.zero;
   final _transform = TransformationController();
@@ -294,6 +298,7 @@ class _AnnotationPageState extends State<AnnotationPage> {
 
   @override
   void dispose() {
+    _highlightTimer?.cancel();
     _transform.dispose();
     super.dispose();
   }
@@ -471,7 +476,7 @@ class _AnnotationPageState extends State<AnnotationPage> {
                                   color: widget.modern
                                       ? const Color(0xffffd18a)
                                       : Colors.amberAccent,
-                                  width: 3,
+                                  width: _highlight ? 5 : 3,
                                 ),
                               ),
                             ),
@@ -522,7 +527,6 @@ class _AnnotationPageState extends State<AnnotationPage> {
   Widget _selectedName(
     RegionAnnotation region,
     BoxConstraints constraints,
-    double insetY,
   ) => ValueListenableBuilder<Matrix4>(
     valueListenable: _transform,
     builder: (context, matrix, _) {
@@ -541,7 +545,7 @@ class _AnnotationPageState extends State<AnnotationPage> {
         origin.dy,
         size.width,
         size.height,
-      );
+      ).deflate(2);
       final style = DefaultTextStyle.of(context).style.merge(
         const TextStyle(
           fontFamily: 'Plus Jakarta Sans',
@@ -555,9 +559,9 @@ class _AnnotationPageState extends State<AnnotationPage> {
         text: TextSpan(text: region.title, style: style),
         textDirection: Directionality.of(context),
         textScaler: MediaQuery.textScalerOf(context),
-      )..layout(maxWidth: math.max(1, width - 16));
+      )..layout(maxWidth: math.max(1, visible.width - 16));
       final labelSize = Size(
-        math.min(width, text.width.ceilToDouble() + 14),
+        math.min(visible.width, text.width.ceilToDouble() + 14),
         text.height.ceilToDouble() + 8,
       );
       final box = _box ?? _displayCrop.toDisplayBox(region.box);
@@ -565,27 +569,38 @@ class _AnnotationPageState extends State<AnnotationPage> {
         matrix,
         _boxRect(box, size),
       ).shift(origin);
-      final modeText = TextPainter(
-        text: const TextSpan(
-          text: 'Taşı İşaret',
-          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-        ),
-        textDirection: Directionality.of(context),
-        textScaler: MediaQuery.textScalerOf(context),
-      )..layout();
       final obstacles = <Rect>[
         Rect.fromLTWH(
-          8,
-          insetY,
-          math.max(96, modeText.width + 40),
-          math.max(48, modeText.height + 16),
-        ),
-        Rect.fromLTWH(
-          constraints.maxWidth - 152,
-          constraints.maxHeight - insetY - 48,
-          144,
+          constraints.maxWidth - 56,
+          constraints.maxHeight -
+              (MediaQuery.textScalerOf(context).scale(14) > 19 ? 80 : 8) -
+              48,
+          48,
           48,
         ),
+        if (widget.navigation != null) ...[
+          Rect.fromLTWH(0, constraints.maxHeight / 2 - 24, 48, 48),
+          Rect.fromLTWH(
+            constraints.maxWidth - 48,
+            constraints.maxHeight / 2 - 24,
+            48,
+            48,
+          ),
+          Rect.fromLTWH(
+            56,
+            constraints.maxHeight -
+                (MediaQuery.textScalerOf(context).scale(14) > 19 ? 128 : 56),
+            constraints.maxWidth - 112,
+            48,
+          ),
+        ],
+        if (MediaQuery.textScalerOf(context).scale(14) > 19)
+          Rect.fromLTWH(
+            0,
+            constraints.maxHeight - 68,
+            constraints.maxWidth,
+            68,
+          ),
         for (var i = 0; i < 4; i++)
           MatrixUtils.transformRect(
             matrix,
@@ -666,125 +681,145 @@ class _AnnotationPageState extends State<AnnotationPage> {
     );
   }
 
+  Widget _modeHeader() => LayoutBuilder(
+    builder: (context, box) {
+      const style = TextStyle(
+        fontFamily: 'Plus Jakarta Sans',
+        fontSize: 12,
+        height: 1.1,
+        fontWeight: FontWeight.w600,
+        color: atlasCoffee,
+      );
+      final text = TextPainter(
+        text: const TextSpan(text: 'İşaret', style: style),
+        textDirection: Directionality.of(context),
+        textScaler: MediaQuery.textScalerOf(context),
+      )..layout();
+      final width = (text.width.ceilToDouble() + 12).clamp(
+        48.0,
+        (box.maxWidth - 64) / 2,
+      );
+      final height = math.max(28.0, text.height + 4);
+      return Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Positioned(
+            left: 56,
+            bottom: -4,
+            height: 48,
+            child: Row(
+              key: const ValueKey('coffee-mode-control'),
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                for (final mode in [false, true])
+                  SizedBox(
+                    width: width,
+                    height: 48,
+                    child: Semantics(
+                      label: mode ? 'İşaret' : 'Taşı',
+                      button: true,
+                      selected: _markMode == mode,
+                      enabled: !_saving,
+                      onTap: _saving ? null : () => _selectMode(mode),
+                      excludeSemantics: true,
+                      child: Tooltip(
+                        message: mode ? 'İşaret' : 'Taşı',
+                        child: TextButton(
+                          onPressed: _saving ? null : () => _selectMode(mode),
+                          style: TextButton.styleFrom(
+                            minimumSize: const Size(48, 48),
+                            padding: EdgeInsets.zero,
+                          ),
+                          child: Align(
+                            alignment: Alignment.bottomCenter,
+                            child: Container(
+                              height: height,
+                              width: width,
+                              alignment: Alignment.center,
+                              decoration: BoxDecoration(
+                                color: _markMode == mode
+                                    ? atlasSageSurface
+                                    : atlasCard,
+                                border: Border.all(color: atlasBorder),
+                                borderRadius: BorderRadius.horizontal(
+                                  left: mode
+                                      ? Radius.zero
+                                      : const Radius.circular(24),
+                                  right: mode
+                                      ? const Radius.circular(24)
+                                      : Radius.zero,
+                                ),
+                              ),
+                              child: Text(
+                                mode ? 'İşaret' : 'Taşı',
+                                style: style,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      );
+    },
+  );
+
+  void _selectMode(bool mode) => setState(() {
+    _abortGesture();
+    _markMode = mode;
+  });
+
   Widget _modernBody() {
     final selected = _photo.regions
         .where((r) => r.id == _editingId)
         .firstOrNull;
-    final scale = MediaQuery.textScalerOf(context).scale(16) / 16;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-      child: Column(
-        key: const ValueKey('coffee-annotation-body'),
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Expanded(
-            child: Container(
-              key: const ValueKey('coffee-photo-frame'),
-              decoration: BoxDecoration(
-                color: atlasCard,
-                border: Border.all(color: atlasBorder),
-                borderRadius: BorderRadius.circular(14),
-              ),
-              clipBehavior: Clip.antiAlias,
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final ratio = _displayCrop.aspectRatio(
-                    _photo.width,
-                    _photo.height,
-                  );
-                  final photoWidth = math.min(
-                    constraints.maxWidth,
-                    constraints.maxHeight * ratio,
-                  );
-                  final insetY =
-                      (constraints.maxHeight - photoWidth / ratio) / 2 + 8;
-                  return Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      _canvas(),
-                      if (selected != null)
-                        _selectedName(selected, constraints, insetY),
-                      Positioned(
-                        top: insetY,
-                        left: 8,
-                        child: Material(
-                          key: const ValueKey('coffee-mode-control'),
-                          color: Colors.transparent,
-                          borderRadius: BorderRadius.circular(8),
-                          child: SegmentedButton<bool>(
-                            showSelectedIcon: false,
-                            style: SegmentedButton.styleFrom(
-                              minimumSize: const Size(48, 48),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 6,
-                              ),
-                              textStyle: const TextStyle(
-                                fontFamily: 'Plus Jakarta Sans',
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            segments: const [
-                              ButtonSegment(value: false, label: Text('Taşı')),
-                              ButtonSegment(value: true, label: Text('İşaret')),
-                            ],
-                            selected: {_markMode},
-                            onSelectionChanged: _saving
-                                ? null
-                                : (v) => setState(() {
-                                    _abortGesture();
-                                    _markMode = v.single;
-                                  }),
-                          ),
-                        ),
-                      ),
-                      Positioned(
-                        right: 8,
-                        bottom: insetY,
-                        child: Material(
-                          key: const ValueKey('coffee-zoom-control'),
-                          color: atlasCream.withValues(alpha: .8),
-                          borderRadius: BorderRadius.circular(8),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              IconButton(
-                                tooltip: 'Uzaklaştır',
-                                onPressed: _saving ? null : () => _zoom(.8),
-                                icon: const Icon(LucideIcons.zoomOut, size: 20),
-                              ),
-                              IconButton(
-                                tooltip: 'Yakınlaştır',
-                                onPressed: _saving ? null : () => _zoom(1.25),
-                                icon: const Icon(LucideIcons.zoomIn, size: 20),
-                              ),
-                              IconButton(
-                                tooltip: 'Fotoğrafı sığdır',
-                                onPressed: _saving
-                                    ? null
-                                    : () {
-                                        setState(_abortGesture);
-                                        _transform.value = Matrix4.identity();
-                                      },
-                                icon: const Icon(
-                                  LucideIcons.maximize,
-                                  size: 20,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
-                  );
-                },
+    final large = MediaQuery.textScalerOf(context).scale(14) > 19;
+    return CoffeePhotoLayout(
+      key: const ValueKey('coffee-annotation-body'),
+      photo: LayoutBuilder(
+        builder: (context, box) => Stack(
+          fit: StackFit.expand,
+          children: [
+            _canvas(),
+            if (selected != null) _selectedName(selected, box),
+            if (widget.navigation != null)
+              Positioned.fill(child: widget.navigation!),
+            Positioned(
+              right: 8,
+              bottom: large ? 80 : 8,
+              child: CoffeeOverlayButton(
+                key: const ValueKey('coffee-zoom-control'),
+                tooltip: 'Fotoğrafı sığdır',
+                onPressed: _saving
+                    ? null
+                    : () {
+                        setState(_abortGesture);
+                        _transform.value = Matrix4.identity();
+                      },
+                child: const Icon(LucideIcons.maximize, size: 16),
               ),
             ),
-          ),
-          const SizedBox(height: 8),
-          if (widget.navigation != null) widget.navigation!,
-          if (_photo.regions.isEmpty)
-            CoffeeActions([
+            if (_box != null && _editingId == null)
+              Positioned(
+                left: 56,
+                right: 56,
+                top: 72,
+                child: CoffeeControlSurface(
+                  child: TextButton(
+                    onPressed: _saving ? null : _choose,
+                    child: const Text('Bu alanı seç'),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+      tools: _photo.regions.isEmpty
+          ? CoffeeActionStrip([
               CoffeeAction(
                 'Göremedim',
                 _saving ? null : () => _decision(PhotoDecision.notSeen),
@@ -798,30 +833,26 @@ class _AnnotationPageState extends State<AnnotationPage> {
                 _saving ? null : () => _decision(PhotoDecision.skipped),
               ),
             ])
-          else ...[
-            Row(
+          : Row(
               children: [
-                Semantics(
-                  label: '${_photo.regions.length} şekil seçildi',
-                  child: Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: Text(
-                      '${_photo.regions.length}',
-                      style: const TextStyle(fontSize: 12, color: atlasSage),
-                    ),
+                Padding(
+                  padding: const EdgeInsets.only(right: 4),
+                  child: Text(
+                    '${_photo.regions.length}',
+                    style: const TextStyle(fontSize: 12, color: atlasSage),
+                    semanticsLabel: '${_photo.regions.length} şekil seçildi',
                   ),
                 ),
                 Expanded(
-                  child: SizedBox(
-                    height: 48 + 16 * (scale - 1).clamp(0, 2),
-                    child: ListView.separated(
-                      key: const ValueKey('coffee-selected-symbols'),
-                      scrollDirection: Axis.horizontal,
-                      itemCount: _photo.regions.length,
-                      separatorBuilder: (_, _) => const SizedBox(width: 8),
-                      itemBuilder: (_, i) {
-                        final region = _photo.regions[i];
-                        return ChoiceChip(
+                  child: ListView.separated(
+                    key: const ValueKey('coffee-selected-symbols'),
+                    scrollDirection: Axis.horizontal,
+                    itemCount: _photo.regions.length,
+                    separatorBuilder: (_, _) => const SizedBox(width: 8),
+                    itemBuilder: (_, i) {
+                      final region = _photo.regions[i];
+                      return Center(
+                        child: ChoiceChip(
                           showCheckmark: false,
                           avatar: LabelIcon(region.label, size: 20),
                           label: Text(region.title),
@@ -833,46 +864,51 @@ class _AnnotationPageState extends State<AnnotationPage> {
                                   _editingId = region.id;
                                   _box = _displayCrop.toDisplayBox(region.box);
                                   _markMode = true;
+                                  _highlight = true;
+                                  _highlightTimer?.cancel();
+                                  _highlightTimer = Timer(
+                                    const Duration(milliseconds: 350),
+                                    () {
+                                      if (mounted) {
+                                        setState(() => _highlight = false);
+                                      }
+                                    },
+                                  );
                                 }),
-                        );
-                      },
-                    ),
+                        ),
+                      );
+                    },
                   ),
                 ),
-              ],
-            ),
-            Row(
-              children: [
-                Expanded(
-                  child: Semantics(
-                    label: selected?.title ?? 'Bir şekil seç',
-                    child: Text(
-                      selected?.title ?? 'Bir şekil seç',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 12, color: atlasCoffee),
-                    ),
+                if (selected != null) ...[
+                  TextButton(
+                    onPressed: _saving ? null : _choose,
+                    child: const Text('Değiştir'),
                   ),
-                ),
-                TextButton(
-                  onPressed: selected == null || _saving ? null : _choose,
-                  child: const Text('Değiştir'),
-                ),
-                TextButton(
-                  onPressed: selected == null || _saving
-                      ? null
-                      : () => _remove(selected),
-                  child: const Text('Kaldır'),
-                ),
+                  TextButton(
+                    onPressed: _saving ? null : () => _remove(selected),
+                    child: const Text('Kaldır'),
+                  ),
+                ],
               ],
             ),
+      footer: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            AtlasPrimaryButton.icon(
+              onPressed: _saving ? null : widget.onFinish,
+              icon: const Icon(Icons.auto_awesome),
+              label: const Text('Falımı Oluştur'),
+            ),
+            CoffeeActionStrip([
+              CoffeeAction('Yalnız Kaydet', _saving ? null : widget.onSaveOnly),
+              CoffeeAction('Kalanları geç', _saving ? null : widget.onSkip),
+            ]),
           ],
-          if (_box != null && _editingId == null)
-            TextButton(
-              onPressed: _saving ? null : _choose,
-              child: const Text('Bu alanı seç'),
-            ),
-        ],
+        ),
       ),
     );
   }
@@ -880,14 +916,8 @@ class _AnnotationPageState extends State<AnnotationPage> {
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(
-      toolbarHeight: widget.modern
-          ? 56 +
-                24 *
-                    (MediaQuery.textScalerOf(context).scale(16) / 16 - 1).clamp(
-                      0,
-                      1,
-                    )
-          : null,
+      toolbarHeight: widget.modern ? CoffeePhotoLayout.toolbarHeight : null,
+      flexibleSpace: widget.modern ? _modeHeader() : null,
       title: Text(
         widget.modern ? 'Sen ne görüyorsun?' : _photo.title,
         style: widget.modern
@@ -899,37 +929,6 @@ class _AnnotationPageState extends State<AnnotationPage> {
             : null,
       ),
     ),
-    bottomNavigationBar: widget.modern
-        ? SafeArea(
-            top: false,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  SizedBox(
-                    width: double.infinity,
-                    child: AtlasPrimaryButton.icon(
-                      onPressed: _saving ? null : widget.onFinish,
-                      icon: const Icon(Icons.auto_awesome),
-                      label: const Text('Falımı Oluştur'),
-                    ),
-                  ),
-                  CoffeeActions([
-                    CoffeeAction(
-                      'Yalnız Kaydet',
-                      _saving ? null : widget.onSaveOnly,
-                    ),
-                    CoffeeAction(
-                      'Kalanları geç',
-                      _saving ? null : widget.onSkip,
-                    ),
-                  ]),
-                ],
-              ),
-            ),
-          )
-        : null,
     body: SafeArea(
       child: LayoutBuilder(
         builder: (context, constraints) {

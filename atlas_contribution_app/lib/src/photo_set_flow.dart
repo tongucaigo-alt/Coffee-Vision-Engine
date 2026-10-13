@@ -20,6 +20,13 @@ extension _PhotoSetFlow on _ContributionHomeState {
       if (next != null) {
         await _save(next);
         _photoSetChanged();
+        if (surface == PhotoSurface.saucer && next.saucers.isNotEmpty) {
+          _change(
+            () => _previewIndex = next.photos.indexWhere(
+              (p) => p.id == next.saucers.first.id,
+            ),
+          );
+        }
       }
     } catch (_) {
       if (mounted) {
@@ -65,6 +72,10 @@ extension _PhotoSetFlow on _ContributionHomeState {
       );
       await _save(_draft!.withPhoto(photo).copy(saucerDecided: true));
       _photoSetChanged();
+      _change(
+        () =>
+            _previewIndex = _draft!.photos.indexWhere((p) => p.id == photo.id),
+      );
       try {
         await widget.store.releaseCapture(capture);
       } catch (_) {
@@ -79,6 +90,66 @@ extension _PhotoSetFlow on _ContributionHomeState {
       }
     } finally {
       _change(() => _busy = false);
+    }
+  }
+
+  Future<void> _chooseSaucer({ContributionPhoto? replace}) async {
+    final draft = _draft;
+    if (_atlasBusy ||
+        draft == null ||
+        draft.queued ||
+        !draft.isSet ||
+        draft.cups.isEmpty ||
+        (replace == null && draft.saucers.isNotEmpty)) {
+      return;
+    }
+    String? source;
+    _change(() => _saucerChoiceOpen = true);
+    try {
+      source = await showDialog<String>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Text(
+            replace == null
+                ? 'Tabak fotoğrafı ekle'
+                : 'Tabak fotoğrafını değiştir',
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.camera_alt_outlined),
+                title: const Text('Kamera'),
+                onTap: () => Navigator.pop(ctx, 'camera'),
+              ),
+              ListTile(
+                leading: const Icon(Icons.photo_library_outlined),
+                title: const Text('Galeri'),
+                onTap: () => Navigator.pop(ctx, 'gallery'),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Vazgeç'),
+            ),
+          ],
+        ),
+      );
+    } finally {
+      _change(() => _saucerChoiceOpen = false);
+    }
+    if (!mounted ||
+        source == null ||
+        _draft?.id != draft.id ||
+        _draft!.queued) {
+      return;
+    }
+    if (source == 'camera') {
+      await _setSaucerCamera(replace: replace);
+    } else {
+      await _setGallery(surface: PhotoSurface.saucer, replace: replace);
     }
   }
 
@@ -125,15 +196,102 @@ extension _PhotoSetFlow on _ContributionHomeState {
     _photoSetChanged();
   }
 
-  Future<void> _moveSetPhoto(ContributionPhoto photo, int delta) async {
-    final cups = _draft!.cups;
-    final from = cups.indexWhere((p) => p.id == photo.id);
-    final to = from + delta;
-    if (from < 0 || to < 0 || to >= cups.length) return;
-    cups.removeAt(from);
-    cups.insert(to, photo);
-    await _save(_draft!.copy(photos: [...cups, ..._draft!.saucers]));
-    _photoSetChanged();
+  Widget? _coffeeAngleHeader() {
+    final draft = _draft;
+    if (draft == null || !draft.isSet || draft.photos.isEmpty) return null;
+    final p = draft.photos[_previewIndex.clamp(0, draft.photos.length - 1)];
+    if (p.surface != PhotoSurface.cup || p.origin != 'gallery') return null;
+    final angle = p.angle == CaptureRole.top ? CaptureRole.free : p.angle;
+    return LayoutBuilder(
+      builder: (context, box) {
+        final scale = (MediaQuery.textScalerOf(context).scale(14) / 14).clamp(
+          1.0,
+          2.0,
+        );
+        final menuWidth = (280 * scale).clamp(0.0, box.maxWidth - 32);
+        final targetWidth = (180 * scale).clamp(0.0, box.maxWidth - 112);
+        return Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Positioned(
+              bottom: -4,
+              left: (box.maxWidth - targetWidth) / 2,
+              width: targetWidth,
+              height: 48,
+              child: PopupMenuButton<String>(
+                key: const ValueKey('coffee-angle-control'),
+                enabled: !_atlasBusy && !draft.queued,
+                tooltip: 'Fotoğrafın açısı — isteğe bağlı',
+                padding: EdgeInsets.zero,
+                position: PopupMenuPosition.under,
+                offset: Offset((targetWidth - menuWidth) / 2, 0),
+                constraints: BoxConstraints(
+                  minWidth: menuWidth,
+                  maxWidth: menuWidth,
+                ),
+                onSelected: (value) => _setAngle(p, value),
+                itemBuilder: (_) => [
+                  const PopupMenuItem(
+                    value: 'unknown',
+                    child: Text('Açı seç — isteğe bağlı'),
+                  ),
+                  for (final value in freeCaptureRoles)
+                    if (angle == value ||
+                        !draft.cups.any(
+                          (q) =>
+                              q.id != p.id &&
+                              (q.angle == CaptureRole.top
+                                      ? CaptureRole.free
+                                      : q.angle) ==
+                                  value,
+                        ))
+                      PopupMenuItem(
+                        value: value.name,
+                        child: Text(value.title),
+                      ),
+                ],
+                child: Align(
+                  alignment: Alignment.bottomCenter,
+                  child: Material(
+                    color: atlasCard,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      side: const BorderSide(color: atlasBorder),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 1,
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            angle?.title ?? 'Açı seç',
+                            style: const TextStyle(
+                              fontFamily: 'Plus Jakarta Sans',
+                              fontSize: 12,
+                              height: 1,
+                              color: atlasCoffee,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          const Icon(
+                            Icons.arrow_drop_down,
+                            size: 14,
+                            color: atlasCoffee,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   Widget _coffeePreview({
@@ -146,100 +304,144 @@ extension _PhotoSetFlow on _ContributionHomeState {
       0,
       draft.photos.isEmpty ? 0 : draft.photos.length - 1,
     );
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-      child: Column(
-        key: const ValueKey('coffee-preview-body'),
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+    final large = MediaQuery.textScalerOf(context).scale(14) > 19;
+    final navBottom = large ? 80.0 : 8.0;
+    return CoffeePhotoLayout(
+      key: const ValueKey('coffee-preview-body'),
+      photo: Stack(
+        fit: StackFit.expand,
         children: [
-          Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: Text(
-              draft.isSet && !draft.cupSelectionDone
-                  ? 'Fotoğraflar'
-                  : draft.isSet && !draft.saucerDecided
-                  ? 'İsteğe bağlı tabak'
-                  : 'Fotoğrafları onayla',
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 12, color: atlasSage),
+          if (photo == null)
+            const Center(child: Text('Henüz fotoğraf eklemedin'))
+          else
+            LayoutBuilder(
+              builder: (context, box) {
+                final crop = coffeeDisplayCrop(photo);
+                final ratio = crop.aspectRatio(photo.width, photo.height);
+                final width = (box.maxHeight * ratio).clamp(0.0, box.maxWidth);
+                return Center(
+                  child: SizedBox(
+                    key: const ValueKey('coffee-photo-image'),
+                    width: width,
+                    height: width / ratio,
+                    child: CroppedPhoto(
+                      image: FileImage(widget.store.file(photo.localName)),
+                      crop: crop,
+                      photoWidth: photo.width,
+                      photoHeight: photo.height,
+                      semanticLabel: photo.title,
+                    ),
+                  ),
+                );
+              },
             ),
-          ),
-          Expanded(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                color: atlasCard,
-                border: Border.all(color: atlasBorder),
-                borderRadius: BorderRadius.circular(14),
+          if (photo != null)
+            Positioned.fill(
+              child: PhotoNavigation(
+                index: index,
+                count: draft.photos.length,
+                onSelect: _atlasBusy || draft.queued
+                    ? null
+                    : (i) => _change(() => _previewIndex = i),
+                overlay: true,
+                bottomInset: navBottom,
               ),
-              child: photo == null
-                  ? const Center(
+            ),
+          if (draft.cups.length < 3)
+            Positioned(
+              top: 8,
+              right: 8,
+              child: CoffeeOverlayButton(
+                tooltip: 'Fotoğraf ekle',
+                onPressed: _atlasBusy || draft.queued
+                    ? null
+                    : draft.isGallery
+                    ? _setGallery
+                    : () => _continueAtlasCapture(addRemaining: true),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.add_photo_alternate_outlined, size: 18),
+                    SizedBox(width: 4),
+                    Text('Fotoğraf ekle', style: TextStyle(fontSize: 9)),
+                  ],
+                ),
+              ),
+            ),
+          if (phase.isNotEmpty)
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: navBottom + 48,
+              child: phase.first,
+            ),
+          if (draft.queued)
+            const Positioned(
+              top: 64,
+              left: 8,
+              right: 8,
+              child: CoffeeControlSurface(
+                child: Padding(
+                  padding: EdgeInsets.all(8),
+                  child: Text('Çalışman gönderim kuyruğunda.'),
+                ),
+              ),
+            ),
+          if (_galleryRetry != null)
+            Positioned(
+              top: 64,
+              left: 8,
+              right: 8,
+              child: CoffeeControlSurface(
+                child: Row(
+                  children: [
+                    const Expanded(
                       child: Padding(
-                        padding: EdgeInsets.all(16),
+                        padding: EdgeInsets.all(8),
                         child: Text(
-                          'Henüz fotoğraf eklemedin',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(fontSize: 14, color: atlasSage),
+                          'Fotoğraf eklenemedi.',
+                          style: TextStyle(fontSize: 12),
                         ),
                       ),
-                    )
-                  : LayoutBuilder(
-                      builder: (_, constraints) {
-                        final ratio = photo.visibleCrop.aspectRatio(
-                          photo.width,
-                          photo.height,
-                        );
-                        final width = (constraints.maxHeight * ratio)
-                            .clamp(0.0, constraints.maxWidth)
-                            .toDouble();
-                        return Center(
-                          child: SizedBox(
-                            width: width,
-                            height: width / ratio,
-                            child: AtlasPhoto(
-                              photo: photo,
-                              image: FileImage(
-                                widget.store.file(photo.localName),
-                              ),
-                              height: width / ratio,
-                            ),
-                          ),
-                        );
-                      },
                     ),
-            ),
-          ),
-          const SizedBox(height: 8),
-          if (photo != null) ...[
-            PhotoNavigation(
-              index: index,
-              count: draft.photos.length,
-              onSelect: _atlasBusy || draft.queued
-                  ? null
-                  : (i) => _change(() => _previewIndex = i),
-            ),
-          ],
-          if (tools.isNotEmpty)
-            Wrap(alignment: WrapAlignment.center, spacing: 4, children: tools),
-          if (_galleryRetry != null)
-            Row(
-              children: [
-                const Expanded(
-                  child: Text(
-                    'Fotoğraflar eklenemedi. Önceki fotoğrafların korunuyor. En fazla 3 fincan ve 1 tabak seç.',
-                    style: TextStyle(fontSize: 12),
-                  ),
+                    TextButton(
+                      onPressed: _atlasBusy ? null : _galleryRetry,
+                      child: const Text('Yeniden dene'),
+                    ),
+                  ],
                 ),
-                TextButton(
-                  onPressed: _atlasBusy ? null : _galleryRetry,
-                  child: const Text('Yeniden dene'),
+              ),
+            ),
+          if (_galleryRetry == null &&
+              photo != null &&
+              !suitabilityAccepted(
+                _photoChecks[suitabilityIdentity(photo)],
+                photo,
+              ))
+            Positioned(
+              top: 64,
+              left: 8,
+              right: 8,
+              child: CoffeeControlSurface(
+                child: Padding(
+                  padding: const EdgeInsets.all(8),
+                  child: _coffeeCheckStatus(photo),
                 ),
-              ],
-            )
-          else if (photo != null)
-            _coffeeCheckStatus(photo),
-          ...phase,
-          if (_atlasBusy) const LinearProgressIndicator(minHeight: 2),
+              ),
+            ),
+          if (_busy || _sequenceRunning)
+            const Positioned(
+              left: 0,
+              right: 0,
+              top: 0,
+              child: LinearProgressIndicator(minHeight: 2),
+            ),
         ],
+      ),
+      tools: tools.isEmpty ? const SizedBox.shrink() : tools.first,
+      footer: Padding(
+        padding: const EdgeInsets.only(top: 8, bottom: 8),
+        child: _atlasFlowActions(),
       ),
     );
   }
@@ -303,7 +505,7 @@ extension _PhotoSetFlow on _ContributionHomeState {
               ? null
               : () async {
                   if (p.surface == PhotoSurface.saucer) {
-                    await _setSaucerCamera(replace: p);
+                    await _chooseSaucer(replace: p);
                   } else if (p.origin == 'gallery') {
                     await _setGallery(replace: p);
                   } else {
@@ -312,16 +514,15 @@ extension _PhotoSetFlow on _ContributionHomeState {
                 },
           icon: Icons.refresh,
           tooltip: p.surface == PhotoSurface.saucer
-              ? 'Tabak çek'
+              ? 'Tabak fotoğrafını değiştir'
               : 'Fotoğrafı değiştir',
         ),
-        if (p.surface == PhotoSurface.saucer)
+        if (draft.saucers.isEmpty)
           CoffeeAction(
-            'Galeriden değiştir',
-            disabled
-                ? null
-                : () => _setGallery(surface: PhotoSurface.saucer, replace: p),
-            icon: Icons.photo_library_outlined,
+            'Tabak ekle',
+            disabled ? null : _chooseSaucer,
+            icon: Icons.add_circle_outline,
+            tooltip: 'Tabak fotoğrafı ekle',
           ),
         CoffeeAction(
           'Kaldır',
@@ -329,161 +530,40 @@ extension _PhotoSetFlow on _ContributionHomeState {
           icon: Icons.remove_circle_outline,
         ),
       ],
-      if (draft.complete && draft.saucers.isEmpty)
-        CoffeeAction(
-          'Tabak ekle',
-          disabled ? null : () => _save(draft.copy(saucerDecided: false)),
-          icon: Icons.add_circle_outline,
-          tooltip: 'Tabak fotoğrafı ekle',
-        ),
-      if (draft.cupSelectionDone && !draft.saucerDecided) ...[
-        CoffeeAction(
-          'Tabak çek',
-          disabled ? null : _setSaucerCamera,
-          icon: Icons.camera_alt,
-        ),
-        CoffeeAction(
-          'Galeriden seç',
-          disabled ? null : () => _setGallery(surface: PhotoSurface.saucer),
-          icon: Icons.photo_library_outlined,
-          tooltip: 'Galeriden tabak seç',
-        ),
-      ],
     ];
+    if (draft.reviewed) {
+      actions.add(
+        CoffeeAction(
+          'İşaretler',
+          disabled ? null : _continuePhotoSet,
+          icon: Icons.draw_outlined,
+          tooltip: 'İşaretleri Gözden Geçir',
+        ),
+      );
+    }
     final tools = <Widget>[
       if (actions.isNotEmpty)
-        SizedBox(
-          width: double.infinity,
-          child: CoffeeActions(
-            actions,
-            compact: true,
-            referenceLabels:
-                draft.cupSelectionDone && p?.surface == PhotoSurface.cup
-                ? const ['Değiştir', 'Kaldır', 'Tabak çek', 'Galeriden seç']
-                : const [],
+        CoffeeActionStrip(actions, iconsAbove: true)
+      else
+        CoffeeActionStrip([
+          CoffeeAction(
+            draft.isGallery ? 'Galeriden fotoğraf seç' : 'Çekime Devam Et',
+            disabled
+                ? null
+                : draft.isGallery
+                ? _setGallery
+                : _continueAtlasCapture,
           ),
-        ),
-      if (draft.isGallery &&
-          draft.cups.length > 1 &&
-          p?.surface == PhotoSurface.cup)
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            IconButton(
-              tooltip: 'Öne taşı',
-              onPressed: disabled || draft.cups.first.id == p!.id
-                  ? null
-                  : () => _moveSetPhoto(p, -1),
-              icon: const Icon(Icons.arrow_back, size: 20),
-            ),
-            Text(
-              'Sıra ${draft.cups.indexWhere((q) => q.id == p!.id) + 1}/${draft.cups.length}',
-              style: const TextStyle(fontSize: 12),
-            ),
-            IconButton(
-              tooltip: 'Sona taşı',
-              onPressed: disabled || draft.cups.last.id == p!.id
-                  ? null
-                  : () => _moveSetPhoto(p, 1),
-              icon: const Icon(Icons.arrow_forward, size: 20),
-            ),
-          ],
-        ),
+          CoffeeAction(
+            draft.isGallery ? 'Kameraya geç' : 'Galeriden seç',
+            disabled
+                ? null
+                : draft.isGallery
+                ? _startNewCamera
+                : _startSetGallery,
+          ),
+        ]),
     ];
-    final phase = <Widget>[
-      if (p != null && p.surface == PhotoSurface.cup && p.origin == 'gallery')
-        DropdownButtonFormField<String>(
-          key: ValueKey('${p.id}-${p.angle?.name}'),
-          initialValue:
-              (p.angle == CaptureRole.top ? CaptureRole.free : p.angle)?.name ??
-              'unknown',
-          isExpanded: true,
-          style: const TextStyle(fontSize: 12, color: atlasCoffee),
-          decoration: const InputDecoration(
-            labelText: 'Fotoğrafın açısı',
-            contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          ),
-          items: [
-            const DropdownMenuItem(
-              value: 'unknown',
-              child: Text('Açı seç — isteğe bağlı'),
-            ),
-            for (final angle in freeCaptureRoles)
-              if (p.angle == angle ||
-                  !draft.cups.any(
-                    (q) =>
-                        q.id != p.id &&
-                        (q.angle == CaptureRole.top
-                                ? CaptureRole.free
-                                : q.angle) ==
-                            angle,
-                  ))
-                DropdownMenuItem(value: angle.name, child: Text(angle.title)),
-          ],
-          onChanged: disabled
-              ? null
-              : (v) {
-                  if (v != null) _setAngle(p, v);
-                },
-        ),
-      if (!draft.cupSelectionDone) ...[
-        if (draft.photos.isEmpty)
-          CoffeeActions([
-            CoffeeAction(
-              draft.isGallery ? 'Galeriden fotoğraf seç' : 'Çekime Devam Et',
-              disabled
-                  ? null
-                  : draft.isGallery
-                  ? _setGallery
-                  : _continueAtlasCapture,
-              icon: draft.isGallery
-                  ? Icons.photo_library_outlined
-                  : Icons.camera_alt,
-            ),
-            CoffeeAction(
-              draft.isGallery ? 'Kameraya geç' : 'Galeriden seç',
-              disabled
-                  ? null
-                  : draft.isGallery
-                  ? _startNewCamera
-                  : _startSetGallery,
-            ),
-          ])
-        else if (draft.isGallery && draft.cups.length < 3)
-          AtlasActionWidth(
-            child: OutlinedButton.icon(
-              onPressed: disabled ? null : _setGallery,
-              icon: const Icon(Icons.add_photo_alternate, size: 20),
-              label: const Text(
-                'Fincan fotoğrafı ekle',
-                textAlign: TextAlign.center,
-              ),
-            ),
-          )
-        else if (!draft.isGallery && draft.cups.length < 3)
-          OutlinedButton.icon(
-            onPressed: disabled ? null : _continueAtlasCapture,
-            icon: const Icon(Icons.camera_alt, size: 20),
-            label: const Text('Çekime Devam Et'),
-          ),
-      ] else if (draft.complete && draft.photos.length > 1)
-        CheckboxListTile(
-          contentPadding: EdgeInsets.zero,
-          dense: true,
-          visualDensity: VisualDensity.compact,
-          value: _sameSample,
-          title: const Tooltip(
-            message: 'Fotoğraflar aynı fincana ve varsa ona ait tabağa ait.',
-            child: Text(
-              'Hepsi aynı fincana ait.',
-              style: TextStyle(fontSize: 12),
-            ),
-          ),
-          onChanged: disabled
-              ? null
-              : (v) => _change(() => _sameSample = v == true),
-        ),
-    ];
-    return _coffeePreview(photo: p, tools: tools, phase: phase);
+    return _coffeePreview(photo: p, tools: tools, phase: const []);
   }
 }

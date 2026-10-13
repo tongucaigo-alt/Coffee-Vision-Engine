@@ -142,7 +142,14 @@ void main() {
           );
           await tester.pumpAndSettle();
           expect(find.byTooltip('Kaldığın Yerden Devam Et'), findsOneWidget);
-          expect(find.byType(Scrollable), findsNothing);
+          expect(
+            find.byWidgetPredicate(
+              (w) =>
+                  w is Scrollable &&
+                  axisDirectionToAxis(w.axisDirection) == Axis.vertical,
+            ),
+            findsNothing,
+          );
           final heading = find.text('Fincanını Keşfet');
           await tester.ensureVisible(heading);
           await tester.pumpAndSettle();
@@ -271,7 +278,14 @@ void main() {
             .resolve({}),
         atlasCoffee,
       );
-      expect(find.byType(Scrollable), findsNothing);
+      expect(
+        find.byWidgetPredicate(
+          (w) =>
+              w is Scrollable &&
+              axisDirectionToAxis(w.axisDirection) == Axis.vertical,
+        ),
+        findsNothing,
+      );
       expect(scanButton.hitTestable(), findsOneWidget);
       if (scale == 1 && size.width >= 360) {
         expect(tester.getSize(scanButton).width, 280);
@@ -381,10 +395,10 @@ void main() {
       });
       await tester.tap(find.byTooltip('Kaldığın Yerden Devam Et'));
       await tester.pumpAndSettle();
-      expect(find.text('Şekilleri Seç'), findsOneWidget);
+      expect(find.text('Bu fotoğraflarla devam et'), findsOneWidget);
       expect(tester.takeException(), isNull);
       await _snapshot(tester, 'preview-$scale');
-      await tester.tap(find.text('Şekilleri Seç'));
+      await tester.tap(find.text('Bu fotoğraflarla devam et'));
       await tester.pumpAndSettle();
       expect(find.text('Sen ne görüyorsun?'), findsOneWidget);
       expect(tester.takeException(), isNull);
@@ -393,7 +407,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Falımı Oluştur'), findsOneWidget);
       expect(find.text('Yalnız Kaydet'), findsOneWidget);
-      expect(find.text('İşaretleri Gözden Geçir'), findsOneWidget);
+      expect(find.byTooltip('İşaretleri Gözden Geçir'), findsOneWidget);
       expect(tester.takeException(), isNull);
       await _snapshot(tester, 'save-$scale');
       await tester.pumpWidget(

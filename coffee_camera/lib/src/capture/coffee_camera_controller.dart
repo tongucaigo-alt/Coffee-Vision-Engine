@@ -481,8 +481,9 @@ class CoffeeCameraController extends ChangeNotifier {
   }
 
   Future<CoffeeCameraCaptureResult?> takeApprovedFlowResult() async {
-    if (saucerOnly)
+    if (saucerOnly) {
       throw StateError("Use takeApprovedResult for saucer-only capture");
+    }
     if (_phase != CameraExperiencePhase.reviewing || _closed) return null;
     if (isCupStep) {
       final draft = _draftResult;

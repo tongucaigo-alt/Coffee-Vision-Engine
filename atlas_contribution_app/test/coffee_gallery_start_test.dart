@@ -11,6 +11,15 @@ import 'contribution_save_status_test.dart' show MemoryStore, PausedService;
 import 'photo_set_test.dart' show setDraft, setImage;
 import 'suitability_fixture.dart';
 
+// This fixture keeps its draft in memory, rather than draft.json.
+class _GalleryStore extends MemoryStore {
+  _GalleryStore(super.directory, super.draft);
+  @override
+  Future<void> collectOrphans() async {
+    await removeUnreferencedPhotos([?draft]);
+  }
+}
+
 class _Picker implements GalleryPicker {
   _Picker(this.responses);
   final List<Object?> responses;
@@ -39,6 +48,9 @@ Future<void> _drain(WidgetTester tester) async {
       break;
     }
   }
+  await tester.runAsync(
+    () => Future<void>.delayed(const Duration(milliseconds: 100)),
+  );
   await tester.pumpAndSettle();
 }
 
@@ -69,7 +81,7 @@ void main({Future<void> Function(String)? capture, bool device = false}) {
     }
     await tester.runAsync(() async {
       root = await Directory.systemTemp.createTemp('atlas-v55-gallery-');
-      store = MemoryStore(root, draft)..accepted = true;
+      store = _GalleryStore(root, draft)..accepted = true;
       store.rows.add({'id': 'retained-record'});
       for (final p in draft?.photos ?? <ContributionPhoto>[]) {
         await store.file(p.localName).writeAsBytes(setImage(0));
@@ -102,6 +114,7 @@ void main({Future<void> Function(String)? capture, bool device = false}) {
                 required config,
                 required captureTitle,
                 required captureInstruction,
+                onFinishSequence,
               }) async => null,
         ),
       ),
@@ -140,8 +153,16 @@ void main({Future<void> Function(String)? capture, bool device = false}) {
               find.text('Galeriden fotoğraf seç').hitTestable(),
               findsOneWidget,
             );
+            await tester.ensureVisible(find.text('Kameraya geç'));
             expect(find.text('Kameraya geç').hitTestable(), findsOneWidget);
-            expect(find.byType(Scrollable), findsNothing);
+            expect(
+              find.byWidgetPredicate(
+                (w) =>
+                    w is Scrollable &&
+                    axisDirectionToAxis(w.axisDirection) == Axis.vertical,
+              ),
+              findsNothing,
+            );
             expect(
               find.text('Önce mevcut çalışmanı tamamla veya taslağı sil.'),
               findsNothing,
@@ -149,10 +170,12 @@ void main({Future<void> Function(String)? capture, bool device = false}) {
             if (capture != null) {
               await capture('gallery-empty-${scale.toInt()}');
             }
+            await tester.ensureVisible(find.text('Galeriden fotoğraf seç'));
             await tester.tap(find.text('Galeriden fotoğraf seç'));
             await _drain(tester);
             expect(picker.calls, 2);
             expect(store.rows.single['id'], 'retained-record');
+            await tester.ensureVisible(find.text('Kameraya geç'));
             await tester.tap(find.text('Kameraya geç'));
             await _drain(tester);
             expect(store.draft!.isGallery, false);
@@ -190,7 +213,14 @@ void main({Future<void> Function(String)? capture, bool device = false}) {
         await _drain(tester);
         expect(store.draft!.isGallery, !gallery);
         expect(picker.calls, gallery ? 0 : 1);
-        expect(find.byType(Scrollable), findsNothing);
+        expect(
+          find.byWidgetPredicate(
+            (w) =>
+                w is Scrollable &&
+                axisDirectionToAxis(w.axisDirection) == Axis.vertical,
+          ),
+          findsNothing,
+        );
         expect(tester.takeException(), isNull);
       },
     );

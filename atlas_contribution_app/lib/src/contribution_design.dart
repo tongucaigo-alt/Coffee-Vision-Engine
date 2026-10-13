@@ -4,7 +4,7 @@ extension _AtlasHomePresentation on _ContributionHomeState {
   bool get _hasTarot => widget.tarotPage != null;
   int get _historyTab => _hasTarot ? 2 : 1;
   int get _settingsTab => _hasTarot ? 3 : 2;
-  bool get _atlasBusy => _busy || _sequenceRunning;
+  bool get _atlasBusy => _busy || _sequenceRunning || _saucerChoiceOpen;
   String _photoIdentity(ContributionPhoto p) => '${p.localName}|${p.checksum}';
 
   Future<void> _startNewCamera() => _startNewCoffee(gallery: false);
@@ -109,7 +109,10 @@ extension _AtlasHomePresentation on _ContributionHomeState {
     }
   }
 
-  Widget _coffeeSecondaryActions(VoidCallback? save) => CoffeeActions([
+  Widget _coffeeSecondaryActions(
+    VoidCallback? save, {
+    List<CoffeeAction> extra = const [],
+  }) => CoffeeActionStrip([
     CoffeeAction(
       _savePhase == _SavePhase.idle ? 'Yalnız Kaydet' : _saveLabel,
       save,
@@ -118,78 +121,33 @@ extension _AtlasHomePresentation on _ContributionHomeState {
       'Taslağı sil',
       _atlasBusy || _draft?.queued == true ? null : _discard,
     ),
+    ...extra,
   ]);
 
   Widget _atlasFlowActions() {
     final draft = _draft!;
     final disabled = _atlasBusy || draft.queued;
-    final selecting = draft.isSet && !draft.cupSelectionDone;
-    final saucer =
-        draft.isSet && draft.cupSelectionDone && !draft.saucerDecided;
-    final same = draft.photos.length == 1 || _sameSample;
-    final hint = draft.queued
-        ? 'Çalışman gönderim kuyruğunda.'
-        : _atlasBusy
-        ? 'İşlem tamamlanıyor…'
-        : !draft.cupsComplete
-        ? draft.isGallery
-              ? 'Devam etmek için bir fincan fotoğrafı seç.'
-              : 'Üç açıdan çekimi tamamla (${draft.cups.length}/3).'
-        : !selecting && !saucer && !same
-        ? 'Aynı fincanı onayla.'
-        : null;
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (hint != null)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: Semantics(
-              liveRegion: true,
-              child: Text(
-                hint,
-                textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 12),
-              ),
-            ),
-          ),
-        if (selecting || saucer) ...[
+        if (draft.reviewed)
+          _saveActions(!disabled || _savePhase == _SavePhase.failed)
+        else ...[
           AtlasPrimaryButton(
             onPressed: disabled || !draft.cupsComplete
                 ? null
-                : () => _save(
-                    selecting
-                        ? draft.copy(cupSelectionDone: true)
-                        : draft.copy(saucerDecided: true),
-                  ),
-            child: Text(
-              selecting ? 'Bu fotoğraflarla devam et' : 'Tabaksız devam et',
+                : draft.isSet
+                ? _continuePhotoSet
+                : _atlasAnnotations,
+            child: const Text(
+              'Bu fotoğraflarla devam et',
               textAlign: TextAlign.center,
             ),
           ),
-          _coffeeSecondaryActions(null),
-        ] else ...[
-          AtlasPrimaryButton.icon(
-            onPressed: disabled || !draft.complete || !same
-                ? null
-                : _atlasAnnotations,
-            icon: const Icon(Icons.draw_outlined, size: 20),
-            label: Text(
-              draft.reviewed ? 'İşaretleri Gözden Geçir' : 'Şekilleri Seç',
-            ),
+          _coffeeSecondaryActions(
+            disabled || !draft.complete ? null : _saveWithoutShapes,
           ),
-          if (draft.reviewed) ...[
-            if (widget.onGenerateFortune != null) const SizedBox(height: 8),
-            _saveActions(
-              !_atlasBusy &&
-                  same &&
-                  (!draft.queued || _savePhase == _SavePhase.failed),
-            ),
-          ] else
-            _coffeeSecondaryActions(
-              disabled || !draft.complete || !same ? null : _saveWithoutShapes,
-            ),
         ],
       ],
     );
@@ -237,13 +195,17 @@ extension _AtlasHomePresentation on _ContributionHomeState {
     await _continueAtlasCapture();
   }
 
-  Future<void> _continueAtlasCapture() async {
-    if (_atlasBusy || _draft == null || _draft!.isGallery || _draft!.queued) {
+  Future<void> _continueAtlasCapture({bool addRemaining = false}) async {
+    if (_atlasBusy ||
+        _draft == null ||
+        _draft!.isGallery ||
+        _draft!.queued ||
+        (_draft!.cupsComplete && !addRemaining)) {
       return;
     }
     _change(() => _sequenceRunning = true);
     try {
-      while (mounted && _draft != null && !_draft!.cupsComplete) {
+      while (mounted && _draft != null && _draft!.cups.length < 3) {
         final before = _draft!.cups.length;
         await _capture(
           _draft!.captureRoles.firstWhere((r) => _draft!.photo(r) == null),
@@ -252,7 +214,13 @@ extension _AtlasHomePresentation on _ContributionHomeState {
         if (_draft == null || _draft!.cups.length == before) break;
       }
       if (_draft?.isSet == true && _draft!.cupsComplete) {
-        await _save(_draft!.copy(cupSelectionDone: true));
+        await _save(
+          _draft!.copy(
+            cupSelectionDone: true,
+            captureSequenceFinished:
+                _draft!.cups.length < 3 && _draft!.captureSequenceFinished,
+          ),
+        );
       }
     } finally {
       _change(() => _sequenceRunning = false);
@@ -263,9 +231,38 @@ extension _AtlasHomePresentation on _ContributionHomeState {
     await _pickGallery();
   }
 
-  Future<void> _atlasAnnotations() async {
+  Future<void> _continuePhotoSet() async {
     final draft = _draft;
-    if (_atlasBusy || draft == null || draft.queued) return;
+    if (_atlasBusy || draft == null || draft.queued || !draft.cupsComplete) {
+      return;
+    }
+    _change(() => _sequenceRunning = true);
+    try {
+      if (!draft.cupSelectionDone || !draft.saucerDecided) {
+        await _save(draft.copy(cupSelectionDone: true, saucerDecided: true));
+      }
+      if (mounted) await _atlasAnnotations(ownsSequence: true);
+    } catch (_) {
+      if (mounted) {
+        showNotice(
+          context,
+          'Fotoğrafların korunuyor. Devam etmeyi yeniden deneyebilirsin.',
+        );
+      }
+    } finally {
+      _change(() => _sequenceRunning = false);
+    }
+  }
+
+  Future<void> _atlasAnnotations({bool ownsSequence = false}) async {
+    final draft = _draft;
+    if (_busy ||
+        _saucerChoiceOpen ||
+        (_sequenceRunning && !ownsSequence) ||
+        draft == null ||
+        draft.queued) {
+      return;
+    }
     _change(() => _busy = true);
     try {
       for (final p in draft.photos) {
@@ -344,6 +341,7 @@ extension _AtlasHomePresentation on _ContributionHomeState {
         galleryStart: old.isGallery,
         cupSelectionDone: true,
         saucerDecided: old.isSet ? old.saucerDecided : false,
+        captureSequenceFinished: old.captureSequenceFinished,
         photos: old.photos.map((p) => p.asSetPhoto()),
       ),
     );
@@ -405,13 +403,11 @@ extension _AtlasHomePresentation on _ContributionHomeState {
           appBar: AppBar(
             automaticallyImplyLeading: false,
             toolbarHeight: inFlow
-                ? 56 +
-                      24 *
-                          (MediaQuery.textScalerOf(context).scale(16) / 16 - 1)
-                              .clamp(0, 1)
+                ? CoffeePhotoLayout.toolbarHeight
                 : _tab == 0
                 ? 72
                 : null,
+            flexibleSpace: inFlow ? _coffeeAngleHeader() : null,
             leading: inFlow
                 ? IconButton(
                     tooltip: 'Ana sayfaya dön',
@@ -498,12 +494,7 @@ extension _AtlasHomePresentation on _ContributionHomeState {
                 : null,
           ),
           bottomNavigationBar: inFlow
-              ? SafeArea(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-                    child: _atlasFlowActions(),
-                  ),
-                )
+              ? null
               : SafeArea(
                   top: false,
                   child: MediaQuery.removePadding(
@@ -550,7 +541,7 @@ extension _AtlasHomePresentation on _ContributionHomeState {
           body: _loading
               ? const Center(child: CircularProgressIndicator())
               : inFlow
-              ? _atlasDraft()
+              ? SafeArea(child: _atlasDraft())
               : _hasTarot && _tab == 1
               ? widget.tarotPage!
               : _tab == _historyTab
@@ -921,7 +912,7 @@ extension _AtlasHomePresentation on _ContributionHomeState {
         if (photo != null)
           SizedBox(
             width: double.infinity,
-            child: CoffeeActions([
+            child: CoffeeActionStrip([
               CoffeeAction(
                 'Değiştir',
                 disabled
@@ -936,6 +927,13 @@ extension _AtlasHomePresentation on _ContributionHomeState {
                 icon: Icons.refresh,
                 tooltip: '${photo.title} yeniden çek',
               ),
+              if (draft.reviewed)
+                CoffeeAction(
+                  'İşaretler',
+                  disabled ? null : _atlasAnnotations,
+                  icon: Icons.draw_outlined,
+                  tooltip: 'İşaretleri Gözden Geçir',
+                ),
             ]),
           ),
       ],
@@ -964,19 +962,6 @@ extension _AtlasHomePresentation on _ContributionHomeState {
             onPressed: disabled ? null : _continueAtlasCapture,
             icon: const Icon(Icons.camera_alt, size: 20),
             label: const Text('Çekime Devam Et'),
-          ),
-        if (draft.complete && !draft.isGallery)
-          CheckboxListTile(
-            contentPadding: EdgeInsets.zero,
-            dense: true,
-            value: _sameSample,
-            title: const Text(
-              'Üç fotoğraf aynı fincan / telve grubuna ait.',
-              style: TextStyle(fontSize: 12),
-            ),
-            onChanged: disabled
-                ? null
-                : (v) => _change(() => _sameSample = v == true),
           ),
       ],
     );

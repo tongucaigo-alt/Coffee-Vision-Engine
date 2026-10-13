@@ -104,8 +104,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.byTooltip('Kaldığın Yerden Devam Et'));
       await tester.pumpAndSettle();
-      await tester.tap(find.byType(CheckboxListTile).first);
-      await tester.pump();
+      expect(find.byType(CheckboxListTile), findsNothing);
       final button = find.text(
         mode == 'onlySave' ? 'Yalnız Kaydet' : 'Falımı Oluştur',
       );

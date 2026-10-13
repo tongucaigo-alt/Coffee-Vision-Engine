@@ -100,6 +100,7 @@ class _FakeCamera {
     required CoffeeCameraConfig config,
     required String captureTitle,
     required String captureInstruction,
+    Future<void> Function()? onFinishSequence,
   }) async {
     requests.add(_CameraRequest(config, captureTitle, captureInstruction));
     final response = responses.removeAt(0);
@@ -359,10 +360,9 @@ void main() {
         find.text('Tabak fotoğrafı da eklemek ister misin?'),
         findsNothing,
       );
-      await tester.ensureVisible(find.text('Tabaksız devam et'));
-      await tester.tap(find.text('Tabaksız devam et'));
-      await tester.pumpAndSettle();
-      expect(store.current!.complete, true);
+      expect(find.text('Tabaksız devam et'), findsNothing);
+      expect(find.text('Bu fotoğraflarla devam et'), findsOneWidget);
+      expect(find.byType(CheckboxListTile), findsNothing);
       expect(store.current!.photos.every((p) => p.id != null), true);
       expect(camera.requests.map((r) => r.config.handleGuide), [
         CameraHandleGuide.none,
@@ -627,14 +627,11 @@ void main() {
           ][i],
         );
       }
-      final next = find.widgetWithText(FilledButton, 'Şekilleri Seç');
-      expect(tester.widget<FilledButton>(next).onPressed, isNull);
-      for (var i = 0; i < 1; i++) {
-        final check = find.byType(CheckboxListTile).at(i);
-        await tester.ensureVisible(check);
-        await tester.tap(check);
-        await tester.pumpAndSettle();
-      }
+      final next = find.widgetWithText(
+        FilledButton,
+        'Bu fotoğraflarla devam et',
+      );
+      expect(tester.widget<FilledButton>(next).onPressed, isNotNull);
       await tester.ensureVisible(next);
       await tester.tap(next);
       await tester.pumpAndSettle();
@@ -649,17 +646,18 @@ void main() {
         store.current!.photos.every((p) => p.decision == PhotoDecision.skipped),
         true,
       );
-      expect(find.text('İşaretleri Gözden Geçir'), findsOneWidget);
+      expect(find.byTooltip('İşaretleri Gözden Geçir'), findsOneWidget);
       expect(find.byType(FortuneScan), findsNothing);
       tester.view.physicalSize = const Size(360, 640);
       tester.platformDispatcher.textScaleFactorTestValue = 1.8;
       addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
-      final footer = tester.getRect(find.text('İşaretleri Gözden Geçir'));
+      final footer = tester.getRect(find.byTooltip('İşaretleri Gözden Geçir'));
       expect(footer.top, greaterThan(250));
       final decisions = store.current!.photos.map((p) => p.decision).toList();
-      await tester.tap(find.text('İşaretleri Gözden Geçir'));
+      await tester.ensureVisible(find.byTooltip('İşaretleri Gözden Geçir'));
+      await tester.tap(find.byTooltip('İşaretleri Gözden Geçir'));
       await tester.pumpAndSettle();
       expect(find.text('Sen ne görüyorsun?'), findsOneWidget);
       await tester.pageBack();
@@ -679,18 +677,7 @@ void main() {
             store.current!.photos[1].decision == PhotoDecision.unreviewed,
       );
       expect(camera.requests.last.config.handleGuide, CameraHandleGuide.right);
-      expect(
-        tester
-            .widget<CheckboxListTile>(find.byType(CheckboxListTile).first)
-            .value,
-        false,
-      );
-      expect(
-        tester
-            .widget<CheckboxListTile>(find.byType(CheckboxListTile).first)
-            .value,
-        false,
-      );
+      expect(find.byType(CheckboxListTile), findsNothing);
       expect(store.current!.photos[1].decision, PhotoDecision.unreviewed);
       expect(store.current!.photos.first.decision, PhotoDecision.skipped);
       await tester.pumpWidget(const SizedBox());

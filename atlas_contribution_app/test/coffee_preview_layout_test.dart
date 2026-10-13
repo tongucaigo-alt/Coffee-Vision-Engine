@@ -15,6 +15,7 @@ void main({
   Future<Uint8List> Function()? photoBytes,
   bool device = false,
 }) {
+  final frames = <String, Rect>{};
   setUpAll(() async {
     for (final (name, asset) in [
       ('Literata', 'assets/brand/Literata.ttf'),
@@ -70,26 +71,25 @@ void main({
         await tester.pumpAndSettle();
         await tester.tap(find.byTooltip('Kaldığın Yerden Devam Et'));
         await tester.pumpAndSettle();
-        final review = find.widgetWithText(
-          FilledButton,
-          'İşaretleri Gözden Geçir',
-        );
+        final review = find.byTooltip('İşaretleri Gözden Geçir');
         final generate = find.widgetWithText(FilledButton, 'Falımı Oluştur');
+        await tester.ensureVisible(review);
+        await tester.pumpAndSettle();
         expect(review.hitTestable(), findsOneWidget);
         expect(generate.hitTestable(), findsOneWidget);
         if (scale == 1) {
-          for (final action in [review, generate]) {
-            expect(tester.getSize(action).width, 280);
-            expect(tester.getRect(action).center.dx, closeTo(width / 2, .1));
-            expect(tester.getSize(action).height, greaterThanOrEqualTo(48));
-          }
+          expect(tester.getSize(generate).width, 280);
+          expect(tester.getRect(generate).center.dx, closeTo(width / 2, .1));
         }
-        expect(
-          tester.getRect(generate).top - tester.getRect(review).bottom,
-          closeTo(8, .1),
-        );
         expect(find.text('Yalnız Kaydet').hitTestable(), findsOneWidget);
-        expect(find.byType(Scrollable), findsNothing);
+        expect(
+          find.byWidgetPredicate(
+            (w) =>
+                w is Scrollable &&
+                axisDirectionToAxis(w.axisDirection) == Axis.vertical,
+          ),
+          findsNothing,
+        );
         expect(
           tester.getSize(find.byType(CroppedPhoto)).height,
           greaterThan(0),
@@ -166,6 +166,7 @@ void main({
                           required config,
                           required captureTitle,
                           required captureInstruction,
+                          onFinishSequence,
                         }) async => null,
                   ),
                 ),
@@ -173,133 +174,162 @@ void main({
               await tester.pumpAndSettle();
               await tester.tap(find.byTooltip('Kaldığın Yerden Devam Et'));
               await tester.pumpAndSettle();
-              expect(find.byType(Scrollable), findsNothing);
+              expect(
+                find.byWidgetPredicate(
+                  (w) =>
+                      w is Scrollable &&
+                      axisDirectionToAxis(w.axisDirection) == Axis.vertical,
+                ),
+                findsNothing,
+              );
               expect(tester.takeException(), isNull);
+              final next = find.widgetWithText(
+                FilledButton,
+                'Bu fotoğraflarla devam et',
+              );
+              expect(next.hitTestable(), findsOneWidget);
+              expect(find.text('Tabaksız devam et'), findsNothing);
+              expect(find.text('Tabak ekle').hitTestable(), findsOneWidget);
+              final frameKey = '$gallery-$count-$width';
+              final measuredFrame = tester.getRect(
+                find.byKey(const ValueKey('coffee-photo-frame')),
+              );
+              // V63 geometry stays fixed; the new header does not consume body space.
+              expect(measuredFrame, Rect.fromLTWH(16, 88, width - 32, 428));
+              expect(
+                tester.getRect(find.text('Fotoğraflarına Bak')).center.dy,
+                40,
+              );
+              if (count < 3) {
+                final target = tester.getSize(find.byTooltip('Fotoğraf ekle'));
+                expect(target.width, greaterThanOrEqualTo(48));
+                expect(target.height, greaterThanOrEqualTo(48));
+                expect(
+                  tester
+                      .widget<Text>(find.text('Fotoğraf ekle'))
+                      .style!
+                      .fontSize,
+                  9,
+                );
+              }
+              if (scale == 1) {
+                frames[frameKey] = measuredFrame;
+              } else {
+                expect(measuredFrame, frames[frameKey]);
+              }
+              final before = store.draft!.toJson();
+              if (scale == 1) {
+                final change = tester.getRect(find.text('Değiştir'));
+                final saucer = tester.getRect(find.text('Tabak ekle'));
+                final remove = tester.getRect(find.text('Kaldır'));
+                expect(saucer.center.dy, closeTo(change.center.dy, 1));
+                expect(remove.center.dy, closeTo(change.center.dy, 1));
+                expect(change.center.dx, lessThan(saucer.center.dx));
+                expect(saucer.center.dx, lessThan(remove.center.dx));
+              }
               if (gallery) {
+                final angle = find.byKey(
+                  const ValueKey('coffee-angle-control'),
+                );
+                expect(tester.getSize(angle).height, greaterThanOrEqualTo(48));
+                final angleText = tester.getRect(find.text('Açı seç'));
+                final title = tester.getRect(find.text('Fotoğraflarına Bak'));
+                expect(angleText.top, greaterThanOrEqualTo(title.bottom));
+                expect(angleText.bottom, lessThanOrEqualTo(measuredFrame.top));
+                expect(tester.getRect(angle).left, greaterThanOrEqualTo(56));
+                await tester.tap(angle);
+                await tester.pumpAndSettle();
+                final menu = find
+                    .ancestor(
+                      of: find.text('Açı seç — isteğe bağlı').last,
+                      matching: find.byType(Material),
+                    )
+                    .first;
+                expect(tester.getSize(menu).width, tester.getSize(next).width);
+                expect(tester.getRect(menu).center.dx, closeTo(width / 2, .1));
+                await tester.tapAt(const Offset(2, 2));
+                await tester.pumpAndSettle();
+                expect(store.draft!.toJson(), before);
+              }
+              await tester.tap(find.byTooltip('Tabak fotoğrafı ekle'));
+              await tester.pumpAndSettle();
+              expect(find.text('Kamera').hitTestable(), findsOneWidget);
+              expect(find.text('Galeri').hitTestable(), findsOneWidget);
+              await tester.tap(find.text('Vazgeç'));
+              await tester.pumpAndSettle();
+              expect(store.draft!.toJson(), before);
+              if (capture != null) {
+                await tester.runAsync(
+                  () => Future<void>.delayed(const Duration(milliseconds: 200)),
+                );
+                await tester.pumpAndSettle();
+                await capture('photo-step-$count-${scale.toInt()}');
+              }
+              if (gallery || count == 3) {
+                expect(find.byType(CheckboxListTile), findsNothing);
+                final previewFrame = tester.getRect(
+                  find.byKey(const ValueKey('coffee-photo-frame')),
+                );
+                final previewImage = tester.getRect(find.byType(CroppedPhoto));
+                await tester.tap(next);
+                await tester.pumpAndSettle();
+                expect(store.draft!.cupSelectionDone, true);
+                expect(store.draft!.saucerDecided, true);
+                expect(find.text('Sen ne görüyorsun?'), findsOneWidget);
+                expect(find.text('Taşı').hitTestable(), findsOneWidget);
+                expect(
+                  tester.widget<Text>(find.text('Taşı')).style!.fontSize,
+                  12,
+                );
+                final mode = tester.getRect(
+                  find.byKey(const ValueKey('coffee-mode-control')),
+                );
+                expect(mode.bottom, lessThanOrEqualTo(previewFrame.top));
+                expect(mode.left, 56);
+                expect(mode.overlaps(tester.getRect(find.byType(BackButton))), false);
+                expect(
+                  tester.getRect(find.text('Taşı')).top,
+                  greaterThanOrEqualTo(
+                    tester.getRect(find.text('Sen ne görüyorsun?')).bottom,
+                  ),
+                );
+                expect(
+                  tester.getRect(find.text('Sen ne görüyorsun?')).center.dy,
+                  40,
+                );
+                final fit = tester.getSize(find.byTooltip('Fotoğrafı sığdır'));
+                expect(fit.width, greaterThanOrEqualTo(48));
+                expect(fit.height, greaterThanOrEqualTo(48));
+                expect(
+                  tester.getRect(
+                    find.byKey(const ValueKey('coffee-photo-frame')),
+                  ),
+                  previewFrame,
+                );
+                expect(tester.getRect(find.byType(CroppedPhoto)), previewImage);
+                expect(find.text('Tabaksız devam et'), findsNothing);
+                await tester.pageBack();
+                await tester.pumpAndSettle();
+                expect(find.text('Fotoğraflarına Bak'), findsOneWidget);
                 expect(
                   find.text('Bu fotoğraflarla devam et').hitTestable(),
                   findsOneWidget,
                 );
-                if (count == 1) {
-                  final add = find.widgetWithText(
-                    OutlinedButton,
-                    'Fincan fotoğrafı ekle',
-                  );
-                  final next = find.widgetWithText(
-                    FilledButton,
-                    'Bu fotoğraflarla devam et',
-                  );
-                  expect(add.hitTestable(), findsOneWidget);
-                  expect(tester.getSize(add).width, tester.getSize(next).width);
-                  expect(tester.getRect(add).center.dx, closeTo(width / 2, .1));
-                  if (scale == 1) {
-                    expect(tester.getSize(add), tester.getSize(next));
-                    expect(tester.getSize(add).width, 280);
-                  }
-                  expect(tester.getSize(add).height, greaterThanOrEqualTo(48));
-                  expect(
-                    tester.getRect(next).top - tester.getRect(add).bottom,
-                    greaterThanOrEqualTo(8),
-                  );
-                }
-                if (capture != null) {
-                  // FileImage decoding uses real I/O; let it complete before
-                  // capturing a painted frame or deleting the temporary set.
-                  await tester.runAsync(
-                    () =>
-                        Future<void>.delayed(const Duration(milliseconds: 200)),
-                  );
-                  await tester.pumpAndSettle();
-                  await capture('photo-step-$count-${scale.toInt()}');
-                }
-                await tester.tap(find.text('Bu fotoğraflarla devam et'));
-                await tester.pumpAndSettle();
-              } else if (count == 1) {
+              } else {
+                expect(tester.widget<FilledButton>(next).onPressed, isNull);
                 expect(
-                  find.text('Çekime Devam Et').hitTestable(),
-                  findsOneWidget,
-                );
-                expect(
-                  tester
-                      .widget<FilledButton>(
-                        find.widgetWithText(
-                          FilledButton,
-                          'Bu fotoğraflarla devam et',
-                        ),
-                      )
-                      .onPressed,
-                  isNull,
-                );
-              }
-              if (gallery || count == 3) {
-                expect(find.text('Tabak çek').hitTestable(), findsOneWidget);
-                expect(
-                  find.text('Galeriden seç').hitTestable(),
-                  findsOneWidget,
-                );
-                expect(
-                  find.text('Tabaksız devam et').hitTestable(),
-                  findsOneWidget,
-                );
-                if (capture != null) {
-                  await capture('saucer-step-$count-${scale.toInt()}');
-                }
-                final shown = tester.getSize(find.byType(CroppedPhoto));
-                final saucerRect = tester.getRect(find.byType(CroppedPhoto));
-                expect(
-                  find.text('Tabak fotoğrafı da eklemek ister misin?'),
-                  findsNothing,
-                );
-                if (scale == 1) {
-                  final change = tester.getRect(find.text('Değiştir'));
-                  for (final title in [
-                    'Kaldır',
-                    'Tabak çek',
-                    'Galeriden seç',
-                  ]) {
-                    expect(
-                      tester.getRect(find.text(title)).center.dy,
-                      closeTo(change.center.dy, 1),
-                    );
-                  }
-                }
-                final savedPhoto = store.draft!.photos.first;
-                expect(
-                  shown.width / shown.height,
-                  closeTo(
-                    savedPhoto.visibleCrop.aspectRatio(
-                      savedPhoto.width,
-                      savedPhoto.height,
-                    ),
-                    .001,
-                  ),
-                );
-                await tester.tap(find.text('Tabaksız devam et'));
-                await tester.pumpAndSettle();
-                expect(store.draft!.saucerDecided, true);
-                if (count == 1 && gallery) {
-                  expect(tester.getRect(find.byType(CroppedPhoto)), saucerRect);
-                }
-                if (capture != null) {
-                  await capture('confirm-step-$count-${scale.toInt()}');
-                }
-                final photoIds = store.draft!.photos.map((p) => p.id).toList();
-                await tester.tap(find.byTooltip('Tabak fotoğrafı ekle'));
-                await tester.pumpAndSettle();
-                expect(store.draft!.photos.map((p) => p.id).toList(), photoIds);
-                expect(find.text('Tabak çek').hitTestable(), findsOneWidget);
-                await tester.tap(find.text('Tabaksız devam et'));
-                await tester.pumpAndSettle();
-                if (count > 1) {
-                  await tester.tap(find.byType(CheckboxListTile));
-                  await tester.pumpAndSettle();
-                }
-                expect(
-                  find.text('Şekilleri Seç').hitTestable(),
+                  find.text('Fotoğraf ekle').hitTestable(),
                   findsOneWidget,
                 );
               }
-              expect(find.byType(Scrollable), findsNothing);
+              expect(
+                find.byWidgetPredicate(
+                  (w) =>
+                      w is Scrollable &&
+                      axisDirectionToAxis(w.axisDirection) == Axis.vertical,
+                ),
+                findsNothing,
+              );
               expect(tester.takeException(), isNull);
               await tester.pumpWidget(const SizedBox());
               await tester.runAsync(() => root.delete(recursive: true));

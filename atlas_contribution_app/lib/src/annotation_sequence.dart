@@ -142,14 +142,25 @@ class _AnnotationSequenceState extends State<AnnotationSequence> {
           completionLabel: _index == _photos.length - 1
               ? 'Tamamla'
               : 'Sonraki Fotoğraf',
-          navigation: Column(
+          navigation: Stack(
+            fit: StackFit.expand,
             children: [
-              if (_loadingTraces) const LinearProgressIndicator(minHeight: 2),
               PhotoNavigation(
                 index: _index,
                 count: _photos.length,
                 onSelect: _busy ? null : _select,
+                overlay: true,
+                bottomInset: MediaQuery.textScalerOf(context).scale(14) > 19
+                    ? 80
+                    : 8,
               ),
+              if (_loadingTraces)
+                const Positioned(
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  child: LinearProgressIndicator(minHeight: 2),
+                ),
             ],
           ),
         ),

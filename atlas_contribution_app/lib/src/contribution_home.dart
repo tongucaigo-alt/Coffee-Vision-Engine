@@ -14,6 +14,7 @@ import 'theme.dart';
 import 'photo_view.dart';
 import 'photo_navigation.dart';
 import 'coffee_controls.dart';
+import 'coffee_photo_layout.dart';
 import 'gallery_import.dart';
 import 'capture_settings.dart';
 import 'cropped_photo.dart';
@@ -44,6 +45,7 @@ typedef CameraLauncher =
       required CoffeeCameraConfig config,
       required String captureTitle,
       required String captureInstruction,
+      Future<void> Function()? onFinishSequence,
     });
 
 Future<CameraCaptureResult?> _openContributionCamera(
@@ -51,11 +53,13 @@ Future<CameraCaptureResult?> _openContributionCamera(
   required CoffeeCameraConfig config,
   required String captureTitle,
   required String captureInstruction,
+  Future<void> Function()? onFinishSequence,
 }) => showCoffeeCamera(
   context,
   config: config,
   captureTitle: captureTitle,
   captureInstruction: captureInstruction,
+  onFinishSequence: onFinishSequence,
 );
 
 class ContributionHome extends StatefulWidget {
@@ -120,6 +124,7 @@ class _ContributionHomeState extends State<ContributionHome>
   ContributionDraft? _draft;
   bool _loading = true, _busy = false, _resumePrompt = false;
   bool _fortuneWorkflow = false, _startChoiceOpen = false;
+  bool _saucerChoiceOpen = false;
   VoidCallback? _galleryRetry;
   String? _error;
   int _uploaded = 0;
@@ -150,7 +155,19 @@ class _ContributionHomeState extends State<ContributionHome>
             ),
           ),
         if (widget.modern)
-          _coffeeSecondaryActions(enabled ? () => _send() : null)
+          _coffeeSecondaryActions(
+            enabled ? () => _send() : null,
+            extra: [
+              if (snapshot.connectionState == ConnectionState.done &&
+                  snapshot.data == null &&
+                  widget.onAiSettings != null)
+                CoffeeAction(
+                  'Fal bağlantısını ayarla',
+                  widget.onAiSettings,
+                  icon: Icons.settings_outlined,
+                ),
+            ],
+          )
         else
           TextButton(
             onPressed: enabled ? () => _send() : null,
@@ -158,7 +175,8 @@ class _ContributionHomeState extends State<ContributionHome>
               widget.onGenerateFortune == null ? _saveLabel : 'Yalnız Kaydet',
             ),
           ),
-        if (widget.onGenerateFortune != null &&
+        if (!widget.modern &&
+            widget.onGenerateFortune != null &&
             snapshot.connectionState == ConnectionState.done &&
             snapshot.data == null)
           TextButton.icon(
@@ -398,6 +416,22 @@ class _ContributionHomeState extends State<ContributionHome>
         captureTitle:
             '${_draft!.captureRoles.indexOf(role) + 1} / 3 · ${cameraCaptureTitle(role)}',
         captureInstruction: cameraCaptureInstruction(role),
+        onFinishSequence:
+            widget.modern &&
+                _sequenceRunning &&
+                _draft!.isSet &&
+                !_draft!.isGallery &&
+                _draft!.cups.isNotEmpty &&
+                _draft!.photo(role) == null
+            ? () async {
+                await _save(
+                  _draft!.copy(
+                    captureSequenceFinished: true,
+                    cupSelectionDone: true,
+                  ),
+                );
+              }
+            : null,
       );
       if (result == null) return;
       final imported = await widget.store.importCapture(
@@ -547,8 +581,9 @@ class _ContributionHomeState extends State<ContributionHome>
           if (mounted) setState(() => _uploaded = count);
         },
       );
-      final confirmed = (_sameSample || _draft!.photos.length == 1)
-          // Same-sample declaration is independent of the system's photo check.
+      final confirmed =
+          (widget.modern || _sameSample || _draft!.photos.length == 1)
+          // Modern photos belong to one working set, independently of suitability.
           // onConfirmedRecorded reads each actual assessment; no usability tick
           // is synthesized, including when a check failed.
           ? _draft!.photos.map(_photoIdentity).toSet()

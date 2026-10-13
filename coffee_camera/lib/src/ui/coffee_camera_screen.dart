@@ -36,6 +36,7 @@ class CoffeeCameraScreen extends StatefulWidget {
     this.saucerOnly = false,
     this.captureTitle,
     this.captureInstruction,
+    this.onFinishSequence,
   }) : onCompleted = null,
        flowMode = false;
 
@@ -54,6 +55,7 @@ class CoffeeCameraScreen extends StatefulWidget {
        onApproved = null,
        captureTitle = null,
        captureInstruction = null,
+       onFinishSequence = null,
        flowMode = true;
 
   final ValueChanged<CameraCaptureResult>? onApproved;
@@ -67,6 +69,7 @@ class CoffeeCameraScreen extends StatefulWidget {
   final ValueChanged<ResidueAnalysisResult>? onSaucerResidueAnalysis;
   final String? captureTitle;
   final String? captureInstruction;
+  final Future<void> Function()? onFinishSequence;
 
   @visibleForTesting
   final CameraService? cameraService;
@@ -88,6 +91,7 @@ class _CoffeeCameraScreenState extends State<CoffeeCameraScreen>
   late final CoffeeCameraController _controller;
   late final AnimationController _scanAnimation;
   bool _closing = false;
+  bool _finishingSequence = false;
   bool _backInFlight = false;
   bool _approvalInFlight = false;
   bool _appIsActive = true;
@@ -176,6 +180,7 @@ class _CoffeeCameraScreenState extends State<CoffeeCameraScreen>
   }
 
   Future<void> _back() async {
+    if (_finishingSequence) return;
     if (_closing || _backInFlight) return;
     _backInFlight = true;
     try {
@@ -187,6 +192,7 @@ class _CoffeeCameraScreenState extends State<CoffeeCameraScreen>
   }
 
   Future<void> _approve() async {
+    if (_finishingSequence) return;
     if (_closing || _approvalInFlight) return;
     _approvalInFlight = true;
     try {
@@ -217,6 +223,37 @@ class _CoffeeCameraScreenState extends State<CoffeeCameraScreen>
       CoffeeCaptureStep.cup => widget.config.strings.cupCaptureStep,
       CoffeeCaptureStep.saucer => widget.config.strings.saucerCaptureStep,
     };
+  }
+
+  Future<void> _finishSequence() async {
+    if (_finishingSequence ||
+        _closing ||
+        _approvalInFlight ||
+        _controller.phase == CameraExperiencePhase.capturing) {
+      return;
+    }
+    setState(() => _finishingSequence = true);
+    try {
+      await _controller.pause();
+      await widget.onFinishSequence!();
+      await _controller.close();
+      if (!mounted) return;
+      _closing = true;
+      widget.onCancelled();
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Çekim bitirilemedi. Kaydedilmiş fotoğrafların korunuyor; yeniden dene.',
+            ),
+          ),
+        );
+        await _controller.resume();
+      }
+    } finally {
+      if (mounted) setState(() => _finishingSequence = false);
+    }
   }
 
   @override
@@ -311,7 +348,7 @@ class _CoffeeCameraScreenState extends State<CoffeeCameraScreen>
   }
 
   Widget _buildPreview() {
-    return PhotoPreview(
+    final preview = PhotoPreview(
       filePath: _controller.previewDisplayPath!,
       config: widget.config,
       title: _stepLabel,
@@ -320,6 +357,29 @@ class _CoffeeCameraScreenState extends State<CoffeeCameraScreen>
       onBack: widget.config.requireSaucerCapture ? _back : null,
       onRetake: _controller.retake,
       onApprove: _approve,
+    );
+    if (widget.onFinishSequence == null) return preview;
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        preview,
+        Positioned(
+          top: MediaQuery.paddingOf(context).top + 64,
+          right: 16,
+          child: TextButton(
+            key: const Key('coffee-finish-sequence'),
+            onPressed: _finishingSequence || _approvalInFlight
+                ? null
+                : _finishSequence,
+            style: TextButton.styleFrom(
+              backgroundColor: const Color(0xfffbf7ee),
+              foregroundColor: const Color(0xff4a342a),
+              minimumSize: const Size(48, 48),
+            ),
+            child: const Text('Çekimi bitir'),
+          ),
+        ),
+      ],
     );
   }
 
@@ -489,6 +549,28 @@ class _CoffeeCameraScreenState extends State<CoffeeCameraScreen>
                         : null,
                   ),
                 ],
+                if (widget.onFinishSequence != null)
+                  Flexible(
+                    child: TextButton(
+                      key: const Key('coffee-finish-sequence'),
+                      onPressed:
+                          _finishingSequence ||
+                              _approvalInFlight ||
+                              _controller.phase ==
+                                  CameraExperiencePhase.capturing
+                          ? null
+                          : _finishSequence,
+                      style: TextButton.styleFrom(
+                        backgroundColor: const Color(0xddfbf7ee),
+                        foregroundColor: const Color(0xff4a342a),
+                        minimumSize: const Size(48, 48),
+                      ),
+                      child: const Text(
+                        'Çekimi bitir',
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ),
               ],
             ),
             if (_stepLabel case final label?) ...[

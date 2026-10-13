@@ -64,30 +64,10 @@ void main() {
         await tester.pumpAndSettle();
         await tester.tap(find.byTooltip('Kaldığın Yerden Devam Et'));
         await tester.pumpAndSettle();
-        if (count == 1) {
-          await tester.ensureVisible(find.text('Bu fotoğraflarla devam et'));
-          await tester.tap(find.text('Bu fotoğraflarla devam et'));
-          await tester.pumpAndSettle();
-          expect(
-            find.text('Tabak fotoğrafı da eklemek ister misin?'),
-            findsNothing,
-          );
-          await tester.ensureVisible(find.text('Tabaksız devam et'));
-          await tester.tap(find.text('Tabaksız devam et'));
-          await tester.pumpAndSettle();
-          expect(find.byType(CheckboxListTile), findsNothing);
-        } else {
-          expect(find.text('Fotoğraf 1/4'), findsOneWidget);
-          expect(find.byType(CheckboxListTile), findsOneWidget);
-        }
-        for (var i = 0; i < (count == 1 ? 0 : 1); i++) {
-          final check = find.byType(CheckboxListTile).at(i);
-          await tester.ensureVisible(check);
-          await tester.tap(check);
-          await tester.pump();
-        }
-        await tester.ensureVisible(find.text('Şekilleri Seç'));
-        await tester.tap(find.text('Şekilleri Seç'));
+        expect(find.text('Tabaksız devam et'), findsNothing);
+        expect(find.byType(CheckboxListTile), findsNothing);
+        await tester.ensureVisible(find.text('Bu fotoğraflarla devam et'));
+        await tester.tap(find.text('Bu fotoğraflarla devam et'));
         await tester.pumpAndSettle();
         final action = find.text(auto ? 'Falımı Oluştur' : 'Yalnız Kaydet');
         await tester.ensureVisible(action);

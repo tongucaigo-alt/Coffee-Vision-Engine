@@ -159,9 +159,19 @@ void main({
         expect(find.text('Kaldır').hitTestable(), findsOneWidget);
         expect(find.text('Falımı Oluştur').hitTestable(), findsOneWidget);
         expect(find.text('İşaret').hitTestable(), findsOneWidget);
-        expect(find.byType(Scrollable), findsOneWidget);
         expect(
-          tester.widget<Scrollable>(find.byType(Scrollable)).axisDirection,
+          find.byKey(const ValueKey('coffee-selected-symbols')),
+          findsOneWidget,
+        );
+        expect(
+          tester
+              .widget<Scrollable>(
+                find.descendant(
+                  of: find.byKey(const ValueKey('coffee-selected-symbols')),
+                  matching: find.byType(Scrollable),
+                ),
+              )
+              .axisDirection,
           AxisDirection.right,
         );
         if (capture != null) await capture('many-symbols-${scale.toInt()}');
@@ -188,7 +198,10 @@ void main({
         await tester.scrollUntilVisible(
           changedChip,
           200,
-          scrollable: find.byType(Scrollable),
+          scrollable: find.descendant(
+            of: find.byKey(const ValueKey('coffee-selected-symbols')),
+            matching: find.byType(Scrollable),
+          ),
         );
         await tester.pumpAndSettle();
         await tester.tap(changedChip);
@@ -279,7 +292,14 @@ void main({
               ),
             );
             await tester.pumpAndSettle();
-            expect(find.byType(Scrollable), findsNothing);
+            expect(
+              find.byWidgetPredicate(
+                (w) =>
+                    w is Scrollable &&
+                    axisDirectionToAxis(w.axisDirection) == Axis.vertical,
+              ),
+              findsNothing,
+            );
             expect(
               find.byTooltip('Kaldığın Yerden Devam Et').hitTestable(),
               findsOneWidget,
@@ -292,8 +312,18 @@ void main({
             await tester.pumpAndSettle();
             expect(tester.takeException(), isNull);
             expect(find.text('Fotoğraf 1/$count'), findsOneWidget);
-            expect(find.byType(Scrollable), findsNothing);
-            expect(find.text('Şekilleri Seç').hitTestable(), findsOneWidget);
+            expect(
+              find.byWidgetPredicate(
+                (w) =>
+                    w is Scrollable &&
+                    axisDirectionToAxis(w.axisDirection) == Axis.vertical,
+              ),
+              findsNothing,
+            );
+            expect(
+              find.text('Bu fotoğraflarla devam et').hitTestable(),
+              findsOneWidget,
+            );
             if (capture != null) {
               await tester.runAsync(
                 () => precacheImage(
@@ -314,14 +344,18 @@ void main({
                 find.byKey(const ValueKey('coffee-previous-photo')),
               );
               await tester.pumpAndSettle();
-              final checkbox = find.byType(CheckboxListTile);
-              await tester.ensureVisible(checkbox);
-              await tester.tap(checkbox);
-              await tester.pumpAndSettle();
+              expect(find.byType(CheckboxListTile), findsNothing);
             }
-            await tester.tap(find.text('Şekilleri Seç'));
+            await tester.tap(find.text('Bu fotoğraflarla devam et'));
             await tester.pumpAndSettle();
-            expect(find.byType(Scrollable), findsNothing);
+            expect(
+              find.byWidgetPredicate(
+                (w) =>
+                    w is Scrollable &&
+                    axisDirectionToAxis(w.axisDirection) == Axis.vertical,
+              ),
+              findsNothing,
+            );
             expect(find.text('Taşı').hitTestable(), findsOneWidget);
             expect(find.text('İşaret').hitTestable(), findsOneWidget);
             final page = find.byType(AnnotationPage);

@@ -18,6 +18,7 @@ Future<CameraCaptureResult?> showCoffeeCamera(
   CupDetector? detector,
   String? captureTitle,
   String? captureInstruction,
+  Future<void> Function()? onFinishSequence,
 }) {
   if (config.requireSaucerCapture) {
     throw ArgumentError.value(
@@ -34,6 +35,7 @@ Future<CameraCaptureResult?> showCoffeeCamera(
         detector: detector,
         captureTitle: captureTitle,
         captureInstruction: captureInstruction,
+        onFinishSequence: onFinishSequence,
         onApproved: (result) => Navigator.of(cameraContext).pop(result),
         onCancelled: () => Navigator.of(cameraContext).pop(),
       ),
