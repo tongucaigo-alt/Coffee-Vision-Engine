@@ -180,6 +180,38 @@ void main({
                   find.text('Bu fotoğraflarla devam et').hitTestable(),
                   findsOneWidget,
                 );
+                if (count == 1) {
+                  final add = find.widgetWithText(
+                    OutlinedButton,
+                    'Fincan fotoğrafı ekle',
+                  );
+                  final next = find.widgetWithText(
+                    FilledButton,
+                    'Bu fotoğraflarla devam et',
+                  );
+                  expect(add.hitTestable(), findsOneWidget);
+                  expect(tester.getSize(add).width, tester.getSize(next).width);
+                  expect(tester.getRect(add).center.dx, closeTo(width / 2, .1));
+                  if (scale == 1) {
+                    expect(tester.getSize(add), tester.getSize(next));
+                    expect(tester.getSize(add).width, 280);
+                  }
+                  expect(tester.getSize(add).height, greaterThanOrEqualTo(48));
+                  expect(
+                    tester.getRect(next).top - tester.getRect(add).bottom,
+                    greaterThanOrEqualTo(8),
+                  );
+                }
+                if (capture != null) {
+                  // FileImage decoding uses real I/O; let it complete before
+                  // capturing a painted frame or deleting the temporary set.
+                  await tester.runAsync(
+                    () =>
+                        Future<void>.delayed(const Duration(milliseconds: 200)),
+                  );
+                  await tester.pumpAndSettle();
+                  await capture('photo-step-$count-${scale.toInt()}');
+                }
                 await tester.tap(find.text('Bu fotoğraflarla devam et'));
                 await tester.pumpAndSettle();
               } else if (count == 1) {

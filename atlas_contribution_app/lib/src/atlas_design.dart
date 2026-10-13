@@ -251,6 +251,25 @@ class AtlasPrimaryButton extends StatelessWidget {
   final Widget child;
   final Widget? icon;
   final ButtonStyle? style;
+  static const preferredWidth = AtlasActionWidth.preferredWidth;
+
+  @override
+  Widget build(BuildContext context) => AtlasActionWidth(
+    child: icon == null
+        ? FilledButton(onPressed: onPressed, style: style, child: child)
+        : FilledButton.icon(
+            onPressed: onPressed,
+            style: style,
+            icon: icon!,
+            label: child,
+          ),
+  );
+}
+
+/// Shared width for paired actions, with room for enlarged text.
+class AtlasActionWidth extends StatelessWidget {
+  const AtlasActionWidth({required this.child, super.key});
+  final Widget child;
   static const preferredWidth = 280.0;
 
   @override
@@ -263,17 +282,7 @@ class AtlasPrimaryButton extends StatelessWidget {
             preferredWidth *
             (MediaQuery.textScalerOf(context).scale(14) / 14).clamp(1, 2),
       ),
-      child: SizedBox(
-        width: double.infinity,
-        child: icon == null
-            ? FilledButton(onPressed: onPressed, style: style, child: child)
-            : FilledButton.icon(
-                onPressed: onPressed,
-                style: style,
-                icon: icon!,
-                label: child,
-              ),
-      ),
+      child: SizedBox(width: double.infinity, child: child),
     ),
   );
 }
@@ -286,11 +295,14 @@ class AtlasBrand extends StatelessWidget {
   Widget build(BuildContext context) => Row(
     mainAxisSize: MainAxisSize.min,
     children: [
-      Image.asset(
-        'assets/brand/atlas-logo.png',
-        width: size,
-        height: size,
-        semanticLabel: 'Atlas',
+      ClipRRect(
+        borderRadius: BorderRadius.circular(size * .24),
+        child: Image.asset(
+          'assets/brand/atlas-logo.png',
+          width: size,
+          height: size,
+          semanticLabel: 'Atlas',
+        ),
       ),
       if (showName) ...[
         const SizedBox(width: 10),

@@ -7,6 +7,7 @@ import 'photo_crop.dart';
 import 'opencv_traces.dart';
 import 'trace_overlay.dart';
 import 'label_picker.dart' show labelIcons;
+import 'fortune_orbit.dart';
 
 enum FortunePhase {
   saving,
@@ -64,10 +65,16 @@ class FortuneScan extends StatefulWidget {
 }
 
 class _FortuneScanState extends State<FortuneScan>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late final AnimationController _animation = AnimationController(
     vsync: this,
     duration: const Duration(seconds: 4),
+  );
+  // A common multiple of 7s, 26s and 2.4s keeps every visual loop continuous.
+  // The original 4s controller still owns photo/symbol cadence independently.
+  late final AnimationController _orbit = AnimationController(
+    vsync: this,
+    duration: const Duration(seconds: 1092),
   );
   bool _reduce = false;
   bool get _animate =>
@@ -82,8 +89,10 @@ class _FortuneScanState extends State<FortuneScan>
     super.didUpdateWidget(oldWidget);
     if (_animate) {
       if (!_animation.isAnimating) _animation.forward();
+      if (!_orbit.isAnimating) _orbit.repeat();
     } else {
       _animation.stop();
+      _orbit.stop();
     }
   }
 
@@ -112,14 +121,17 @@ class _FortuneScanState extends State<FortuneScan>
     _reduce = MediaQuery.disableAnimationsOf(context);
     if (!_animate) {
       _animation.stop();
+      _orbit.stop();
     } else {
       if (!_animation.isAnimating) _animation.forward();
+      if (!_orbit.isAnimating) _orbit.repeat();
     }
   }
 
   @override
   void dispose() {
     _animation.dispose();
+    _orbit.dispose();
     super.dispose();
   }
 
@@ -171,16 +183,19 @@ class _FortuneScanState extends State<FortuneScan>
                     ),
                   ),
                 ),
-              if (_animate)
-                Positioned.fill(
-                  child: IgnorePointer(
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: ExcludeSemantics(
                     child: AnimatedBuilder(
-                      animation: _animation,
-                      builder: (_, _) =>
-                          CustomPaint(painter: _ScanDots(_animation.value)),
+                      animation: _orbit,
+                      builder: (_, _) => CustomPaint(
+                        key: const ValueKey('fortune-orbit-frame'),
+                        painter: FortuneOrbitPainter(_orbit.value * 1092),
+                      ),
                     ),
                   ),
                 ),
+              ),
             ],
           ),
         const SizedBox(height: 28),
@@ -428,36 +443,4 @@ class _ScanPhoto extends StatelessWidget {
       ),
     );
   }
-}
-
-class _ScanDots extends CustomPainter {
-  _ScanDots(this.phase);
-  final double phase;
-  @override
-  void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height / 2);
-    final radius = math.min(size.width, size.height) * .42;
-    for (var i = 0; i < 12; i++) {
-      final angle = (i / 12 + phase) * math.pi * 2;
-      final point = center + Offset(math.cos(angle), math.sin(angle)) * radius;
-      canvas.drawCircle(
-        point,
-        7,
-        Paint()
-          ..color = const Color(0x505de28c)
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3),
-      );
-      canvas.drawCircle(
-        point,
-        4.2,
-        Paint()
-          ..color = const Color(
-            0xff68D990,
-          ).withValues(alpha: .65 + .35 * i / 12),
-      );
-    }
-  }
-
-  @override
-  bool shouldRepaint(_ScanDots oldDelegate) => phase != oldDelegate.phase;
 }

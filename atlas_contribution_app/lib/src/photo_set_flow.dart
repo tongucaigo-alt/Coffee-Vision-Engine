@@ -450,12 +450,14 @@ extension _PhotoSetFlow on _ContributionHomeState {
             ),
           ])
         else if (draft.isGallery && draft.cups.length < 3)
-          OutlinedButton.icon(
-            onPressed: disabled ? null : _setGallery,
-            icon: const Icon(Icons.add_photo_alternate, size: 20),
-            label: const Text(
-              'Fincan fotoğrafı ekle',
-              textAlign: TextAlign.center,
+          AtlasActionWidth(
+            child: OutlinedButton.icon(
+              onPressed: disabled ? null : _setGallery,
+              icon: const Icon(Icons.add_photo_alternate, size: 20),
+              label: const Text(
+                'Fincan fotoğrafı ekle',
+                textAlign: TextAlign.center,
+              ),
             ),
           )
         else if (!draft.isGallery && draft.cups.length < 3)

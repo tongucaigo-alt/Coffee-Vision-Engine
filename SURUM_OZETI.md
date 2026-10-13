@@ -1,6 +1,12 @@
-# Güncel kayıt: Atlas V59 — En güvenilir sürüm — 12 Ekim 2026
+# Güncel kayıt: Atlas V61 — Yeni logo ve tarama halkası — 13 Ekim 2026
 
-Güncel çalışma ve önerilen geri dönüş noktası: **Atlas V59 — En güvenilir sürüm**. Kullanıcının değerlendirmesiyle bu sürüm güncel güvenilir referans olarak işaretlenmiştir; 400 test ve gerçek telefon kontrolleriyle doğrulanmıştır. [V59 sürüm notları](V59_SURUM_NOTLARI.md).
+Güncel geliştirme sürümü **Atlas V61**. Yeni logo, yeşil noktalar yerine hilal/güneş halkası ve fotoğraf ekranındaki eşitlenmiş düğmeler yayımlandı. 405 test geçti; telefon görsel kontrolü ve verileri koruyan kurulum tamamlandı. [V61 sürüm notları](V61_SURUM_NOTLARI.md).
+
+V59, kullanıcının daha önce onayladığı **“En güvenilir sürüm” geri dönüş noktası** olarak aynı etikette korunur.
+
+# Atlas V59 — En güvenilir sürüm — 12 Ekim 2026
+
+Önerilen geri dönüş noktası: **Atlas V59 — En güvenilir sürüm**. Kullanıcının değerlendirmesiyle güvenilir referans olarak işaretlenmiştir; 400 test ve gerçek telefon kontrolleriyle doğrulanmıştır. [V59 sürüm notları](V59_SURUM_NOTLARI.md).
 
 Önceki [V51 sürüm notları](V51_SURUM_NOTLARI.md) ve aşağıdaki Beta 6 özeti tarihsel kayıt olarak korunmuştur.
 

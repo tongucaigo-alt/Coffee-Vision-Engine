@@ -34,6 +34,11 @@ if (atlasKimiLocalTest && (atlasPlayTest || !atlasAiLab || !atlasDefines.any {
 // Flutter queries the application id separately without the integration target
 // when uninstalling. Keep that query on the diagnostic identity as well.
 val atlasDiagnostic = atlasTestTarget || "ATLAS_DIAGNOSTIC=true" in atlasDefines
+// Visual-only fixtures must never open or replace the user's test package.
+val atlasUiPreview = "ATLAS_UI_PREVIEW=true" in atlasDefines
+if (atlasUiPreview && !atlasTestTarget) {
+    throw GradleException("Visual preview requires an auxiliary entrypoint.")
+}
 val atlasLocalImageScreen = "ATLAS_IMAGE_SCREEN=true" in atlasDefines
 val signing = Properties().apply { if (signingFile.exists()) signingFile.inputStream().use { load(it) } }
 if (gradle.startParameter.taskNames.any { it.contains("Release", ignoreCase = true) } && !signingFile.exists()) {
@@ -56,7 +61,9 @@ android {
 
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = if (atlasDiagnostic) {
+        applicationId = if (atlasUiPreview) {
+            "com.coffeeplatform.atlas_contribution_app.ui_preview"
+        } else if (atlasDiagnostic) {
             "com.coffeeplatform.atlas_contribution_app.diagnostic"
         } else if (atlasAiLab && !atlasKimiLocalTest) {
             "com.coffeeplatform.atlas_contribution_app.beta"
@@ -70,7 +77,7 @@ android {
         versionCode = flutter.versionCode
         versionName = flutter.versionName
         manifestPlaceholders["atlasCleartext"] = if (atlasAiLab) "true" else "false"
-        val atlasBaseLabel = if (atlasDiagnostic) "Atlas Fotoğraf Testi" else if (atlasKimiLocalTest) "Atlas Kimi Test" else if (atlasAiLab) "Atlas AI Beta" else if (atlasPlayTest) "Atlas" else "Atlas Katkı"
+        val atlasBaseLabel = if (atlasUiPreview) "Atlas Görsel Önizleme" else if (atlasDiagnostic) "Atlas Fotoğraf Testi" else if (atlasKimiLocalTest) "Atlas Kimi Test" else if (atlasAiLab) "Atlas AI Beta" else if (atlasPlayTest) "Atlas" else "Atlas Katkı"
         manifestPlaceholders["atlasLabel"] = if (atlasDiagnostic || atlasAiLab) "$atlasBaseLabel V${flutter.versionCode}" else atlasBaseLabel
     }
 
