@@ -156,6 +156,12 @@ class TarotStore {
     _put(data, next);
     return next;
   });
+  Future<TarotDraw> setMood(String id, TarotMood? mood) => _change((data) {
+    final draw = _find(data, id);
+    final next = draw.copy(mood: mood, clearMood: mood == null);
+    _put(data, next);
+    return next;
+  });
   Future<TarotDraw> begin(
     String id,
     String attemptId,
