@@ -381,6 +381,151 @@ void main() {
     },
   );
 
+  testWidgets(
+    'formatted reading keeps original persisted text and sends no request',
+    (tester) async {
+      const raw =
+          '# Geçmiş\n\n**Deli** bir başlangıç çağrışımıdır.\n\n**Şimdi: Büyücü**\nOdağını düşün.\n\n*Bugün hangi küçük adım?*';
+      final saved = fixture().copy(
+        result: const TarotResult(state: TarotResultState.completed, text: raw),
+      );
+      await saveDraw(tester, saved);
+      await mount(tester, TarotDrawPage(runtime: runtime, draw: saved));
+      final text = tester.widget<SelectableText>(
+        find.byKey(const ValueKey('tarot-reading-text')),
+      );
+      expect(
+        text.textSpan!.toPlainText(),
+        'Geçmiş\n\nDeli bir başlangıç çağrışımıdır.\n\nŞimdi: Büyücü\nOdağını düşün.\n\nBugün hangi küçük adım?',
+      );
+      final restored = await tester.runAsync(() => store.get(saved.id));
+      expect(restored!.result.text, raw);
+      expect(calls, 0);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+
+  testWidgets(
+    'far swiped card keeps its exact index and history hides unopened fronts',
+    (tester) async {
+      final full = fixture();
+      final initial = TarotDraw(
+        id: full.id,
+        spread: full.spread,
+        createdAt: full.createdAt,
+        deck: full.deck,
+      );
+      await saveDraw(tester, initial);
+      final semantics = tester.ensureSemantics();
+      await mount(tester, TarotDrawPage(runtime: runtime, draw: initial));
+      expect(find.bySemanticsLabel(RegExp('Deli|Büyücü')), findsNothing);
+      final deck = find.byKey(const ValueKey('tarot-deck'));
+      final card = find.byKey(const ValueKey('tarot-deck-43'));
+      await tester.scrollUntilVisible(
+        card,
+        500,
+        scrollable: find.descendant(
+          of: deck,
+          matching: find.byType(Scrollable),
+        ),
+      );
+      await tester.runAsync(() => tester.tap(card));
+      await settleIo(tester);
+      final picked = (await tester.runAsync(() => store.get(initial.id)))!;
+      expect(picked.selected, [43]);
+      expect(picked.chosen.single.toJson(), full.deck[43].toJson());
+      await tester.pumpWidget(const SizedBox());
+      await mount(tester, TarotHistoryPage(runtime: runtime));
+      final thumbnail = tester.widget<TarotCardView>(
+        find.byKey(ValueKey('tarot-history-${picked.id}-0')),
+      );
+      expect(thumbnail.showFront, false);
+      expect(find.text(full.deck[43].card.name), findsNothing);
+      semantics.dispose();
+      expect(calls, 0);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+
+  testWidgets(
+    'design matrix fits small phones, double text and reduced motion',
+    (tester) async {
+      final saved = fixture().copy(
+        result: const TarotResult(
+          state: TarotResultState.completed,
+          text: sampleReading,
+        ),
+      );
+      await saveDraw(tester, saved);
+      final initial = TarotDraw(
+        id: saved.id,
+        spread: saved.spread,
+        createdAt: saved.createdAt,
+        deck: saved.deck,
+      );
+      final closed = initial.copy(selected: [0, 1, 2]);
+      for (final size in const [
+        Size(320, 568),
+        Size(360, 700),
+        Size(412, 700),
+      ]) {
+        for (final scale in [1.0, 2.0]) {
+          final pages = <String, Widget>{
+            'home': Scaffold(body: TarotHomePage(runtime: runtime)),
+            'selection': TarotDrawPage(runtime: runtime, draw: initial),
+            'chosen': TarotDrawPage(runtime: runtime, draw: closed),
+            'daily': TarotDrawPage(
+              runtime: runtime,
+              draw: fixture(spread: TarotSpread.daily),
+            ),
+            'reading': TarotDrawPage(runtime: runtime, draw: saved),
+            'history': TarotHistoryPage(runtime: runtime),
+          };
+          for (final entry in pages.entries) {
+            final key = await mount(
+              tester,
+              entry.value,
+              size: size,
+              scale: scale,
+              reduced: true,
+            );
+            if (entry.key == 'home') {
+              final action = find.descendant(
+                of: find.byKey(const ValueKey('tarot-start-three')),
+                matching: find.byType(FilledButton),
+              );
+              expect(
+                tester.getSize(action).width,
+                lessThanOrEqualTo(scale == 1 ? 280 : size.width),
+              );
+              expect(tester.getSize(action).height, greaterThanOrEqualTo(48));
+            }
+            if (entry.key == 'reading') {
+              await tester.ensureVisible(
+                find.byKey(const ValueKey('tarot-reading')),
+              );
+              await tester.pumpAndSettle();
+            }
+            expect(
+              tester.takeException(),
+              isNull,
+              reason: '${entry.key} $size scale $scale',
+            );
+            await capture(
+              tester,
+              key,
+              'matrix-${entry.key}-${size.width.toInt()}-${scale.toInt()}x',
+            );
+            await tester.pumpWidget(const SizedBox());
+          }
+        }
+      }
+      expect(calls, 0);
+    },
+  );
+
   testWidgets('small home and history scroll without overflow at double text', (
     tester,
   ) async {
