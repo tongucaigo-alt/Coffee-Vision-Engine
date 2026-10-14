@@ -246,6 +246,77 @@ void main() {
         }),
       );
 
+  test('mood is optional, removable and absent from AI context', () {
+    final old = fixture().toJson()..remove('mood');
+    expect(TarotDraw.fromJson(old).mood, isNull);
+    final calm = fixture().copy(mood: TarotMood.calm);
+    expect(TarotDraw.fromJson(calm.toJson()).mood, TarotMood.calm);
+    expect(calm.copy(starred: true).mood, TarotMood.calm);
+    expect(calm.copy(clearMood: true).mood, isNull);
+    expect(calm.context(), fixture().context());
+  });
+
+  test(
+    'queued mood updates preserve concurrent selection and reveal',
+    () async {
+      final draw = await store.start(TarotSpread.three, catalog());
+      await Future.wait([
+        store.setMood(draw.id, TarotMood.happy),
+        store.select(draw.id, 47),
+        store.select(draw.id, 8),
+        store.select(draw.id, 19),
+      ]);
+      await Future.wait([
+        store.reveal(draw.id, 0),
+        store.setMood(draw.id, TarotMood.calm),
+        store.reveal(draw.id, 1),
+      ]);
+      final reopened = TarotStore(store.directory);
+      await reopened.initialize();
+      final saved = (await reopened.get(draw.id))!;
+      expect(saved.selected, [47, 8, 19]);
+      expect(saved.revealed, 2);
+      expect(saved.mood, TarotMood.calm);
+      expect(
+        saved.deck.map((c) => c.toJson()),
+        draw.deck.map((c) => c.toJson()),
+      );
+    },
+  );
+
+  test(
+    'mood survives result and star updates; clearing keeps the reading',
+    () async {
+      await putReady();
+      await store.setMood('fixture', TarotMood.tired);
+      await store.begin('fixture', 'attempt', 'v1', 'hash');
+      await store.finish(
+        'fixture',
+        'attempt',
+        TarotResultState.completed,
+        text: 'Saved reading',
+      );
+      await store.star('fixture', true);
+      expect((await store.get('fixture'))!.mood, TarotMood.tired);
+      final cleared = await store.setMood('fixture', null);
+      expect(cleared.mood, isNull);
+      expect(cleared.result.text, 'Saved reading');
+      expect(cleared.starred, true);
+    },
+  );
+
+  test('deleting a daily mood note preserves its same-day lock', () async {
+    final draw = await store.start(TarotSpread.daily, catalog());
+    await store.select(draw.id, 4);
+    await store.setMood(draw.id, TarotMood.unsure);
+    await store.delete(draw.id);
+    expect(await store.get(draw.id), isNull);
+    await expectLater(
+      store.start(TarotSpread.daily, catalog()),
+      throwsStateError,
+    );
+  });
+
   test(
     'double generation invokes once; persisted completion never generates again',
     () async {
@@ -488,7 +559,7 @@ void main() {
       });
       expect(
         await client.generate(
-          fixture(),
+          fixture().copy(mood: TarotMood.tense),
           profile,
           'fake-test-key',
           AiCancellation(),
@@ -502,6 +573,8 @@ void main() {
       expect(wire, isNot(contains('image_url')));
       expect(wire, isNot(contains('.webp')));
       expect(wire, isNot(contains('fake-test-key')));
+      expect(wire, isNot(contains('mood')));
+      expect(wire, isNot(contains('tense')));
     });
     for (final entry in {
       'empty': {'choices': []},
