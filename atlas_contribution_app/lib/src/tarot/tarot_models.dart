@@ -3,6 +3,18 @@ import 'dart:math';
 
 enum TarotSpread { three, daily }
 
+enum TarotMood { happy, calm, unsure, tense, tired }
+
+extension TarotMoodLabel on TarotMood {
+  String get label => switch (this) {
+    TarotMood.happy => 'Mutlu',
+    TarotMood.calm => 'Sakin',
+    TarotMood.unsure => 'Kararsız',
+    TarotMood.tense => 'Gergin',
+    TarotMood.tired => 'Yorgun',
+  };
+}
+
 enum TarotResultState {
   idle,
   running,
@@ -130,6 +142,7 @@ class TarotDraw {
     this.day,
     this.starred = false,
     this.result = const TarotResult(),
+    this.mood,
   }) : deck = List.unmodifiable(deck),
        selected = List.unmodifiable(selected) {
     if (deck.length != 78 ||
@@ -155,6 +168,7 @@ class TarotDraw {
   final String? day;
   final bool starred;
   final TarotResult result;
+  final TarotMood? mood;
   int get requiredCards => spread == TarotSpread.three ? 3 : 1;
   bool get ready => revealed == requiredCards;
   String get title => spread == TarotSpread.three ? 'Üç Kart' : 'Günün Kartı';
@@ -169,6 +183,8 @@ class TarotDraw {
     String? day,
     bool? starred,
     TarotResult? result,
+    TarotMood? mood,
+    bool clearMood = false,
   }) => TarotDraw(
     id: id,
     spread: spread,
@@ -179,6 +195,7 @@ class TarotDraw {
     day: day ?? this.day,
     starred: starred ?? this.starred,
     result: result ?? this.result,
+    mood: clearMood ? null : mood ?? this.mood,
   );
   Map<String, dynamic> context() {
     if (!ready) throw StateError('Önce kartlarını aç.');
@@ -211,6 +228,7 @@ class TarotDraw {
     'day': day,
     'starred': starred,
     'result': result.toJson(),
+    if (mood != null) 'mood': mood!.name,
   };
   factory TarotDraw.fromJson(Map<String, dynamic> j) => TarotDraw(
     id: j['id'] as String,
@@ -224,5 +242,6 @@ class TarotDraw {
     day: j['day'] as String?,
     starred: j['starred'] as bool,
     result: TarotResult.fromJson(Map<String, dynamic>.from(j['result'] as Map)),
+    mood: TarotMood.values.where((m) => m.name == j['mood']).firstOrNull,
   );
 }
