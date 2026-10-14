@@ -36,4 +36,10 @@ SHA-256: `3b15b9ce878c08839c63051c519e7865a2fe853da5414f500280240479ccca2f`.
 
 Gerçek cihazda mevcut yarım açılım yeni sağ üst düğmeyle açılmış, değiştirilmeden geri dönülmüştür. Kontrol için yalnız bir yeni yerel Üç Kart açılımı oluşturulmuştur. Deste indeksleri 0, 1, 2 seçilmiş; ilk kart mood seçmeden açılmış; Mutlu seçilip kaldırılmış, Sakin seçilmiştir. Üç kart sırayla açılmıştır. Uygulama kapatılıp yeniden açıldıktan sonra aynı kartlar, yönler ve Sakin notuyla devam edilmiştir. Yorum üretimi başlatılmamıştır; yeni test kaydı `idle` durumundadır. Dört eski Tarot kaydı tüm alanlarıyla, günlük kilitler ve diğer kullanıcı dosyaları korunmuştur. Android'in `files/profileInstalled` çalışma işareti yeni sürüm açılışında güncellenmiştir. Kahve ekranının erişilebilirlik metinleri ve yerleşim sınırları V70 ile aynı kalmıştır.
 
-Teslim klasörü: `C:/Users/exzau/Documents/Codex/2026-10-14/atlas-tarot-mood-v71-output`. APK, önizlemeler, telefon ekranları, test/build logları ve doğrulama raporları buradadır. Özel kayıt yedekleri Git kapsamı dışındadır. GitHub yayını yapılmamıştır.
+Teslim klasörü: `C:/Users/exzau/Documents/Codex/2026-10-14/atlas-tarot-mood-v71-output`. APK, önizlemeler, telefon ekranları, test/build logları ve doğrulama raporları buradadır. Özel kayıt yedekleri Git kapsamı dışındadır. APK ve özel build dosyaları kaynak yayınına dahil değildir.
+
+## GitHub güncellemesi — Tarot Uİ düzenlendi
+
+Yayın dalı `codex/atlas-tarot-ui-update`, GitHub'daki `codex/atlas-coffee-ui` V65 kaynağından açılmıştır. Yerel `181d5ff` ve `2061c3a` commit'lerinin yalnız Tarot değişiklikleri taşınmıştır. Fark dört Tarot kaynak dosyası, iki ilgili test dosyası ve iki teslim notuyla sınırlıdır. Yereldeki henüz yayımlanmamış V69 OpenCV/kahve checkpoint'i bu dala dahil değildir.
+
+Bu GitHub kaynağında tam Flutter test grubu yeniden çalıştırılmıştır: 431 başarılı, 6 atlanan. Yukarıdaki 433/7 sonucu, V69 tabanını koruyan yerel V72 telefon teslimine aittir. Telefona kurulan APK yerel teslim kaynağından üretilmiştir; bu PR yalnız Tarot değişikliklerini yayımlar.
