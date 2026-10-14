@@ -8,6 +8,9 @@ import 'src/local_store.dart';
 import 'src/offline_contribution.dart';
 import 'src/research_export.dart';
 import 'src/atlas_design.dart';
+import 'src/coffee_guide_gate.dart';
+import 'src/coffee_guide_page.dart';
+import 'src/coffee_guide_store.dart';
 import 'src/models.dart';
 import 'src/fortune_progress.dart';
 import 'src/fortune_preparation.dart';
@@ -62,6 +65,7 @@ class OfflineContributionApp extends StatelessWidget {
     this.ai,
     this.tarot,
     this.tarotError,
+    this.guideStore,
     super.key,
   });
 
@@ -69,6 +73,7 @@ class OfflineContributionApp extends StatelessWidget {
   final AiRuntime? ai;
   final TarotRuntime? tarot;
   final String? tarotError;
+  final CoffeeGuideStore? guideStore;
 
   @override
   Widget build(BuildContext context) => MaterialApp(
@@ -79,243 +84,266 @@ class OfflineContributionApp extends StatelessWidget {
         ? child!
         : FortunePreparationHost(controller: ai!.preparation, child: child!),
     home: Builder(
-      builder: (context) => ContributionHome(
-        modern: true,
-        tarotPage: tarot != null
-            ? TarotHomePage(runtime: tarot!)
-            : tarotError != null
-            ? Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: AtlasNotice(tarotError!),
-                ),
-              )
-            : null,
-        store: store,
-        service: OfflineContributionService(store),
-        onAiSettings: ai == null
-            ? null
-            : () async {
-                await Navigator.push(
-                  context,
-                  MaterialPageRoute<void>(
-                    builder: (_) => AiLabPage(runtime: ai!),
-                  ),
-                );
-              },
-        onRecorded: ai == null
-            ? null
-            : (row) async {
-                if (((row['document'] as Map)['photos'] as List).isNotEmpty) {
-                  await ai!.bridge.importReceipt(row, fresh: true);
-                }
-              },
-        fortuneProgress: ai?.progress,
-        preparation: ai?.preparation,
-        loadAnnotationTraces: ai == null || !openCvTracesEnabled
-            ? null
-            : (draft) => ai!.traces.loadSet(
-                owner: ai!.bridge.sessionId(draft.rootId),
-                photos: draft.photos,
-                fileFor: (photo) => store.file(photo.localName),
-              ),
-        onAnnotationTraceShown: ai == null
-            ? null
-            : (draft, photo) => ai!.store.exposeTraceAid(
-                sessionId: ai!.bridge.sessionId(draft.rootId),
-                groupId: draft.groupId,
-                photoIdentity: tracePhotoIdentity(photo),
-                algorithm: traceAlgorithm,
-              ),
-        aiDescription: ai == null
-            ? null
-            : () async {
-                final profiles = await ai!.store.profiles();
-                if (profiles.isEmpty) return null;
-                final p = profiles.first;
-                try {
-                  validateAiUrl(p.url);
-                } catch (_) {
-                  return null;
-                }
-                return '${p.name} · ${Uri.parse(p.url).host}';
-              },
-        onGenerateFortune: ai == null
-            ? null
-            : (row) async {
-                final session = await ai!.bridge.importReceipt(row);
-                if (!context.mounted) return;
-                await Navigator.push(
-                  context,
-                  MaterialPageRoute<void>(
-                    builder: (_) => AiFortunePage(
-                      runtime: ai!,
-                      session: session,
-                      autoGenerate: true,
-                      simple: true,
-                    ),
-                  ),
-                );
-              },
-        onConfirmedRecorded: ai == null
-            ? null
-            : (row, confirmed) async {
-                final source = ContributionDraft.fromJson(
-                  Map<String, dynamic>.from(row['document'] as Map),
-                );
-                if (source.cups.isEmpty ||
-                    !source.photos.every(
-                      (p) => confirmed.contains('${p.localName}|${p.checksum}'),
-                    )) {
-                  return RecordPreparationStatus.pending;
-                }
-                final session = await ai!.bridge.importReceipt(
-                  row,
-                  fresh: true,
-                );
-                final checker = PhotoSuitability(
-                  Directory('${store.directory.parent.path}/photo-suitability'),
-                );
-                final photos = <ReviewPhoto>[];
-                for (final p in session.photos) {
-                  photos.add(
-                    p.update(suitability: await checker.read(p.photo)),
-                  );
-                }
-                final next = session.next(sameSample: true, photos: photos);
-                final controller = ReviewController(
-                  store: ai!.reviews,
-                  session: session,
-                );
-                try {
-                  await controller.save(next);
-                  controller.addListener(() {
-                    final id = controller.activePhotoId;
-                    if (id != null) {
-                      final p = controller.session.photos.firstWhere(
-                        (p) => p.id == id,
-                      );
-                      ai!.progress.value = FortuneProgress(
-                        FortunePhase.analyzing,
-                        photoId: source.photos
-                            .firstWhere(
-                              (original) =>
-                                  original.fileKey == p.photo.fileKey &&
-                                  original.checksum == p.photo.checksum,
-                            )
-                            .localName,
-                      );
-                    }
-                  });
-                  await controller.analyze(
-                    enrich: true,
-                    isCancelled: () => ai!.preparation.cancelled,
-                  );
-                  if (controller.setupError != null) {
-                    return RecordPreparationStatus.failed;
-                  }
-                  return switch (controller.session.preparedInput?['status']) {
-                    'ready' => RecordPreparationStatus.ready,
-                    'partial' => RecordPreparationStatus.partial,
-                    'empty' => RecordPreparationStatus.empty,
-                    _ => RecordPreparationStatus.pending,
-                  };
-                } finally {
-                  await controller.close();
-                  controller.dispose();
-                }
-              },
-        recordStarred: ai == null
-            ? null
-            : (row) => ai!.store.hasStarredSession(
-                ai!.bridge.sessionId(row['root_id'] as String),
-              ),
-        recordState: ai == null
-            ? null
-            : (row) async {
-                final id = ai!.bridge.sessionId(row['root_id'] as String);
-                final data = await ai!.store.read();
-                final results = (data['results'] as List).where(
-                  (r) =>
-                      r['sessionId'] == id && (r['answers'] as List).isNotEmpty,
-                );
-                if (results.isEmpty) return 'Telefona kaydedildi';
-                final session = (await ai!.reviews.sessions())
-                    .where((s) => s.id == id)
-                    .firstOrNull;
-                final link = (data['links'] as Map)[row['root_id']] as Map?;
-                if (session == null ||
-                    link?['receiptId'] != (row['document'] as Map)['id']) {
-                  return 'Önceki kayda ait fal';
-                }
-                final current = results.where(
-                  (r) =>
-                      r['sourceFingerprint'] ==
-                      preparationSourceFingerprint(session),
-                );
-                if (current.isEmpty) return 'Önceki kayda ait fal';
-                return current.any((r) => r['state'] == 'completed')
-                    ? 'Fal hazır'
-                    : 'Fal denemesi tamamlanmadı';
-              },
-        onReadFortune: ai == null
-            ? null
-            : (row) async {
-                final session = await ai!.bridge.importReceipt(row);
-                if (!context.mounted) return;
-                await Navigator.push(
-                  context,
-                  MaterialPageRoute<void>(
-                    builder: (_) => AiFortunePage(
-                      runtime: ai!,
-                      session: session,
-                      simple: true,
-                      autoGenerate: true,
-                    ),
-                  ),
-                );
-              },
-        onReview: () async {
-          await Navigator.push(
+      builder: (context) => CoffeeGuideGate(
+        store:
+            guideStore ??
+            CoffeeGuideStore(
+              Directory('${store.directory.parent.path}/coffee-guide'),
+            ),
+        child: ContributionHome(
+          modern: true,
+          onOpenGuide: () => Navigator.push<void>(
             context,
             MaterialPageRoute<void>(
-              builder: (_) => ReviewHub(
-                ai: ai,
-                store:
-                    ai?.reviews ??
-                    ReviewStore(
-                      Directory('${store.directory.parent.path}/mvp-reviews'),
-                      contributionStore: store,
+              builder: (routeContext) => CoffeeGuidePage(
+                allowClose: true,
+                onClose: () => Navigator.pop(routeContext),
+                onComplete: (_) async => Navigator.pop(routeContext),
+              ),
+            ),
+          ),
+          tarotPage: tarot != null
+              ? TarotHomePage(runtime: tarot!)
+              : tarotError != null
+              ? Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: AtlasNotice(tarotError!),
+                  ),
+                )
+              : null,
+          store: store,
+          service: OfflineContributionService(store),
+          onAiSettings: ai == null
+              ? null
+              : () async {
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute<void>(
+                      builder: (_) => AiLabPage(runtime: ai!),
                     ),
-                captureStore: store,
-              ),
-            ),
-          );
-        },
-        onExport: () async {
-          final result = await OfflineContributionExporter(
-            store,
-            reviewStore: ai?.reviews,
-            exposureAudit: ai?.store.researchAudit,
-          ).exportToDownloads();
-          if (!context.mounted) return;
-          await showDialog<void>(
-            context: context,
-            builder: (context) => AlertDialog(
-              title: const Text('Paket hazır'),
-              content: SelectableText(
-                '${result.recordCount} kayıt ${exportDestinationLabel(result.location)} kaydedildi.\n\n'
-                '${result.fileName}\n\nKontrol kodu:\n${result.checksum}',
-              ),
-              actions: [
-                FilledButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('Tamam'),
+                  );
+                },
+          onRecorded: ai == null
+              ? null
+              : (row) async {
+                  if (((row['document'] as Map)['photos'] as List).isNotEmpty) {
+                    await ai!.bridge.importReceipt(row, fresh: true);
+                  }
+                },
+          fortuneProgress: ai?.progress,
+          preparation: ai?.preparation,
+          loadAnnotationTraces: ai == null || !openCvTracesEnabled
+              ? null
+              : (draft) => ai!.traces.loadSet(
+                  owner: ai!.bridge.sessionId(draft.rootId),
+                  photos: draft.photos,
+                  fileFor: (photo) => store.file(photo.localName),
                 ),
-              ],
-            ),
-          );
-        },
+          onAnnotationTraceShown: ai == null
+              ? null
+              : (draft, photo) => ai!.store.exposeTraceAid(
+                  sessionId: ai!.bridge.sessionId(draft.rootId),
+                  groupId: draft.groupId,
+                  photoIdentity: tracePhotoIdentity(photo),
+                  algorithm: traceAlgorithm,
+                ),
+          aiDescription: ai == null
+              ? null
+              : () async {
+                  final profiles = await ai!.store.profiles();
+                  if (profiles.isEmpty) return null;
+                  final p = profiles.first;
+                  try {
+                    validateAiUrl(p.url);
+                  } catch (_) {
+                    return null;
+                  }
+                  return '${p.name} · ${Uri.parse(p.url).host}';
+                },
+          onGenerateFortune: ai == null
+              ? null
+              : (row) async {
+                  final session = await ai!.bridge.importReceipt(row);
+                  if (!context.mounted) return;
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute<void>(
+                      builder: (_) => AiFortunePage(
+                        runtime: ai!,
+                        session: session,
+                        autoGenerate: true,
+                        simple: true,
+                      ),
+                    ),
+                  );
+                },
+          onConfirmedRecorded: ai == null
+              ? null
+              : (row, confirmed) async {
+                  final source = ContributionDraft.fromJson(
+                    Map<String, dynamic>.from(row['document'] as Map),
+                  );
+                  if (source.cups.isEmpty ||
+                      !source.photos.every(
+                        (p) =>
+                            confirmed.contains('${p.localName}|${p.checksum}'),
+                      )) {
+                    return RecordPreparationStatus.pending;
+                  }
+                  final session = await ai!.bridge.importReceipt(
+                    row,
+                    fresh: true,
+                  );
+                  final checker = PhotoSuitability(
+                    Directory(
+                      '${store.directory.parent.path}/photo-suitability',
+                    ),
+                  );
+                  final photos = <ReviewPhoto>[];
+                  for (final p in session.photos) {
+                    photos.add(
+                      p.update(suitability: await checker.read(p.photo)),
+                    );
+                  }
+                  final next = session.next(sameSample: true, photos: photos);
+                  final controller = ReviewController(
+                    store: ai!.reviews,
+                    session: session,
+                  );
+                  try {
+                    await controller.save(next);
+                    controller.addListener(() {
+                      final id = controller.activePhotoId;
+                      if (id != null) {
+                        final p = controller.session.photos.firstWhere(
+                          (p) => p.id == id,
+                        );
+                        ai!.progress.value = FortuneProgress(
+                          FortunePhase.analyzing,
+                          photoId: source.photos
+                              .firstWhere(
+                                (original) =>
+                                    original.fileKey == p.photo.fileKey &&
+                                    original.checksum == p.photo.checksum,
+                              )
+                              .localName,
+                        );
+                      }
+                    });
+                    await controller.analyze(
+                      enrich: true,
+                      isCancelled: () => ai!.preparation.cancelled,
+                    );
+                    if (controller.setupError != null) {
+                      return RecordPreparationStatus.failed;
+                    }
+                    return switch (controller
+                        .session
+                        .preparedInput?['status']) {
+                      'ready' => RecordPreparationStatus.ready,
+                      'partial' => RecordPreparationStatus.partial,
+                      'empty' => RecordPreparationStatus.empty,
+                      _ => RecordPreparationStatus.pending,
+                    };
+                  } finally {
+                    await controller.close();
+                    controller.dispose();
+                  }
+                },
+          recordStarred: ai == null
+              ? null
+              : (row) => ai!.store.hasStarredSession(
+                  ai!.bridge.sessionId(row['root_id'] as String),
+                ),
+          recordState: ai == null
+              ? null
+              : (row) async {
+                  final id = ai!.bridge.sessionId(row['root_id'] as String);
+                  final data = await ai!.store.read();
+                  final results = (data['results'] as List).where(
+                    (r) =>
+                        r['sessionId'] == id &&
+                        (r['answers'] as List).isNotEmpty,
+                  );
+                  if (results.isEmpty) return 'Telefona kaydedildi';
+                  final session = (await ai!.reviews.sessions())
+                      .where((s) => s.id == id)
+                      .firstOrNull;
+                  final link = (data['links'] as Map)[row['root_id']] as Map?;
+                  if (session == null ||
+                      link?['receiptId'] != (row['document'] as Map)['id']) {
+                    return 'Önceki kayda ait fal';
+                  }
+                  final current = results.where(
+                    (r) =>
+                        r['sourceFingerprint'] ==
+                        preparationSourceFingerprint(session),
+                  );
+                  if (current.isEmpty) return 'Önceki kayda ait fal';
+                  return current.any((r) => r['state'] == 'completed')
+                      ? 'Fal hazır'
+                      : 'Fal denemesi tamamlanmadı';
+                },
+          onReadFortune: ai == null
+              ? null
+              : (row) async {
+                  final session = await ai!.bridge.importReceipt(row);
+                  if (!context.mounted) return;
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute<void>(
+                      builder: (_) => AiFortunePage(
+                        runtime: ai!,
+                        session: session,
+                        simple: true,
+                        autoGenerate: true,
+                      ),
+                    ),
+                  );
+                },
+          onReview: () async {
+            await Navigator.push(
+              context,
+              MaterialPageRoute<void>(
+                builder: (_) => ReviewHub(
+                  ai: ai,
+                  store:
+                      ai?.reviews ??
+                      ReviewStore(
+                        Directory('${store.directory.parent.path}/mvp-reviews'),
+                        contributionStore: store,
+                      ),
+                  captureStore: store,
+                ),
+              ),
+            );
+          },
+          onExport: () async {
+            final result = await OfflineContributionExporter(
+              store,
+              reviewStore: ai?.reviews,
+              exposureAudit: ai?.store.researchAudit,
+            ).exportToDownloads();
+            if (!context.mounted) return;
+            await showDialog<void>(
+              context: context,
+              builder: (context) => AlertDialog(
+                title: const Text('Paket hazır'),
+                content: SelectableText(
+                  '${result.recordCount} kayıt ${exportDestinationLabel(result.location)} kaydedildi.\n\n'
+                  '${result.fileName}\n\nKontrol kodu:\n${result.checksum}',
+                ),
+                actions: [
+                  FilledButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Tamam'),
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
       ),
     ),
   );

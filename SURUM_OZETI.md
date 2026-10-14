@@ -1,4 +1,8 @@
-# Güncel kayıt: Atlas V61 — Yeni logo ve tarama halkası — 13 Ekim 2026
+# Güncel kayıt: Atlas V73 — UYGULAMA MİLE POİNT — 14 Ekim 2026
+
+Güncel telefona kurulmuş kaynak kontrol noktası **Atlas V73**: V69 OpenCV düzeltmeleri, V72 Tarot geliştirmeleri ve sekiz kartlık kahve karşılama/kullanım rehberi birlikte korunur. Aynı paket/imza ile verileri koruyan V72 → V73 güncellemesi doğrulandı. [UYGULAMA MİLE POİNT — V73 notu](UYGULAMA_MILE_POINT_V73.md).
+
+# Önceki kayıt: Atlas V61 — Yeni logo ve tarama halkası — 13 Ekim 2026
 
 Güncel geliştirme sürümü **Atlas V61**. Yeni logo, yeşil noktalar yerine hilal/güneş halkası ve fotoğraf ekranındaki eşitlenmiş düğmeler yayımlandı. 405 test geçti; telefon görsel kontrolü ve verileri koruyan kurulum tamamlandı. [V61 sürüm notları](V61_SURUM_NOTLARI.md).
 

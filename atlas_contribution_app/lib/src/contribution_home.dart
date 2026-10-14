@@ -69,6 +69,7 @@ class ContributionHome extends StatefulWidget {
     this.onExport,
     this.onReview,
     this.onAiSettings,
+    this.onOpenGuide,
     this.onRecorded,
     this.onReadFortune,
     this.onGenerateFortune,
@@ -96,6 +97,7 @@ class ContributionHome extends StatefulWidget {
   final Future<void> Function()? onExport;
   final Future<void> Function()? onReview;
   final Future<void> Function()? onAiSettings;
+  final Future<void> Function()? onOpenGuide;
   final Future<void> Function(Map<String, dynamic>)? onRecorded;
   final Future<void> Function(Map<String, dynamic>)? onReadFortune;
   final Future<void> Function(Map<String, dynamic>)? onGenerateFortune;

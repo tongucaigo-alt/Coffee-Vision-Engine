@@ -822,6 +822,14 @@ extension _AtlasHomePresentation on _ContributionHomeState {
         'Fotoğrafların ve gözlemlerin bu telefonda saklanır. Fal hizmetine yalnız metinsel özet gönderilir. Araştırma paylaşımını kayıt bazında sen yönetirsin. Yıldızsız kayıtlar da otomatik silinmez.',
       ),
       const SizedBox(height: 20),
+      if (widget.onOpenGuide != null) ...[
+        _atlasSettingsItem(
+          onPressed: _atlasBusy ? null : widget.onOpenGuide,
+          icon: Icons.menu_book_outlined,
+          label: 'Kullanım Rehberi',
+        ),
+        const SizedBox(height: 8),
+      ],
       if (widget.onAiSettings != null) ...[
         _atlasSettingsItem(
           onPressed: _atlasBusy ? null : widget.onAiSettings,

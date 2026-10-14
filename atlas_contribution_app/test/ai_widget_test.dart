@@ -18,6 +18,7 @@ import 'package:atlas_contribution_app/src/models.dart';
 import 'package:atlas_contribution_app/src/mvp/review_controller.dart';
 import 'package:atlas_contribution_app/src/mvp/review_models.dart';
 import 'fixtures.dart';
+import 'coffee_guide_fixture.dart';
 import 'mvp_review_test.dart' show fakeEngine;
 
 class _Client extends AiClient {
@@ -97,7 +98,11 @@ void main() {
       );
       runtime = await AiRuntime.create(source, readKey: (_) async => '');
       await tester.pumpWidget(
-        OfflineContributionApp(store: source, ai: runtime),
+        OfflineContributionApp(
+          store: source,
+          ai: runtime,
+          guideStore: DismissedGuideStore(),
+        ),
       );
       await Future<void>.delayed(const Duration(milliseconds: 200));
     });

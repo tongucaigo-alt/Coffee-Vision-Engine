@@ -81,6 +81,7 @@ dev_dependencies:
 flutter:
   assets:
     - assets/brand/
+    - assets/guide/
     - assets/contribution-labels-v1.json
     - assets/fortune-prompt-v1.json
     - assets/tarot-prompt-v1.json

@@ -15,6 +15,7 @@ import 'package:atlas_contribution_app/src/tarot/tarot_pages.dart';
 import 'package:atlas_contribution_app/src/tarot/tarot_runtime.dart';
 import 'package:atlas_contribution_app/src/tarot/tarot_store.dart';
 import 'tarot_test.dart' show fixture, catalog;
+import 'coffee_guide_fixture.dart';
 
 const sampleReading =
     'Geçmiş\nDeli kartının düz temaları, başlangıçlara merakla bakmayı çağrıştırıyor. Daha önce atılmış adımların ne anlama geldiğini düşünmek için bir alan açabilir.\n\nŞimdi\nBüyücü kartının ters yönü, kaynaklarını kullanırken odağı yeniden kurmayı düşündürebilir. Bu, sana ait bir olayın bilgisi değil; kartın temalarından doğan bir çağrışımdır.\n\nOlası Yön\nBaşrahibe kartının düz yönü, iç sesini dinlemeye yönelik bir düşünme daveti sunuyor. Kesin bir gelecek anlatmıyor.\n\nKartların ortak hikâyesi, meraktan odağa ve ardından sakin bir dinlemeye doğru ilerliyor. Bugün hangi küçük adım sana düşünmek için alan açabilir?';
@@ -171,7 +172,11 @@ void main() {
       await tester.pumpWidget(
         RepaintBoundary(
           key: key,
-          child: OfflineContributionApp(store: source, tarot: runtime),
+          child: OfflineContributionApp(
+            store: source,
+            tarot: runtime,
+            guideStore: DismissedGuideStore(),
+          ),
         ),
       );
       await settleIo(tester);
@@ -377,6 +382,7 @@ void main() {
           child: OfflineContributionApp(
             store: _CoffeeUiStore(Directory('${temp.path}/coffee')),
             tarot: runtime,
+            guideStore: DismissedGuideStore(),
           ),
         ),
       );
