@@ -73,6 +73,42 @@ void main() {
     () => messenger.setMockMethodCallHandler(TraceService.channel, null),
   );
 
+  test(
+    'selective experiment is off by default and owns a separate cache',
+    () async {
+      expect(adaptiveTracesEnabled, isFalse);
+      final dir = await Directory.systemTemp.createTemp('trace-selective-');
+      addTearDown(() => dir.delete(recursive: true));
+      final file = File('${dir.path}/original.jpg')
+        ..writeAsBytesSync(testImage());
+      final requests = <Map>[];
+      messenger.setMockMethodCallHandler(TraceService.channel, (call) async {
+        requests.add(call.arguments as Map);
+        return validResult();
+      });
+      final cache = Directory('${dir.path}/cache');
+      final baseline = TraceService(cache);
+      final selective = TraceService(cache, adaptive: true);
+      final p = photo();
+      await baseline.analyze('same-owner', file, p);
+      await selective.analyze('same-owner', file, p);
+      await selective.analyze('same-owner', file, p);
+      await baseline.analyze('same-owner', file, p);
+      expect(requests, hasLength(2));
+      expect(requests.first.containsKey('adaptive'), isFalse);
+      expect(requests.last['adaptive'], isTrue);
+      expect(
+        requests.first['coordinateSpace'],
+        requests.last['coordinateSpace'],
+      );
+      final files = await cache
+          .list(recursive: true)
+          .where((e) => e is File)
+          .toList();
+      expect(files, hasLength(2));
+    },
+  );
+
   test('invalid native/cache dimensions, masks and bounds are rejected', () {
     expect(validateTraceResult(validResult())['width'], 100);
     for (final change in <void Function(Map)>[

@@ -15,7 +15,12 @@ const openCvTracesEnabled = bool.fromEnvironment(
   'ATLAS_OPENCV_TRACES',
   defaultValue: true,
 );
-const traceAlgorithm = 'opencv-4.13-traces-v1';
+// Acceptance-gated experiment. Normal builds retain the exact V65 path/cache.
+const adaptiveTracesEnabled = bool.fromEnvironment('ATLAS_OPENCV_ADAPTIVE');
+const adaptiveTraceAlgorithm = 'opencv-4.13-traces-v3-cup-domain-selective';
+const traceAlgorithm = adaptiveTracesEnabled
+    ? adaptiveTraceAlgorithm
+    : 'opencv-4.13-traces-v3-cup-domain';
 const traceColors = [
   Color(0xff0eae98),
   Color(0xffdf4a78),
@@ -89,36 +94,47 @@ List<TraceCandidate> selectTraces(List<TraceCandidate> input) {
       return score != 0 ? score : a.photoIndex.compareTo(b.photoIndex);
     });
   final selected = <TraceCandidate>[];
+  bool isDuplicate(TraceCandidate item) => selected.any((other) {
+    if (other.photoIndex == item.photoIndex) {
+      final overlap = item.box.intersect(other.box);
+      return !overlap.isEmpty &&
+          overlap.width *
+                  overlap.height /
+                  math.min(
+                    item.box.width * item.box.height,
+                    other.box.width * other.box.height,
+                  ) >
+              .25;
+    }
+    final a = (item.data['signature'] as List).cast<num>();
+    final b = (other.data['signature'] as List).cast<num>();
+    double dot = 0, aa = 0, bb = 0;
+    for (var i = 0; i < a.length; i++) {
+      dot += a[i] * b[i];
+      aa += a[i] * a[i];
+      bb += b[i] * b[i];
+    }
+    final ratio = (item.data['aspect'] as num) / (other.data['aspect'] as num);
+    return aa > 0 &&
+        bb > 0 &&
+        dot / math.sqrt(aa * bb) > .98 &&
+        ratio > .85 &&
+        ratio < 1.18;
+  });
+  // A valid angle must not lose every hint solely because another angle has
+  // larger fragments. Similarity rejection still applies; never fill empty views.
+  final photos = ranked.map((c) => c.photoIndex).toSet().toList()..sort();
+  for (final photo in photos) {
+    for (final item in ranked.where((c) => c.photoIndex == photo)) {
+      if (!isDuplicate(item)) {
+        selected.add(item);
+        break;
+      }
+    }
+    if (selected.length == 4) return selected;
+  }
   for (final item in ranked) {
-    final duplicate = selected.any((other) {
-      if (other.photoIndex == item.photoIndex) {
-        final overlap = item.box.intersect(other.box);
-        return !overlap.isEmpty &&
-            overlap.width *
-                    overlap.height /
-                    math.min(
-                      item.box.width * item.box.height,
-                      other.box.width * other.box.height,
-                    ) >
-                .25;
-      }
-      final a = (item.data['signature'] as List).cast<num>();
-      final b = (other.data['signature'] as List).cast<num>();
-      double dot = 0, aa = 0, bb = 0;
-      for (var i = 0; i < a.length; i++) {
-        dot += a[i] * b[i];
-        aa += a[i] * a[i];
-        bb += b[i] * b[i];
-      }
-      final ratio =
-          (item.data['aspect'] as num) / (other.data['aspect'] as num);
-      return aa > 0 &&
-          bb > 0 &&
-          dot / math.sqrt(aa * bb) > .98 &&
-          ratio > .85 &&
-          ratio < 1.18;
-    });
-    if (!duplicate) selected.add(item);
+    if (!isDuplicate(item)) selected.add(item);
     if (selected.length == 4) break;
   }
   return selected;
@@ -211,9 +227,14 @@ class TraceSet {
 }
 
 class TraceService {
-  TraceService(this.directory, {this.timeout = const Duration(seconds: 12)});
+  TraceService(
+    this.directory, {
+    this.timeout = const Duration(seconds: 12),
+    this.adaptive = adaptiveTracesEnabled,
+  });
   final Directory directory;
   final Duration timeout;
+  final bool adaptive;
   static const channel = MethodChannel('atlas.opencv/traces');
   final _deleted = <String>{};
   final _pending = <String, Future<Map<String, dynamic>>>{};
@@ -241,7 +262,10 @@ class TraceService {
       throw const FormatException('Photo changed');
     }
     final area = photo.visibleCrop;
-    final identity = '$checksum|$traceAlgorithm|${jsonEncode(area.toJson())}';
+    final algorithm = adaptive
+        ? adaptiveTraceAlgorithm
+        : 'opencv-4.13-traces-v3-cup-domain';
+    final identity = '$checksum|$algorithm|${jsonEncode(area.toJson())}';
     final name = sha256.convert(utf8.encode(identity)).toString();
     final key = '$owner/$name';
     final existing = _pending[key];
@@ -288,6 +312,7 @@ class TraceService {
       'png': png,
       'photoId': photo.fileKey,
       'coordinateSpace': PhotoCrop.coordinateSpace,
+      if (adaptive) 'adaptive': true,
     });
     _native = native;
     unawaited(

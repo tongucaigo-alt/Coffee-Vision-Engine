@@ -47,6 +47,18 @@ void main() {
       );
     },
   );
+  test('larger pieces cannot consume every slot before a distinct angle', () {
+    final selected = selectTraces([
+      candidate(0, 1, score: 100, signatureIndex: 1),
+      candidate(0, 2, score: 90, signatureIndex: 2),
+      candidate(0, 3, score: 80, signatureIndex: 3),
+      candidate(0, 4, score: 70, signatureIndex: 4),
+      candidate(1, 5, score: 20, signatureIndex: 5),
+      candidate(2, 6, score: 10, signatureIndex: 6),
+    ]);
+    expect(selected, hasLength(4));
+    expect(selected.map((c) => c.photoIndex).toSet(), {0, 1, 2});
+  });
   test(
     'closeups map to full original coordinates inside corrected cup area',
     () {
