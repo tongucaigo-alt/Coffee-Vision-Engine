@@ -1,5 +1,9 @@
 # Atlas Tarot V79 — Mood boyut ve boşluk düzenlemesi
 
+**ARAYÜZ İÇİN EN İYİ VERSİYON**
+
+17 Ekim 2026 tarihli kullanıcı değerlendirmesine göre arayüz için tercih edilen referans sürüm V79'dur. GitHub kaynak dalı `codex/atlas-tarot-compact-v79`, referans etiketi `atlas-v79-best-ui`.
+
 17 Ekim 2026. Dal: `codex/atlas-tarot-compact-v79`.
 
 ## Kaynak ve değişiklik
@@ -33,4 +37,8 @@ Kurulum öncesi son kopyadaki 14 Tarot açılımı ve diğer kullanıcı veriler
 
 Gerçek telefonda kartların alanları ve kahve ana ekranının metin/yerleşim sınırları önceki sürümle aynı kaldı. Mood seçimi ve 3+2 dizilim korundu; beş düğme de en az 48dp'dir. Yorumunu Oluştur düğmesinin tüm alanı `[146,1763]–[934,1909]` piksel sınırlarıyla 2205 pikselde başlayan alt sistem alanının üstünde kaldı. Dikey kaydırma hareketi sonrası içerik konumları değişmedi. Telefon, mevcut açılımın bu ekranında bırakıldı.
 
-Teslim klasörü: `C:/Users/exzau/Documents/Codex/2026-10-16/atlas-tarot-compact-v79-output`. APK, önizlemeler ve doğrulama JSON'ları buradadır. Özel veri yedekleri `AppData/Local/AtlasAiBeta/device-backups` altında ve Git kapsamı dışındadır. GitHub yayını yapılmadı.
+Teslim klasörü: `C:/Users/exzau/Documents/Codex/2026-10-16/atlas-tarot-compact-v79-output`. APK, önizlemeler ve doğrulama JSON'ları buradadır. Özel veri yedekleri `AppData/Local/AtlasAiBeta/device-backups` altında ve Git kapsamı dışındadır.
+
+## GitHub kaynak referansı
+
+Kullanıcının V79'u yükleme isteğiyle, telefona kurulan sürümün tam kaynak kopyası bu dalda saklanır. V77/V78 tabanından gelen mevcut kahve, kişiselleştirme ve OpenCV çalışmaları da kaynak checkpoint'inde korunur; yalnız Tarot dosyalarını içeren eski yayın dalıyla karıştırılmamalıdır. Bu yayın adımında uygulama kodu değiştirilmemiş, yalnız sürüm notu eklenmiştir. APK, özel bağlantı/imza dosyaları ve telefon kayıt yedekleri GitHub kaynağına dahil değildir.
