@@ -53,23 +53,23 @@ class _TarotMoodPicker extends StatelessWidget {
     key: const ValueKey('tarot-mood-picker'),
     children: [
       const Divider(color: atlasBorder, height: 1),
-      const SizedBox(height: 20),
+      const SizedBox(height: 4),
       const Text(
         'İstersen bana nasıl hissettiğini söyleyebilirsin.',
         textAlign: TextAlign.center,
         style: TextStyle(fontFamily: 'Literata', fontSize: 19, height: 1.5),
       ),
-      const SizedBox(height: 20),
+      const SizedBox(height: 4),
       LayoutBuilder(
         builder: (context, constraints) {
           final columns = MediaQuery.textScalerOf(context).scale(13) > 19.5
               ? (constraints.maxWidth < 340 ? 1 : 2)
               : 3;
-          final width = (constraints.maxWidth - (columns - 1) * 10) / columns;
+          final width = (constraints.maxWidth - (columns - 1) * 8) / columns;
           return Wrap(
             alignment: WrapAlignment.center,
-            spacing: 10,
-            runSpacing: 10,
+            spacing: 8,
+            runSpacing: 6,
             children: [
               for (final value in TarotMood.values)
                 SizedBox(
@@ -81,9 +81,10 @@ class _TarotMoodPicker extends StatelessWidget {
                         key: ValueKey('tarot-mood-${value.name}'),
                         onPressed: saving ? null : () => onSelect(value),
                         style: OutlinedButton.styleFrom(
+                          minimumSize: const Size(48, 48),
                           padding: const EdgeInsets.symmetric(
                             horizontal: 6,
-                            vertical: 12,
+                            vertical: 4,
                           ),
                           foregroundColor: atlasSageInk,
                           backgroundColor: value == mood
@@ -101,15 +102,15 @@ class _TarotMoodPicker extends StatelessWidget {
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(_icons[value], size: 22),
-                            const SizedBox(height: 8),
+                            Icon(_icons[value], size: 18),
+                            const SizedBox(height: 2),
                             Wrap(
                               alignment: WrapAlignment.center,
                               crossAxisAlignment: WrapCrossAlignment.center,
                               spacing: 3,
                               children: [
                                 if (value == mood)
-                                  const Icon(Icons.check, size: 16),
+                                  const Icon(Icons.check, size: 14),
                                 Text(
                                   value.label,
                                   textAlign: TextAlign.center,
@@ -127,7 +128,7 @@ class _TarotMoodPicker extends StatelessWidget {
           );
         },
       ),
-      const SizedBox(height: 16),
+      const SizedBox(height: 6),
       const Text(
         'Seçim yapmadan da kartlarını açabilirsin.',
         textAlign: TextAlign.center,

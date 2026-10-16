@@ -114,6 +114,7 @@ void main() {
     Size size = const Size(390, 844),
     double scale = 1,
     bool reduced = false,
+    EdgeInsets padding = const EdgeInsets.only(top: 28, bottom: 20),
   }) async {
     tester.view.devicePixelRatio = 1;
     tester.view.physicalSize = size;
@@ -130,7 +131,7 @@ void main() {
             data: MediaQuery.of(context).copyWith(
               textScaler: TextScaler.linear(scale),
               disableAnimations: reduced,
-              padding: const EdgeInsets.only(top: 28, bottom: 20),
+              padding: padding,
             ),
             child: child!,
           ),
@@ -723,5 +724,69 @@ void main() {
     expect(find.byKey(const ValueKey('tarot-mood-picker')), findsNothing);
     expect(calls, 0);
     await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('ready tarot fits A56 without scrolling and keeps mood layout', (
+    tester,
+  ) async {
+    final base = fixture();
+    final selected = [
+      'Ay',
+      'Kupa Dokuzlusu',
+      'Değnek Dokuzlusu',
+    ].map((name) => base.deck.indexWhere((c) => c.card.name == name)).toList();
+    expect(selected.every((index) => index >= 0), true);
+    for (final scale in [0.9, 1.0]) {
+      final draw = base.copy(selected: selected, mood: TarotMood.tense);
+      await saveDraw(tester, draw);
+      final key = await mount(
+        tester,
+        TarotDrawPage(runtime: runtime, draw: draw),
+        size: const Size(384, 832),
+        scale: scale,
+        reduced: true,
+        padding: const EdgeInsets.only(top: 40, bottom: 48),
+      );
+      final scroll = tester
+          .state<ScrollableState>(find.byType(Scrollable).first)
+          .position;
+      expect(scroll.maxScrollExtent, 0, reason: 'A56 scale $scale');
+      final generate = tester.getRect(
+        find.byKey(const ValueKey('tarot-generate')),
+      );
+      expect(generate.bottom, lessThanOrEqualTo(784));
+      final buttons = [
+        for (final mood in TarotMood.values)
+          tester.getRect(find.byKey(ValueKey('tarot-mood-${mood.name}'))),
+      ];
+      for (final rect in buttons) {
+        expect(rect.width, greaterThanOrEqualTo(48));
+        expect(rect.height, greaterThanOrEqualTo(48));
+        expect(rect.bottom, lessThanOrEqualTo(784));
+      }
+      expect(buttons[0].top, buttons[1].top);
+      expect(buttons[1].top, buttons[2].top);
+      expect(buttons[3].top, buttons[4].top);
+      expect(buttons[3].top, greaterThan(buttons[0].bottom));
+      expect(
+        (buttons[3].center.dx + buttons[4].center.dx) / 2,
+        closeTo(192, .1),
+      );
+      final happy = find.byKey(const ValueKey('tarot-mood-happy'));
+      final icon = find.descendant(
+        of: happy,
+        matching: find.byIcon(Icons.sentiment_satisfied_alt_outlined),
+      );
+      expect(
+        tester.getRect(icon).bottom,
+        lessThan(tester.getRect(find.text('Mutlu')).top),
+      );
+      debugPrint(
+        'PHONE_METRICS ${jsonEncode({'scale': scale, 'scroll': scroll.maxScrollExtent, 'buttonBottom': tester.getRect(find.byKey(const ValueKey('tarot-generate'))).bottom})}',
+      );
+      await capture(tester, key, 'phone-ready-${scale}x');
+      await tester.pumpWidget(const SizedBox());
+    }
+    expect(calls, 0);
   });
 }

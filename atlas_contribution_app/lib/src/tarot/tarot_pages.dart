@@ -465,7 +465,7 @@ class _TarotDrawPageState extends State<TarotDrawPage>
                   const SizedBox(height: 22),
                   _slots(compact: _reading && complete),
                   if (selectedAll && !_reading) ...[
-                    const SizedBox(height: 32),
+                    const SizedBox(height: 4),
                     _TarotMoodPicker(
                       mood: _draw.mood,
                       saving: _moodSaving,
@@ -509,7 +509,7 @@ class _TarotDrawPageState extends State<TarotDrawPage>
                       ),
                   ],
                   if (_draw.ready) ...[
-                    const SizedBox(height: 22),
+                    SizedBox(height: _reading ? 22 : 8),
                     if (generating) ...[
                       const Row(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -573,7 +573,7 @@ class _TarotDrawPageState extends State<TarotDrawPage>
                       const SizedBox(height: 12),
                       AtlasNotice(_draw.result.error!),
                     ],
-                    const SizedBox(height: 16),
+                    SizedBox(height: _reading ? 16 : 8),
                     const Text(
                       'Tarot eğlence ve öz değerlendirme içindir. Yorum bir düşünme davetidir.',
                       textAlign: TextAlign.center,
