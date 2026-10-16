@@ -20,6 +20,8 @@ import 'package:atlas_contribution_app/src/mvp/review_models.dart';
 import 'fixtures.dart';
 import 'coffee_guide_fixture.dart';
 import 'mvp_review_test.dart' show fakeEngine;
+import 'package:atlas_contribution_app/src/user_profile_store.dart';
+import 'package:atlas_contribution_app/src/ai/fortune_personalization.dart';
 
 class _Client extends AiClient {
   _Client(super.prompt);
@@ -223,6 +225,13 @@ void main() {
           client: client,
           readKey: (_) async => '',
         );
+        await runtime.userProfile.save(
+          const UserProfile(
+            addressName: 'PRIVATE_WIDGET_NAME',
+            zodiac: ZodiacSign.libra,
+            useZodiacInReading: true,
+          ),
+        );
         final photos = <ReviewPhoto>[];
         for (var i = 0; i < 3; i++) {
           final p = await runtime.reviews.importPhoto(
@@ -350,10 +359,7 @@ void main() {
       }
       await tester.pumpAndSettle();
       expect(client.inputs, isEmpty);
-      await tester.scrollUntilVisible(
-        find.text('Kayda dön'),
-        -400,
-      );
+      await tester.scrollUntilVisible(find.text('Kayda dön'), -400);
       expect(
         find.textContaining('Bu karede fincanının hikâyesine ulaşamadık'),
         findsNothing,
@@ -370,7 +376,10 @@ void main() {
       });
       await tester.ensureVisible(find.text('A/B fal oluştur'));
       await tester.pumpAndSettle();
-      await tester.runAsync(() => tester.tap(find.text('A/B fal oluştur')));
+      await tester.runAsync(() async {
+        await tester.tap(find.text('A/B fal oluştur'));
+        await tester.tap(find.text('A/B fal oluştur'));
+      });
       for (var i = 0; i < 40; i++) {
         await tester.pump(const Duration(milliseconds: 20));
         await tester.runAsync(
@@ -379,11 +388,24 @@ void main() {
       }
       await tester.pumpAndSettle();
       expect(client.inputs, hasLength(2));
+      expect(client.inputs.first['version'], personalizedContextVersion);
+      expect(client.inputs.first['creativeSymbol'], isNull);
       expect(client.inputs[0], client.inputs[1]);
+      expect(client.inputs.first['personalization'], {'zodiac': 'libra'});
+      expect(jsonEncode(client.inputs), isNot(contains('PRIVATE_WIDGET_NAME')));
+      expect(
+        session.preparedInput!['payload']['version'],
+        'atlas-fortune-context-v2',
+      );
+      expect(session.preparedInput!.containsKey('personalization'), false);
       final finished = await tester.runAsync(
         () => runtime.store.results(session.id),
       );
       expect(finished!.single['state'], 'completed');
+      expect(
+        (finished.single['context'] as Map).containsKey('personalization'),
+        false,
+      );
       // Drag in ListView padding, not the nested SelectableText scroll areas.
       for (var i = 0; i < 40 && find.text('A').evaluate().isEmpty; i++) {
         await tester.dragFrom(const Offset(8, 600), const Offset(0, -400));

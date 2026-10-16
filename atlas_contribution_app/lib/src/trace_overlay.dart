@@ -251,9 +251,9 @@ class TracePainter extends CustomPainter {
   final PhotoCrop display;
   @override
   void paint(Canvas canvas, Size size) {
-    for (var i = 0; i < traces.length; i++) {
-      final t = traces[i];
-      if (t.photoIndex != photoIndex) continue;
+    final local = traces.where((t) => t.photoIndex == photoIndex).toList();
+    for (var i = 0; i < local.length; i++) {
+      final t = local[i];
       final dx = t.area.width / t.width / display.width * size.width;
       final dy = t.area.height / t.height / display.height * size.height;
       final origin = Offset(
@@ -284,10 +284,10 @@ class TracePainter extends CustomPainter {
       }
 
       final paint = Paint()
-        ..color = traceColors[i].withValues(alpha: .65)
+        ..color = traceColors[i % traceColors.length].withValues(alpha: .65)
         ..isAntiAlias = false;
       canvas.drawPath(region(t.pixels), paint);
-      paint.color = traceColors[i].withValues(alpha: .95);
+      paint.color = traceColors[i % traceColors.length].withValues(alpha: .95);
       canvas.drawPath(region(t.boundary), paint);
     }
   }

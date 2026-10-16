@@ -1,3 +1,4 @@
+import '../canonical_order.dart';
 import 'vision_component.dart';
 import 'vision_component_relation.dart';
 import 'vision_component_relation_result.dart';
@@ -148,14 +149,13 @@ final class SpatialGraphOrganizer {
       );
     }
 
-    final relationList = relations.toList()
-      ..sort((first, second) {
-        final sourceComparison = first.sourceComponentId.compareTo(
-          second.sourceComponentId,
-        );
-        if (sourceComparison != 0) return sourceComparison;
-        return first.targetComponentId.compareTo(second.targetComponentId);
-      });
+    final relationList = canonicalCopy(relations, (first, second) {
+      final sourceComparison = first.sourceComponentId.compareTo(
+        second.sourceComponentId,
+      );
+      if (sourceComparison != 0) return sourceComparison;
+      return first.targetComponentId.compareTo(second.targetComponentId);
+    });
     final expectedRelationCount = components.length * (components.length - 1);
     if (requireCompleteRelations &&
         relationList.length != expectedRelationCount) {
@@ -166,7 +166,7 @@ final class SpatialGraphOrganizer {
       );
     }
 
-    final relationPairs = <({int source, int target})>{};
+    int previousSource = 0, previousTarget = 0;
     final adjacency = <int, List<int>>{
       for (final component in components) component.id: <int>[],
     };
@@ -188,35 +188,22 @@ final class SpatialGraphOrganizer {
           'self relations are not allowed',
         );
       }
-      final pair = (source: sourceId, target: targetId);
-      if (!relationPairs.add(pair)) {
+      if (sourceId == previousSource && targetId == previousTarget) {
         throw ArgumentError.value(
           relation,
           'relationResult',
           'directed relation pairs must be unique',
         );
       }
+      previousSource = sourceId;
+      previousTarget = targetId;
       adjacency[sourceId]!.add(targetId);
     }
 
-    if (requireCompleteRelations) {
-      for (final sourceId in componentIds) {
-        for (final targetId in componentIds) {
-          if (sourceId == targetId) continue;
-          if (!relationPairs.contains((source: sourceId, target: targetId))) {
-            throw ArgumentError.value(
-              relationList,
-              'relations',
-              'must contain every directed pair exactly once',
-            );
-          }
-        }
-      }
-    }
+    // Valid endpoints + no self/duplicate pairs + N*(N-1) count proves completeness.
 
     var adjacencyRelationCount = 0;
     for (final neighbors in adjacency.values) {
-      neighbors.sort();
       adjacencyRelationCount += neighbors.length;
     }
     if (adjacencyRelationCount != relationList.length) {

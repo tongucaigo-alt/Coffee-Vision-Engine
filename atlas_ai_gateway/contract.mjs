@@ -4,13 +4,41 @@ import { createHash } from 'node:crypto';
 export const promptBytes = readFileSync(new URL('../atlas_contribution_app/assets/fortune-prompt-v1.json', import.meta.url));
 export const prompt = JSON.parse(promptBytes);
 export const promptHash = createHash('sha256').update(promptBytes).digest('hex');
-const labels = new Set(['Kuş','Kalp','Balık','Yılan','Köpek','Kelebek','Ağaç','At','Göz','Taç','Yüzük','Yol','Dağ','Ay','Güneş','Çapa','Ev','İnsan Figürü','Uçak','Çiçek']);
+const labelRows = JSON.parse(readFileSync(new URL('../atlas_contribution_app/assets/contribution-labels-v1.json', import.meta.url))).labels;
+const labels = new Set(labelRows.map(row => row.tr));
+const labelNames = Object.fromEntries(labelRows.map(row => [row.id, row.tr]));
+export const personalizedContextVersion = 'atlas-fortune-context-v3';
+const creativeIds = ['key','bird','fish','tree','star','road','heart'];
+const zodiacNames = {aries:'Koç',taurus:'Boğa',gemini:'İkizler',cancer:'Yengeç',leo:'Aslan',virgo:'Başak',libra:'Terazi',scorpio:'Akrep',sagittarius:'Yay',capricorn:'Oğlak',aquarius:'Kova',pisces:'Balık'};
+function personalizedFields(c) {
+  const reported = c.photos.some(p => p.userObservations.length);
+  const s = c.creativeSymbol;
+  if (reported) { if (s !== null) throw new Error('invalid_context'); }
+  else {
+    exact(s,['catalogVersion','origin','symbolId','symbolName']);
+    if(s.catalogVersion!=='atlas-creative-symbols-v1' || s.origin!=='creativeSelectionNotVisualDetection' || !creativeIds.includes(s.symbolId) || labelNames[s.symbolId]!==s.symbolName) throw new Error('invalid_context');
+  }
+  if(Object.hasOwn(c,'personalization')) {
+    exact(c.personalization,['zodiac']);
+    if(!Object.hasOwn(zodiacNames,c.personalization.zodiac)) throw new Error('invalid_context');
+  }
+}
+export function personalizedBrief(c) {
+  if(c.version!==personalizedContextVersion) return '';
+  const symbols=[...new Set(c.photos.flatMap(p=>p.userObservations.map(o=>o.symbolName)))];
+  const sign=zodiacNames[c.personalization?.zodiac];
+  return [
+    symbols.length ? `Kullanıcının bildirdiği semboller: ${symbols.join(', ')}. Yalnız bu sembolleri kullan.` : `Yaratıcı anlatı sembolü: ${c.creativeSymbol.symbolName}. Kullanıcı bunu bildirmedi; görüntüde tespit edilmedi. Yalnız çağrışımını kullan, paylaştığın deme ve fincanda konumlandırma.`,
+    sign ? `Kullanıcının izin verdiği burç: ${sign}. En fazla bir hafif değinme; kişilik veya özel hayat çıkarımı yapma.` : 'Burç bilgisi gönderilmedi. Burç veya kişilik özelliği ekleme; eksik bilgiden de söz etme.',
+  ].join('\n');
+}
 export function exact(o, keys) {
   if (!o || typeof o !== 'object' || Array.isArray(o) || Object.keys(o).sort().join('|') !== [...keys].sort().join('|')) throw new Error('invalid_context');
 }
 export function validateContext(c) {
-  const v2 = c?.version === 'atlas-fortune-context-v2';
-  exact(c, ['version','language','status','photos', ...(c.narrative ? ['narrative'] : [])]);
+  const v3 = c?.version === personalizedContextVersion;
+  const v2 = c?.version === 'atlas-fortune-context-v2' || v3;
+  exact(c, ['version','language','status','photos', ...(c.narrative ? ['narrative'] : []), ...(v3 ? ['creativeSymbol'] : []), ...(v3 && Object.hasOwn(c,'personalization') ? ['personalization'] : [])]);
   if (c.narrative) validateNarrative(c.narrative);
   if ((!v2 && c.version !== 'atlas-fortune-context-v1') || c.language !== 'tr' || !['ready','partial'].includes(c.status) || !Array.isArray(c.photos) || c.photos.length < 1 || c.photos.length > 4) throw new Error('invalid_context');
   let cups = 0, saucers = 0, useful = false;
@@ -39,6 +67,7 @@ export function validateContext(c) {
     } else if (p.physicalMeasurementsStatus === 'available') throw new Error('invalid_context');
   }
   if (cups < 1 || cups > 3 || saucers > 1 || !useful) throw new Error('invalid_context');
+  if(v3) personalizedFields(c);
   return c;
 }
 function lengthRepairHint(previous,reason) {
@@ -48,16 +77,82 @@ function lengthRepairHint(previous,reason) {
   const extra=Math.max(80,Math.min(340,340-count));
   return `Önceki metin yalnız ${count} kelime. En az ${extra} yeni kelimelik özgün içerik ekle; toplam 320–380 kelime hedefle. Var olan cümleleri tekrar etme. İlk üç paragrafı farklı gündelik olasılıklar ve düşünme davetleriyle geliştir; yeni kişisel olay veya görsel bulgu uydurma.`;
 }
-export function messages(context, noThink = false, repair = false, reason = null, previousReply = null) {
+function usesSourceBrief(context) {
+  return context?.version===personalizedContextVersion && prompt.personalizedFormat==='source-brief-example-v1';
+}
+export function sourceAwareBrief(context) {
+  const topics={relationships:'ilişkiler',work:'iş ve üretim',social:'sosyal bağlantılar',decisions:'seçimler',rest:'dinlenme',beginnings:'başlangıçlar'};
+  const arcs={'notice-explore-choice':'bir ayrıntıdan başlayıp iki ihtimali aç ve bir seçime yaklaş','contrast-perspective-small-step':'bir karşıtlıktan başlayıp farklı bir bakışa ve küçük bir gelişmeye ilerle','pause-connection-opening':'bir duraklamadan başlayıp bağlantı ve yeni bir ihtimale ilerle'};
+  const closings={'gentle-question':'en fazla bir yumuşak soruyla bitir','small-invitation':'küçük bir olasılığı açık bırak','open-possibility':'yeni bir ihtimali açık bırak'};
+  const n=context.narrative;
+  const cues=physicalCues(context);
   return [
-    {role:'system', content:prompt.system},
+    `Anlatı konusu: ${topics[n?.topic]??'gündelik ihtimaller'}.`,
+    ...(arcs[n?.arc] ? [`Akış: ${arcs[n.arc]}.`] : []),
+    ...(closings[n?.closing] ? [`Bitiş: ${closings[n.closing]}.`] : []),
+    personalizedBrief(context),
+    ...['fincanın','tabağın'].filter(surface=>cues.some(cue=>cue.startsWith(surface))).map(surface=>`${surface==='fincanın'?'Fincan':'Tabak'} için izinli kısa fiziksel ifadeler: ${JSON.stringify(cues.filter(cue=>cue.startsWith(surface)))}.`),
+    cues.length ? 'Her mevcut yüzeyden bir ifadeyi tam, doğal bir cümlenin içinde aynen kullan. İfadeyi tek başına bırakma; sembolün bulunduğu yer olarak anlatma.' : 'Fiziksel betim ekleme; eksik bilgiden de söz etme.',
+  ].join('\n');
+}
+export function messages(context,noThink=false,repair=false,reason=null,previousReply=null) {
+  if(!usesSourceBrief(context)) return legacyMessages(context,noThink,repair,reason,previousReply);
+  const example=prompt.personalizedStyleExample;
+  const request=prompt.personalizedUserPrefix+sourceAwareBrief(context);
+  const repairText=repair ? `\nÖnceki adayın kelime sayısı: ${previousReply?.trim().split(/\s+/u).length??0}. ${prompt.personalizedRepair} ${prompt.personalizedRepairHints?.[reason]??''} ${lengthRepairHint(previousReply,reason)} ${exampleCopyRepairHint(previousReply,reason)}` : '';
+  const suffix=noThink?'\n/no_think':'';
+  return [
+    {role:'system',content:prompt.personalizedSystem},
+    {role:'user',content:example.user},
+    {role:'assistant',content:example.assistant},
+    ...(repair && previousReply ? [{role:'user',content:request+suffix},{role:'assistant',content:previousReply}] : []),
+    {role:'user',content:request+repairText+suffix},
+  ];
+}
+function normalize(text) { return text.toLowerCase().replaceAll('ı','i').replace(/[^a-zçğöşü0-9\s]/gu,'').replace(/\s+/gu,' ').trim(); }
+function sentences(text) { return text.split(/[.!?\n]+/u).map(normalize).filter(s=>s.split(' ').length>=8); }
+function exampleCopyRepairHint(previousReply,reason) {
+  if(reason!=='repetition' || !previousReply) return '';
+  const old=prompt.personalizedStyleExample.assistant;
+  const oldSentences=new Set(sentences(old));
+  const opening=normalize(old).split(' ').slice(0,10).join(' ');
+  const copied=previousReply.split(/[.!?\n]+/u).map(s=>s.trim()).filter(s=>oldSentences.has(normalize(s)) || (normalize(s).split(' ').length>=10 && normalize(s).split(' ').slice(0,10).join(' ')===opening)).slice(0,3);
+  return copied.length ? `Şu cümleler üslup örneğinden kopyalanmış: ${JSON.stringify(copied)}. Bunları tamamen çıkar; aynı düşünceleri başka sözcüklerle tekrarlama. Yeni girdiye özgü farklı bir gelişme yaz.` : '';
+}
+export function exampleRepetitionError(text,context) {
+  if(!usesSourceBrief(context) || typeof text!=='string') return null;
+  const current=sentences(text);
+  const old=prompt.personalizedStyleExample.assistant;
+  const previous=new Set(sentences(old));
+  const opening=normalize(text).split(' ').slice(0,10);
+  return new Set(current).size<current.length || current.some(s=>previous.has(s)) || (opening.length>=10 && opening.join(' ')===normalize(old).split(' ').slice(0,10).join(' ')) ? 'repetition' : null;
+}
+function legacyMessages(context, noThink = false, repair = false, reason = null, previousReply = null) {
+  const v3=context.version===personalizedContextVersion;
+  const repairHints=v3 ? prompt.personalizedRepairHints : prompt.repairHints;
+  return [
+    {role:'system', content:v3 ? prompt.personalizedSystem : prompt.system},
     ...(repair && previousReply ? [{role:'assistant',content:previousReply}] : []),
-    {role:'user', content:prompt.userPrefix + JSON.stringify(context) + '\nİzinli kısa fiziksel ifadeler: '+JSON.stringify(physicalCues(context))+'. Bu ifadeler dışında fiziksel sahne betimleme.' + (repair ? '\nÖnceki adayın kelime sayısı: '+(previousReply?.trim().split(/\s+/u).length??0)+'. '+prompt.repair+' '+(prompt.repairHints?.[reason]??'')+' '+lengthRepairHint(previousReply,reason) : '') + (noThink ? '\n/no_think' : '')},
+    {role:'user', content:(v3 ? prompt.personalizedUserPrefix : prompt.userPrefix) + JSON.stringify(context) + '\n'+personalizedBrief(context)+'\nİzinli kısa fiziksel ifadeler: '+JSON.stringify(physicalCues(context))+'. Bu ifadeler dışında fiziksel sahne betimleme.' + (repair ? '\nÖnceki adayın kelime sayısı: '+(previousReply?.trim().split(/\s+/u).length??0)+'. '+(v3 ? prompt.personalizedRepair : prompt.repair)+' '+(repairHints?.[reason]??'')+' '+lengthRepairHint(previousReply,reason) : '') + (noThink ? '\n/no_think' : '')},
   ];
 }
 // Keep these bounded language checks aligned with the shared Dart/Node cases.
 // They reject known unsupported claims, not every possible semantic error.
 export function physicalCues(context) {
+  if(context?.version!==personalizedContextVersion) return legacyPhysicalCues(context);
+  const groups={cup:[],saucer:[]};
+  for(const photo of context.photos) for(const cue of legacyPhysicalCues({photos:[photo]})) {
+    if(!groups[photo.surface].includes(cue)) groups[photo.surface].push(cue);
+  }
+  const selected=[];
+  for(let i=0;selected.length<3;i++) {
+    let found=false;
+    for(const group of Object.values(groups)) if(i<group.length && selected.length<3) {selected.push(group[i]);found=true;}
+    if(!found) break;
+  }
+  return selected;
+}
+function legacyPhysicalCues(context) {
   const cues=[];
   for(const p of context?.photos??[]) {
     if(!p.regionalSummary) continue;
@@ -80,21 +175,35 @@ export function physicalCues(context) {
   }
   return [...new Set(cues)].slice(0,3);
 }
+function symbolStem(name) { return ({'balık':'balı(?:k|ğ)','kalp':'kal(?:p|b)','ağaç':'ağa(?:ç|c)'})[name]??name.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'); }
 function groundingError(lower, context) {
-  if (/piksel|%\s*\d|yüzde|bileşen|ilişkisel|üç kupa|üç farklı yüzey|üç fincan|ölçüm|ölçülen|çekim aç|kamera aç|(?:sağ|sol|üst) açı|(?:üç|3) (?:farklı )?açı|residuepixelcount|contentresidueratio|componentcount|candidaterelationcount|selectedrelationcount|globalphysicalmeasurements|physicalmeasurement|photonumber|declaredrole|handleright|handleleft/u.test(lower)) return 'technical';
+  if (/piksel|%\s*\d|yüzde(?:si|lik)?(?![a-zçğıöşü])|bileşen|ilişkisel|üç kupa|üç farklı yüzey|üç fincan|ölçüm|ölçülen|çekim aç|kamera aç|(?:sağ|sol|üst) açı|(?:üç|3) (?:farklı )?açı|residuepixelcount|contentresidueratio|componentcount|candidaterelationcount|selectedrelationcount|globalphysicalmeasurements|physicalmeasurement|photonumber|declaredrole|handleright|handleleft/u.test(lower)) return 'technical';
   // Numbered capture metadata, not ordinary perspectives or "ilk bakışta".
-  if (/(^|[^a-zçğıöşü0-9])(?:(?:[1-4]|bir|iki|üç|dört)(?:\s+(?:ayrı|farklı))?\s+(?:çekim|fotoğraf|görüntü|görünüm)[a-zçğıöşü]*|(?:birinci|ikinci|üçüncü|dördüncü|[1-4]\.)\s+(?:çekim|fotoğraf|görüntü|görünüm|açı)[a-zçğıöşü]*|(?:[2-4]|iki|üç|dört)(?:\s+(?:ayrı|farklı))?\s+bakış(?:ta|tan|taki|ında|ından|larında|larından))($|[^a-zçğıöşü])/u.test(lower)) return 'technical';
+  const captureText=lower.replace(/(^|[^a-zçğıöşü])bir\s+fotoğraf\s+gibi(?=$|[^a-zçğıöşü])/gu,' benzetme ').replace(/(^|[^a-zçğıöşü])bir\s+görünümü\s+olabilir(?=$|[^a-zçğıöşü])/gu,' benzetme ');
+  if (/(^|[^a-zçğıöşü0-9])(?:(?:[1-4]|bir|iki|üç|dört)(?:\s+(?:ayrı|farklı))?\s+(?:çekim|fotoğraf|görüntü|görünüm)[a-zçğıöşü]*|(?:birinci|ikinci|üçüncü|dördüncü|[1-4]\.)\s+(?:çekim|fotoğraf|görüntü|görünüm|açı)[a-zçğıöşü]*|(?:[2-4]|iki|üç|dört)(?:\s+(?:ayrı|farklı))?\s+bakış(?:ta|tan|taki|ında|ından|larında|larından))($|[^a-zçğıöşü])/u.test(captureText)) return 'technical';
   if (/(?:sembol|şekil|figür)[a-zçğıöşü]*\s+(?:(?:hiç|hiçbir|bir|de)\s+)*(?:yok|bulunm|görünm|gözükm|seçilm|göremedi|göremem|görmedi|seçemedi|seçemem)|(?:sembolsüz|şekilsiz)\s+(?:fincan|fotoğraf|görüntü)|(?:fincan|fotoğraf|görüntü)[a-zçğıöşü]*\s+(?:tamamen\s+)?boş/u.test(lower)) return 'unsupported_absence_claim';
   const visualText=physicalCues(context).reduce((text,cue)=>text.split(cue).join('fiziksel çağrışım'),lower);
   if (/fincanın dib|kahvenin dib|fincanın kenarında|yüzeyindeki|görüyorum|görebiliyorum|tespit edil|içindeki sıvı|(?:fotoğraf|görüntü|fincan|telve|tabak|kahve)[a-zçğıöşü]*[^.!?\n]{0,120}(?:görünü|gözük|gördü|görül|göster|seçili|seçebili|belirgin|şekil|sembol|figür|izler|dolu|yoğun|koyu|leke|çizgi|dağılım|\svar(?:\s|$)|bulun|baktığ|bakınca|incele)/u.test(visualText)) return 'unsupported_visual_claim';
   if (context) {
     const reported = new Set(context.photos.flatMap(p => p.userObservations.map(o => o.symbolName.toLocaleLowerCase('tr'))));
+    if(context.version===personalizedContextVersion) {
+      const active=[...reported,...(context.creativeSymbol ? [context.creativeSymbol.symbolName.toLocaleLowerCase('tr')] : [])];
+      for(const name of active) {
+        const escaped=symbolStem(name);
+        if(new RegExp(`(?:fincan|telve|tabak)[a-zçğıöşü]*[^.!?\\n]{0,90}${escaped}`,'u').test(visualText) || new RegExp(`${escaped}[^.!?\\n]{0,90}(?:fincan|telve|tabak)`,'u').test(visualText) || new RegExp(`(?:paylaştığın|bildirdiğin|gördüğün)[^.!?\\n]{0,25}${escaped}[^.!?\\n]{0,35}(?:kanat|gaga|kuyruk|uçuyor|uçuş|süzül|çırp|silüet|siluet|belirdi)`,'u').test(lower)) return 'unsupported_visual_claim';
+      }
+      if(!active.some(name=>{const stem=symbolStem(name); return new RegExp(`(^|[^a-zçğıöşü])${stem}[’']?[a-zçğıöşü]{0,12}(?=$|[^a-zçğıöşü])`,'u').test(lower);})) return 'missing_story_symbol';
+    }
     for (const label of labels) {
       const name = label.toLocaleLowerCase('tr');
       if (reported.has(name)) continue;
       const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       // Explicit symbol/attribution phrases only; everyday metaphors stay valid.
-      const claim = new RegExp(`(^|[^a-zçğıöşü])${escaped}(?:[’'][a-zçğıöşü]+)?\\s+(?:sembol|şekl|şekil|figür|simge|işaret)|(?:paylaştığın|işaretlediğin|belirttiğin|seçtiğin|bildirdiğin|gördüğün)\\s+(?:bir\\s+)?${escaped}(?=$|[^a-zçğıöşü])`, 'u');
+      const creative=context.creativeSymbol?.symbolName?.toLocaleLowerCase('tr')===name;
+      const attributionName=context.version===personalizedContextVersion ? `${symbolStem(name)}[’']?[a-zçğıöşü]{0,12}` : escaped;
+      const attributionVerbs=name==='yol' ? '(?:paylaştığın|işaretlediğin|belirttiğin|bildirdiğin|gördüğün)' : '(?:paylaştığın|işaretlediğin|belirttiğin|seçtiğin|bildirdiğin|gördüğün)';
+      if(name==='yol' && /seçtiğin\s+(?:bir\s+)?yol[’']?[a-zçğıöşü]*\s+(?:sembol|şekl|şekil|figür|simge|işaret)/u.test(lower)) return 'unsupported_symbol_claim';
+      const claim = new RegExp(`${creative ? '' : `(^|[^a-zçğıöşü])${escaped}(?:[’'][a-zçğıöşü]+)?\\s+(?:sembol|şekl|şekil|figür|simge|işaret)|`}${attributionVerbs}\\s+(?:bir\\s+)?${attributionName}(?=$|[^a-zçğıöşü])`, 'u');
       if (claim.test(lower)) return 'unsupported_symbol_claim';
     }
     if (reported.size === 0 && /(?:paylaştığın|işaretlediğin|belirttiğin|seçtiğin|bildirdiğin|gördüğün)\s+(?:bu\s+)?(?:sembol|şekil|figür)/u.test(lower)) return 'unsupported_symbol_claim';
@@ -109,13 +218,35 @@ export function qualityError(text, finishReason, context = null, editorial = tru
     if(text.trim().split(/\n\s*\n/u).length!==4) return 'structure';
   }
   const lower = text.toLocaleLowerCase('tr');
+  const certaintyText=lower
+    .replace(/garanti(?:si)?\s+(?:değil(?:dir)?|yok(?:tur)?)(?=$|[^a-zçğıöşü])/gu,'belirsizlik')
+    .replace(/olacağını\s+bilmeden(?=$|[^a-zçğıöşü])/gu,'belirsizlik')
+    .replace(/olacağını\s+şimdiden\s+bilmeyi\s+gerektirmiyor(?=$|[^a-zçğıöşü])/gu,'belirsizlik');
+  if(context?.version===personalizedContextVersion && /(^|[^a-zçğıöşü])[a-zçğıöşü]+(?:acaksın|eceksin)($|[^a-zçğıöşü])/u.test(certaintyText)) return 'certainty';
   if (/<\/?think|analysis:|reasoning:|```|\b(system|assistant)\s*:/i.test(text)) return 'reasoning';
   if (!text.trim() || text.length > 12000) return 'incomplete';
-  if (editorial && text.trim().split(/\s+/u).length < 150) return 'length';
-  if (/kesinlikle|kesin olarak|yüzde yüz|%\s*100|garanti|mutlaka|olacaksın|kazanacaksın|evleneceksin|gerçekleşecek|olacaktır|öleceksin|olacağını|şekillenecek|getirecek|açılacak|karşılaşacaksın|bulacaksın|seni bekliyor/u.test(lower)) return 'certainty';
-  if (/(^|[^a-zçğıöşü])(olacak|yaşanacak|göreceksin|hissedeceksin|başlayacak|bitecek|kalacak|taşıyacak|çıkacak)($|[^a-zçğıöşü])/u.test(lower)) return 'certainty';
+  if ((editorial || context?.version===personalizedContextVersion) && text.trim().split(/\s+/u).length < 150) return 'length';
+  if (/kesinlikle|kesin olarak|yüzde yüz|%\s*100|garanti|mutlaka|olacaksın|kazanacaksın|evleneceksin|gerçekleşecek|olacaktır|öleceksin|olacağını|şekillenecek|getirecek|açılacak|karşılaşacaksın|bulacaksın|seni bekliyor/u.test(certaintyText)) return 'certainty';
+  if (/(^|[^a-zçğıöşü])(olacak|yaşanacak|göreceksin|hissedeceksin|başlayacak|bitecek|kalacak|taşıyacak|çıkacak)($|[^a-zçğıöşü])/u.test(certaintyText)) return 'certainty';
+  if(context?.version===personalizedContextVersion) {
+    const cues=physicalCues(context);
+    const parts=new Set(lower.split(/[.!?\n]/u).map(s=>s.trim()));
+    if(cues.some(cue=>parts.has(cue))) return 'fragmented_physical_phrase';
+    for(const surface of ['fincanın','tabağın']) {
+      const group=cues.filter(cue=>cue.startsWith(surface));
+      if(group.length && !group.some(cue=>lower.includes(cue))) return 'missing_physical_surface';
+    }
+  }
   const grounding = groundingError(lower, context);
   if (grounding) return grounding;
+  if(context?.version===personalizedContextVersion) {
+    const zodiac=context.personalization?.zodiac;
+    if(!zodiac && /burc|burç/u.test(lower)) return 'unsupported_personalization';
+    if(zodiac) {
+      const name=zodiacNames[zodiac].toLocaleLowerCase('tr');
+      if(new RegExp(`${name}[^.!?\\n]{0,45}(?:kararsız|tereddüt|günlerin|mevsim|kontrollü|gurur|doğal|doğası|doğasındaki|sıcaklı|cesur|lider|inat|hassas|mükemmel|titiz|kişili|karakter|yapısı|yapın|olduğun için|özelliğin)`,'u').test(lower) || /burcu(?:nun|n)[^.!?\n]{0,35}(?:yapı|kişili|karakter|kararsız)/u.test(lower)) return 'unsupported_personalization';
+    }
+  }
   if (!/olabilir|belki|çağrıştır|düşünülebilir|ihtimal/u.test(lower)) return 'certainty';
   return null;
 }
@@ -149,4 +280,10 @@ export function validateRegional(s) {
     if(!Number.isSafeInteger(r.from) || !Number.isSafeInteger(r.to) || r.from<1 || r.to<1 || r.from>s.components.length || r.to>s.components.length || r.from===r.to || !num(r.distance) || pairs.has(`${r.from}:${r.to}`)) throw new Error('invalid_context');
     pairs.add(`${r.from}:${r.to}`);
   }
+}
+
+export function qualityWarnings(text,context) {
+  if(context?.version!==personalizedContextVersion) return [];
+  const words=text.trim().split(/\s+/u).length;
+  return [...(words<250 || words>400 ? ['length'] : []),...(text.trim().split(/\n\s*\n/u).length!==4 ? ['structure'] : [])];
 }

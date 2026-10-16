@@ -214,17 +214,19 @@ void main() {
       expect(find.text('Ritüeller'), findsNothing);
       expect(tester.takeException(), isNull);
       final memberButton = find.byWidgetPredicate(
-        (widget) => widget is IconButton && widget.tooltip == 'Üye Girişi',
+        (widget) => widget is IconButton && widget.tooltip == 'Bilgilerim',
       );
       expect(memberButton.hitTestable(), findsOneWidget);
       expect(tester.widget<IconButton>(memberButton).onPressed, isNotNull);
-      await tester.tap(memberButton);
+      await tester.runAsync(() async {
+        await tester.tap(memberButton);
+        await tester.pump();
+        await Future<void>.delayed(const Duration(milliseconds: 100));
+      });
       await tester.pumpAndSettle();
-      expect(
-        find.text('Üyelik bu test sürümünde henüz kullanılamıyor.'),
-        findsOneWidget,
-      );
-      await tester.tap(find.text('Kapat'));
+      expect(find.text('Bilgilerim'), findsOneWidget);
+      expect(find.text('Hitap adı (isteğe bağlı)'), findsOneWidget);
+      await tester.pageBack();
       await tester.pumpAndSettle();
       final galleryButton = find.widgetWithText(TextButton, 'Galeriden Seç');
       expect(tester.widget<TextButton>(galleryButton).onPressed, isNotNull);
@@ -452,7 +454,8 @@ void main() {
         ),
       );
       await tester.pump(const Duration(milliseconds: 500));
-      expect(find.text('Durdur'), findsOneWidget);
+      await tester.scrollUntilVisible(find.text('Durdur'), 100);
+      expect(find.text('Durdur').hitTestable(), findsOneWidget);
       expect(tester.takeException(), isNull);
       await _snapshot(tester, 'generating-$scale', settle: false);
       await tester.pump(const Duration(milliseconds: 1000));

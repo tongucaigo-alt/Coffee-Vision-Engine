@@ -12,6 +12,7 @@ import 'ai_client.dart';
 import 'ai_contract.dart';
 import 'ai_store.dart';
 import 'ai_bundled.dart';
+import '../user_profile_store.dart';
 
 class AiRuntime {
   AiRuntime._(
@@ -32,6 +33,17 @@ class AiRuntime {
   final ReviewStore reviews;
   final AiBridge bridge;
   final AiClient client;
+  UserProfileStore get userProfile => UserProfileStore(
+    Directory('${store.directory.parent.path}/user-profile'),
+  );
+  Future<UserProfile> readingProfile() async {
+    try {
+      return await userProfile.read();
+    } catch (_) {
+      return const UserProfile();
+    }
+  }
+
   final FlutterSecureStorage _secrets = const FlutterSecureStorage();
   static Future<AiRuntime> create(
     DraftStore source, {

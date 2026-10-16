@@ -1,3 +1,4 @@
+import 'canonical_order.dart';
 import 'models/vision_component_relation.dart';
 import 'models/vision_component_relation_result.dart';
 import 'models/vision_edge_selection_decision.dart';
@@ -13,9 +14,23 @@ final class EdgeSelector {
     required VisionEdgeSelectionProfile profile,
   }) {
     _validateProfile(profile);
-    final relations = relationResult.relations.toList()
-      ..sort(_compareCanonical);
+    final relations = canonicalCopy(
+      relationResult.relations,
+      _compareCanonical,
+    );
     _validateFullCandidateSet(relationResult, relations);
+    if (profile.isPassThrough) {
+      return VisionEdgeSelectionResult(
+        profile: profile,
+        candidateRelations: relations,
+        decisionRecords: relations.map(
+          (r) => VisionEdgeSelectionDecision(
+            relation: r,
+            reason: VisionEdgeSelectionReason.selectedByPassThrough,
+          ),
+        ),
+      );
+    }
 
     final rejections =
         <({int source, int target}), VisionEdgeSelectionReason>{};
@@ -119,7 +134,7 @@ final class EdgeSelector {
       );
     }
 
-    final pairs = <({int source, int target})>{};
+    int previousSource = 0, previousTarget = 0;
     for (final relation in relations) {
       if (!componentIds.contains(relation.sourceComponentId) ||
           !componentIds.contains(relation.targetComponentId)) {
@@ -136,26 +151,18 @@ final class EdgeSelector {
           'must not contain self relations',
         );
       }
-      if (!pairs.add(_pairOf(relation))) {
+      if (relation.sourceComponentId == previousSource &&
+          relation.targetComponentId == previousTarget) {
         throw ArgumentError.value(
           relation,
           'relationResult.relations',
           'must not contain duplicate directed relation pairs',
         );
       }
+      previousSource = relation.sourceComponentId;
+      previousTarget = relation.targetComponentId;
     }
-    for (final sourceId in componentIds) {
-      for (final targetId in componentIds) {
-        if (sourceId == targetId) continue;
-        if (!pairs.contains((source: sourceId, target: targetId))) {
-          throw ArgumentError.value(
-            relationResult,
-            'relationResult',
-            'must contain every directed candidate pair exactly once',
-          );
-        }
-      }
-    }
+    // Endpoints, uniqueness and the expected count prove complete coverage.
   }
 
   static ({int source, int target}) _pairOf(VisionComponentRelation relation) =>

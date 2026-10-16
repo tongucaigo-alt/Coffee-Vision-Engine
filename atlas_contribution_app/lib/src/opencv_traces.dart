@@ -15,12 +15,12 @@ const openCvTracesEnabled = bool.fromEnvironment(
   'ATLAS_OPENCV_TRACES',
   defaultValue: true,
 );
-// Acceptance-gated experiment. Normal builds retain the exact V65 path/cache.
+// The optional contrast experiment keeps its own cache identity.
 const adaptiveTracesEnabled = bool.fromEnvironment('ATLAS_OPENCV_ADAPTIVE');
-const adaptiveTraceAlgorithm = 'opencv-4.13-traces-v3-cup-domain-selective';
+const adaptiveTraceAlgorithm = 'opencv-4.13-traces-v4-rim-domain-selective';
 const traceAlgorithm = adaptiveTracesEnabled
     ? adaptiveTraceAlgorithm
-    : 'opencv-4.13-traces-v3-cup-domain';
+    : 'opencv-4.13-traces-v4-rim-domain';
 const traceColors = [
   Color(0xff0eae98),
   Color(0xffdf4a78),
@@ -87,55 +87,72 @@ class TraceCandidate {
   }
 }
 
+/// Up to four distinct regions per photo. Another angle never consumes its slots.
 List<TraceCandidate> selectTraces(List<TraceCandidate> input) {
-  final ranked = [...input]
-    ..sort((a, b) {
-      final score = b.score.compareTo(a.score);
-      return score != 0 ? score : a.photoIndex.compareTo(b.photoIndex);
-    });
   final selected = <TraceCandidate>[];
-  bool isDuplicate(TraceCandidate item) => selected.any((other) {
-    if (other.photoIndex == item.photoIndex) {
-      final overlap = item.box.intersect(other.box);
-      return !overlap.isEmpty &&
-          overlap.width *
-                  overlap.height /
-                  math.min(
-                    item.box.width * item.box.height,
-                    other.box.width * other.box.height,
-                  ) >
-              .25;
-    }
-    final a = (item.data['signature'] as List).cast<num>();
-    final b = (other.data['signature'] as List).cast<num>();
-    double dot = 0, aa = 0, bb = 0;
-    for (var i = 0; i < a.length; i++) {
-      dot += a[i] * b[i];
-      aa += a[i] * a[i];
-      bb += b[i] * b[i];
-    }
-    final ratio = (item.data['aspect'] as num) / (other.data['aspect'] as num);
-    return aa > 0 &&
-        bb > 0 &&
-        dot / math.sqrt(aa * bb) > .98 &&
-        ratio > .85 &&
-        ratio < 1.18;
-  });
-  // A valid angle must not lose every hint solely because another angle has
-  // larger fragments. Similarity rejection still applies; never fill empty views.
-  final photos = ranked.map((c) => c.photoIndex).toSet().toList()..sort();
+  final photos = input.map((c) => c.photoIndex).toSet().toList()..sort();
   for (final photo in photos) {
-    for (final item in ranked.where((c) => c.photoIndex == photo)) {
-      if (!isDuplicate(item)) {
-        selected.add(item);
-        break;
+    final ranked = input.where((c) => c.photoIndex == photo).toList()
+      ..sort((a, b) {
+        final score = b.score.compareTo(a.score);
+        return score != 0
+            ? score
+            : (a.data['id'] as int).compareTo(b.data['id'] as int);
+      });
+    final distinct = <TraceCandidate>[];
+    bool duplicate(TraceCandidate item) => distinct.any((other) {
+      final overlap = item.box.intersect(other.box);
+      if (overlap.isEmpty) return false;
+      final a = item.pixels, b = other.pixels;
+      var i = 0, j = 0, common = 0;
+      while (i < a.length && j < b.length) {
+        if (a[i] == b[j]) {
+          common++;
+          i++;
+          j++;
+        } else if (a[i] < b[j]) {
+          i++;
+        } else {
+          j++;
+        }
       }
+      return common / math.min(a.length, b.length) > .25;
+    });
+    // Deduplicate by score before reserving an interior slot; an interior
+    // duplicate must not displace a higher-quality view of the same pixels.
+    for (final item in ranked) {
+      if (!duplicate(item)) distinct.add(item);
     }
-    if (selected.length == 4) return selected;
-  }
-  for (final item in ranked) {
-    if (!isDuplicate(item)) selected.add(item);
-    if (selected.length == 4) break;
+    bool interior(TraceCandidate item) {
+      final boundary = item.result['cupBoundary'];
+      if (boundary is! List || boundary.length != 5) return false;
+      final cx = (boundary[0] as num).toDouble(),
+          cy = (boundary[1] as num).toDouble();
+      final rx = (boundary[2] as num).toDouble() * .65 / 2;
+      final ry = (boundary[3] as num).toDouble() * .65 / 2;
+      if (rx <= 0 || ry <= 0) return false;
+      final angle = (boundary[4] as num) * math.pi / 180;
+      final pixels = item.pixels;
+      if (pixels.isEmpty) return false;
+      var sx = 0.0, sy = 0.0;
+      for (final pixel in pixels) {
+        sx += pixel % item.width;
+        sy += pixel ~/ item.width;
+      }
+      final dx = sx / pixels.length - cx, dy = sy / pixels.length - cy;
+      final x = (dx * math.cos(angle) + dy * math.sin(angle)) / rx;
+      final y = (-dx * math.sin(angle) + dy * math.cos(angle)) / ry;
+      return x * x + y * y <= 1;
+    }
+
+    final local = <TraceCandidate>[];
+    final inner = distinct.where(interior).firstOrNull;
+    if (inner != null) local.add(inner);
+    for (final item in distinct) {
+      if (!identical(item, inner)) local.add(item);
+      if (local.length == 4) break;
+    }
+    selected.addAll(local);
   }
   return selected;
 }
@@ -149,6 +166,16 @@ Map<String, dynamic> validateTraceResult(Object? value) {
   final w = result['width'], h = result['height'];
   if (w is! int || h is! int || w < 41 || h < 41 || w > 512 || h > 512) {
     throw const FormatException('Invalid trace dimensions');
+  }
+  final cupBoundary = result['cupBoundary'];
+  if (cupBoundary != null &&
+      (cupBoundary is! List ||
+          (cupBoundary.isNotEmpty &&
+              (cupBoundary.length != 5 ||
+                  cupBoundary.any((v) => v is! num || !v.isFinite) ||
+                  cupBoundary[2] <= 0 ||
+                  cupBoundary[3] <= 0)))) {
+    throw const FormatException('Invalid cup boundary');
   }
   final candidates = result['candidates'];
   if (candidates is! List || candidates.length > 24) {
@@ -239,6 +266,7 @@ class TraceService {
   final _deleted = <String>{};
   final _pending = <String, Future<Map<String, dynamic>>>{};
   Future<Map<String, dynamic>?>? _native;
+  Future<void> _queue = Future.value();
   Directory _owner(String owner) =>
       Directory('${directory.path}/${sha256.convert(utf8.encode(owner))}');
 
@@ -264,13 +292,14 @@ class TraceService {
     final area = photo.visibleCrop;
     final algorithm = adaptive
         ? adaptiveTraceAlgorithm
-        : 'opencv-4.13-traces-v3-cup-domain';
+        : 'opencv-4.13-traces-v4-rim-domain';
     final identity = '$checksum|$algorithm|${jsonEncode(area.toJson())}';
     final name = sha256.convert(utf8.encode(identity)).toString();
     final key = '$owner/$name';
     final existing = _pending[key];
     if (existing != null) return existing;
-    final task = _analyze(owner, name, bytes, photo, area);
+    final task = _queue.then((_) => _analyze(owner, name, bytes, photo, area));
+    _queue = task.then<void>((_) {}, onError: (Object _, StackTrace _) {});
     _pending[key] = task;
     try {
       return await task;
@@ -286,6 +315,9 @@ class TraceService {
     ContributionPhoto photo,
     PhotoCrop area,
   ) async {
+    if (_deleted.contains(owner)) {
+      throw const FormatException('Deleted trace owner');
+    }
     final cache = File('${_owner(owner).path}/$name.json');
     try {
       if (await cache.exists()) {

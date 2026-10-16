@@ -13,6 +13,9 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'fixtures.dart';
+import 'package:atlas_contribution_app/src/ai/ai_store.dart';
+import 'package:atlas_contribution_app/src/user_profile_store.dart';
+import 'fortune_personalization_test.dart' show personalizedTestContext;
 
 Matcher fails(ExportFailureCode code) =>
     throwsA(isA<ExportFailure>().having((e) => e.code, 'code', code));
@@ -174,6 +177,60 @@ void main() {
         expect(await File(source).exists(), isFalse);
       }
       expect(await stagingRoot.list().toList(), isEmpty);
+    },
+  );
+
+  test(
+    'profile and personalized AI result stay outside both research ZIPs',
+    () async {
+      final profile = UserProfileStore(Directory('${root.path}/user-profile'));
+      await profile.save(
+        const UserProfile(
+          addressName: 'PRIVATE_EXPORT_NAME',
+          zodiac: ZodiacSign.libra,
+          useZodiacInReading: true,
+        ),
+      );
+      final ai = AiStore(Directory('${root.path}/ai-local'));
+      final linked = session();
+      await reviews.save(linked);
+      await store.saveReceipt(receipt);
+      await ai.saveResult({
+        'id': 'personalized-result',
+        'sessionId': linked.id,
+        'groupId': linked.groupId,
+        'state': 'completed',
+        'context': personalizedTestContext(zodiac: 'libra'),
+        'outputs': [
+          {'text': 'PRIVATE_STORY_SENTINEL'},
+        ],
+      });
+      reviews.aiExposureAudit = ai.researchAudit;
+      await exporter(audit: ai.researchAudit).exportToDownloads();
+      await reviewExport();
+      expect(saved, hasLength(2));
+      for (final bytes in saved) {
+        final zip = ZipDecoder().decodeBytes(bytes);
+        for (final entry in zip.files.where((f) => f.name.endsWith('.json'))) {
+          final content = utf8.decode(entry.content);
+          for (final forbidden in [
+            'PRIVATE_EXPORT_NAME',
+            'PRIVATE_STORY_SENTINEL',
+            'personalization',
+            'creativeSelectionNotVisualDetection',
+            'useZodiacInReading',
+            'libra',
+          ]) {
+            expect(content, isNot(contains(forbidden)), reason: entry.name);
+          }
+        }
+        expect(zip.files.any((f) => f.name.contains('user-profile')), false);
+      }
+      expect(
+        (await reviews.sessions()).single.initialObservations,
+        linked.initialObservations,
+      );
+      expect((await profile.read()).useZodiacInReading, true);
     },
   );
 

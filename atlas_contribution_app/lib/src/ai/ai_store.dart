@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'ai_contract.dart';
+import 'fortune_personalization.dart';
 
 /// App-local AI metadata. Never included in either research ZIP exporter.
 class AiStore {
@@ -51,6 +52,33 @@ class AiStore {
     if (reports.any((r) => r['id'] == row['id'])) return;
     reports.add(row);
   });
+
+  /// Bounded operational events; no request body, user profile or remote text.
+  Future<void> recordDiagnostic(AiFailure error, Map<String, int> stageMs) =>
+      change((d) {
+        final rows = d.putIfAbsent('diagnostics', () => <dynamic>[]) as List;
+        rows.add({
+          'atUtc': DateTime.now().toUtc().toIso8601String(),
+          ...safeAiDiagnostics(error.diagnostics),
+          'stageMs': {
+            for (final e in stageMs.entries)
+              if ([
+                    'saving',
+                    'analyzing',
+                    'highlighting',
+                    'generating',
+                    'repairing',
+                    'queued',
+                    'completed',
+                    'failed',
+                    'cancelled',
+                  ].contains(e.key) &&
+                  e.value >= 0)
+                e.key: e.value,
+          },
+        });
+        if (rows.length > 100) rows.removeRange(0, rows.length - 100);
+      });
   Future<List<Map<String, dynamic>>> pendingReports() async =>
       ((await read())['contentReports'] as List? ?? [])
           .where((r) => r['state'] == 'pending')
@@ -125,12 +153,23 @@ class AiStore {
     }
     final list = d['results'] as List;
     list.removeWhere((r) => r['id'] == result['id']);
-    list.add(result);
+    list.add({
+      ...result,
+      if (result['context'] is Map)
+        'context': storedFortuneContext(
+          Map<String, dynamic>.from(result['context'] as Map),
+        ),
+    });
   });
 
   /// Cold-start recovery never silently resubmits an interrupted generation.
   Future<void> recoverInterruptedResults() => change((d) {
     for (final result in d['results'] as List) {
+      if (result['context'] is Map) {
+        result['context'] = storedFortuneContext(
+          Map<String, dynamic>.from(result['context'] as Map),
+        );
+      }
       if (result['state'] == 'running') result['state'] = 'interrupted';
     }
   });

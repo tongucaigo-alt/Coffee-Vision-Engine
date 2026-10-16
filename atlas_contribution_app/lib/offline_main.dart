@@ -214,6 +214,9 @@ class OfflineContributionApp extends StatelessWidget {
                   try {
                     await controller.save(next);
                     controller.addListener(() {
+                      if (controller.session.currentInitialObservation != null) {
+                        ai!.preparation.permitDisplay();
+                      }
                       final id = controller.activePhotoId;
                       if (id != null) {
                         final p = controller.session.photos.firstWhere(

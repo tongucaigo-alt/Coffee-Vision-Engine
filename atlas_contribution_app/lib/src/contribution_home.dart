@@ -24,6 +24,8 @@ import 'research_export_notice.dart';
 import 'fortune_progress.dart';
 import 'fortune_preparation.dart';
 import 'opencv_traces.dart';
+import 'user_profile_page.dart';
+import 'user_profile_store.dart';
 
 part 'contribution_design.dart';
 part 'photo_set_flow.dart';
@@ -153,7 +155,11 @@ class _ContributionHomeState extends State<ContributionHome>
                 ? () => _send(generate: true)
                 : null,
             label: Text(
-              widget.modern ? 'Falımı Oluştur' : 'Kaydet ve Falını Oluştur',
+              _busy && _fortuneWorkflow
+                  ? 'Hazırlanıyor…'
+                  : widget.modern
+                  ? 'Falımı Oluştur'
+                  : 'Kaydet ve Falını Oluştur',
             ),
           ),
         if (widget.modern)
@@ -306,6 +312,21 @@ class _ContributionHomeState extends State<ContributionHome>
     }
   }
 
+  String? _traceWarmupKey;
+  Future<TraceSet>? _traceWarmup;
+  Future<TraceSet> _warmTraces(ContributionDraft draft) {
+    final key =
+        '${draft.rootId}|${draft.photos.map(tracePhotoIdentity).join(';')}';
+    if (_traceWarmupKey != key || _traceWarmup == null) {
+      _traceWarmupKey = key;
+      _traceWarmup =
+          (widget.loadAnnotationTraces?.call(draft) ??
+                  Future.value(TraceSet.empty))
+              .catchError((Object _) => TraceSet.empty);
+    }
+    return _traceWarmup!;
+  }
+
   Future<void> _save(ContributionDraft next) async {
     await widget.store.save(next);
     if (mounted) {
@@ -313,6 +334,9 @@ class _ContributionHomeState extends State<ContributionHome>
         if (_draft?.id != next.id) _savePhase = _SavePhase.idle;
         _draft = next;
       });
+      if (widget.modern && next.photos.isNotEmpty && !next.queued) {
+        unawaited(_warmTraces(next));
+      }
       if (widget.modern && widget.service.isOffline) {
         for (final p in next.photos) {
           unawaited(_checkPhoto(p));
@@ -565,10 +589,19 @@ class _ContributionHomeState extends State<ContributionHome>
     _stopRequested = false;
     final presentation = widget.preparation;
     if (generate && presentation?.attached == true) {
+      final warmup = _warmTraces(_draft!);
       presentation!.begin(
+        requireMarkedPhotos: widget.loadAnnotationTraces != null,
         photos: _draft!.photos,
         imageFor: (p) => FileImage(widget.store.file(p.localName)),
         onCancel: () => _stopRequested = true,
+      );
+      final traceEpoch = presentation.epoch;
+      unawaited(
+        warmup.then(
+          (set) =>
+              presentation.updateTraces(set, complete: true, epoch: traceEpoch),
+        ),
       );
       await WidgetsBinding.instance.endOfFrame;
     }
@@ -818,6 +851,7 @@ class _ContributionHomeState extends State<ContributionHome>
   @override
   Widget build(BuildContext context) {
     if (widget.modern &&
+        widget.preparation?.attached != true &&
         widget.preparation?.active != true &&
         _fortuneWorkflow &&
         _busy &&

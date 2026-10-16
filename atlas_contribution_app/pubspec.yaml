@@ -59,6 +59,7 @@ dependencies:
   lucide_icons_flutter: ^3.1.19
   flutter_svg: ^2.3.0
   webview_flutter: ^4.14.1
+  lottie: 3.6.1
 
 dev_dependencies:
   http: ^1.6.0
@@ -80,6 +81,7 @@ dev_dependencies:
 # The following section is specific to Flutter packages.
 flutter:
   assets:
+    - assets/animations/
     - assets/brand/
     - assets/guide/
     - assets/contribution-labels-v1.json

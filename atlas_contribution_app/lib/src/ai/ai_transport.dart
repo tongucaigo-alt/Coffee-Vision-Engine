@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'ai_contract.dart';
@@ -55,25 +56,56 @@ class AiTransport {
               );
             }
           }
-          throw AiFailure(switch (response.statusCode) {
-            401 || 403 => 'Erişim anahtarını kontrol et.',
-            429 => 'Sunucu meşgul. Biraz sonra tekrar dene.',
-            404 => 'İş veya adres bulunamadı. Sunucu yeniden açılmış olabilir.',
-            409 => 'İstek sürümü çakıştı.',
-            503 =>
-              'Fal hizmeti şu anda kullanılamıyor. Kayıtların korunuyor; test saatlerinde yeniden deneyebilirsin.',
-            _ => 'AI servisi yanıt veremedi (${response.statusCode}).',
-          });
+          throw AiFailure(
+            switch (response.statusCode) {
+              401 || 403 => 'Erişim anahtarını kontrol et.',
+              429 => 'Sunucu meşgul. Biraz sonra tekrar dene.',
+              404 =>
+                'İş veya adres bulunamadı. Sunucu yeniden açılmış olabilir.',
+              409 => 'İstek sürümü çakıştı.',
+              503 =>
+                'Fal hizmeti şu anda kullanılamıyor. Kayıtların korunuyor; test saatlerinde yeniden deneyebilirsin.',
+              _ => 'AI servisi yanıt veremedi (${response.statusCode}).',
+            },
+            code: 'http_${response.statusCode}',
+            stage: 'transport',
+          );
         }
         return Map<String, dynamic>.from(jsonDecode(utf8.decode(bytes)) as Map);
       })().timeout(timeout);
     } on AiFailure {
       rethrow;
+    } on TimeoutException {
+      throw const AiFailure(
+        'AI yanıtı beklenirken süre doldu. Kaydın korunuyor; yeniden deneyebilirsin.',
+        code: 'timeout',
+        stage: 'transport',
+      );
+    } on SocketException {
+      throw const AiFailure(
+        'AI bağlantısı kurulamadı. Kaydın korunuyor; yeniden deneyebilirsin.',
+        code: 'connection',
+        stage: 'transport',
+      );
+    } on HandshakeException {
+      throw const AiFailure(
+        'AI ile güvenli bağlantı kurulamadı. Kaydın korunuyor; yeniden deneyebilirsin.',
+        code: 'tls',
+        stage: 'transport',
+      );
+    } on FormatException {
+      throw const AiFailure(
+        'AI yanıtı okunamadı. Kaydın korunuyor; yeniden deneyebilirsin.',
+        code: 'invalid_response',
+        stage: 'transport',
+      );
     } catch (_) {
       throw const AiFailure(
         playTestEnabled
             ? 'Fal hizmetine şu anda ulaşılamıyor. Kayıtların telefonda korunuyor; test saatlerinde yeniden deneyebilirsin.'
             : 'AI bağlantısı kurulamadı veya zaman aşımına uğradı. Kayıtların telefonda korunuyor.',
+        code: 'transport_unknown',
+        stage: 'transport',
       );
     } finally {
       client.close(force: true);

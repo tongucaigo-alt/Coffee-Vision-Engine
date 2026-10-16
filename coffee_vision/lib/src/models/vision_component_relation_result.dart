@@ -1,3 +1,4 @@
+import '../canonical_order.dart';
 import 'vision_component_relation.dart';
 
 /// Immutable ordered component relations and source-based nearest neighbors.
@@ -32,15 +33,14 @@ final class VisionComponentRelationResult {
       }
     }
 
-    final relationList = relations.toList()
-      ..sort((first, second) {
-        final sourceComparison = first.sourceComponentId.compareTo(
-          second.sourceComponentId,
-        );
-        if (sourceComparison != 0) return sourceComparison;
-        return first.targetComponentId.compareTo(second.targetComponentId);
-      });
-    final relationPairs = <({int source, int target})>{};
+    final relationList = canonicalCopy(relations, (first, second) {
+      final sourceComparison = first.sourceComponentId.compareTo(
+        second.sourceComponentId,
+      );
+      if (sourceComparison != 0) return sourceComparison;
+      return first.targetComponentId.compareTo(second.targetComponentId);
+    });
+    int previousSource = 0, previousTarget = 0;
     for (final relation in relationList) {
       if (!nearest.containsKey(relation.sourceComponentId) ||
           !nearest.containsKey(relation.targetComponentId)) {
@@ -50,17 +50,16 @@ final class VisionComponentRelationResult {
           'must reference components contained in the nearest-neighbor map',
         );
       }
-      final pair = (
-        source: relation.sourceComponentId,
-        target: relation.targetComponentId,
-      );
-      if (!relationPairs.add(pair)) {
+      if (relation.sourceComponentId == previousSource &&
+          relation.targetComponentId == previousTarget) {
         throw ArgumentError.value(
           relation,
           'relations',
           'must not contain duplicate directed component pairs',
         );
       }
+      previousSource = relation.sourceComponentId;
+      previousTarget = relation.targetComponentId;
     }
 
     return VisionComponentRelationResult._(

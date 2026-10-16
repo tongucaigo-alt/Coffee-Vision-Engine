@@ -1,0 +1,105 @@
+{
+  "validStory": "Anahtarın çağrışımı, bu anlatıda büyük bir değişimden önce belirebilecek küçük bir imkâna açılıyor. Belki alışılmış bir konuşmanın içinden farklı bir öneri çıkabilir; başlangıçta yalnızca merak uyandıran bir düşünce, zamanla üzerinde durmak isteyebileceğin bir seçeneğe dönüşebilir. Fincanın üst bölümündeki daha açık dağılım da bu ihtimale eşlik eden bir ferahlık çağrıştırabilir. Buradaki kapı, yalnızca yeni bir yere gitmek anlamına gelmeyebilir; aynı konuya başka bir açıdan yaklaşmanın adı da olabilir. Hikâyenin ilk hareketi, bu küçük farklılığın nasıl karşılık bulabileceğiyle ilgili.\n\nBir sohbet sırasında söylenebilecek sade bir cümle, normalde birbirinden uzak duran iki fikri yan yana getirebilir. Olası bir davet, yalnız katılmak veya katılmamak arasında seçim yapmakla sınırlı kalmayabilir; kiminle konuşmak istediğini fark etmek için de bir fırsat sunabilir. Bu yüzden anlatının bu bölümünde merak ve karşılıklı anlayış birlikte ilerliyor. Konuşma beklenmedik bir yöne açılırsa, hemen büyük bir anlam yüklemek yerine nelerin mümkün olabileceğine bakabilirsin. Küçük bir ayrıntının bir sonraki görüşmeye taşınması, bağlantının yavaşça gelişmesine yardımcı olabilir.\n\nDiğer ihtimal, tanıdık bir uğraşa farklı bir görev vermekle ilgili. Örneğin bir fikri yalnız düşünmek yerine paylaşabileceğin basit bir örneğe dönüştürmek, konuşmanın biçimini değiştirebilir. Ortaya çıkabilecek küçük bir ortaklık, herkesin aynı şeyi istemesinden çok farklı katkıların birbirini tamamlamasıyla anlam kazanabilir. Böyle bir durumda hangi parçayı üstlenmek isteyeceğini seçmek, bütün resmi bir anda çözmeye çalışmaktan daha ilginç olabilir. Anahtarın çözüm çağrışımı burada tek bir doğru cevaba ulaşmaktan ziyade, işe yarayabilecek bir yaklaşımı birlikte denemeyi anlatıyor.\n\nBelki ilk konuşmada açılmayan bir konu, başka bir buluşmada kendiliğinden yer bulabilir. Söylenen bir sözün ardından gelen küçük bir ekleme, seçenekleri farklı biçimde görmeni sağlayabilir. Bu hikâyenin sonunda ilginç olan, hangi kapının açılacağından çok, açılan ihtimalin içine ne katmak isteyebileceğin olabilir. Henüz biçim almamış o katkı, anlatının devamına ayrı bir renk bırakabilir.",
+  "cases": [
+    {
+      "id": "creative-meaning",
+      "suffix": "Anahtar sembolü farklı bir çözüm ihtimali çağrıştırabilir.",
+      "error": null
+    },
+    {
+      "id": "creative-is-not-reader-report",
+      "suffix": "Paylaştığın anahtar sana bir davet çağrıştırabilir.",
+      "error": "unsupported_symbol_claim"
+    },
+    {
+      "id": "creative-is-not-detected",
+      "suffix": "Fincanın ortasında anahtar duruyor.",
+      "error": "unsupported_visual_claim"
+    },
+    {
+      "id": "no-zodiac-invention",
+      "suffix": "Burcunun kontrollü yapısı sana eşlik edebilir.",
+      "error": "unsupported_personalization"
+    },
+    {
+      "id": "zodiac-accent",
+      "zodiac": "libra",
+      "suffix": "Terazi çağrışımı bu hikâyeye hafif bir uyum fikri katabilir.",
+      "error": null
+    },
+    {
+      "id": "zodiac-stereotype",
+      "zodiac": "libra",
+      "suffix": "Terazi'nin kararsız yapısı bu seçimi zorlaştırabilir.",
+      "error": "unsupported_personalization"
+    },
+    {
+      "id": "reported-bird",
+      "userSymbol": "Kuş",
+      "suffix": "Paylaştığın kuşun haber çağrışımı yeni bir sohbet ihtimali açabilir.",
+      "error": null
+    },
+    {
+      "id": "reported-bird-not-animated",
+      "userSymbol": "Kuş",
+      "suffix": "Paylaştığın kuşun kanatları açılıyor.",
+      "error": "unsupported_visual_claim"
+    },
+    {
+      "id": "reported-symbol-takes-priority",
+      "userSymbol": "Kuş",
+      "suffix": "Anahtar sembolü bir çözüm ihtimali çağrıştırabilir.",
+      "error": "unsupported_symbol_claim"
+    },
+    {
+      "id": "certainty-still-rejected",
+      "suffix": "Bu kesinlikle gerçekleşecek.",
+      "error": "certainty"
+    },
+    {
+      "id": "live-leo-stereotype",
+      "zodiac": "leo",
+      "suffix": "Aslan burcunun o doğal sıcaklığı sana eşlik edebilir.",
+      "error": "unsupported_personalization"
+    },
+    {
+      "id": "live-second-person-certainty",
+      "suffix": "Sen kendi küçük kuyruğunla suyu kıracaksın.",
+      "error": "certainty"
+    },
+    {
+      "id": "live-reverse-visual-placement",
+      "suffix": "Bir anahtarın sessizliği var fincanında.",
+      "error": "unsupported_visual_claim"
+    },
+    {
+      "id": "inflected-creative-attribution",
+      "suffix": "Paylaştığın anahtarın anlamı bir ihtimal çağrıştırabilir.",
+      "error": "unsupported_symbol_claim"
+    },
+    {
+      "id": "live-reported-silhouette",
+      "userSymbol": "Kuş",
+      "suffix": "Senin paylaştığın kuş siluetinin belirdiği yer bunu çağrıştırabilir.",
+      "error": "unsupported_visual_claim"
+    },
+    {
+      "id": "physical-phrase-must-form-a-sentence",
+      "suffix": "Fincanın üst bölümündeki daha açık dağılım.",
+      "error": "fragmented_physical_phrase"
+    },
+    {
+      "id": "zodiac-hesitation-is-personality",
+      "zodiac": "libra",
+      "suffix": "Terazi'nin hafif tereddütü bu anı izleyebilir.",
+      "error": "unsupported_personalization"
+    },
+    {
+      "id": "zodiac-is-not-season",
+      "zodiac": "capricorn",
+      "suffix": "Oğlak günlerinin erken kararan akşamlarında yeni bir fikir belirebilir.",
+      "error": "unsupported_personalization"
+    }
+  ],
+  "transportStory": "Anahtarın çağrışımı, bu falda küçük bir davetin içinde saklı kalabilecek bir imkâna uzanıyor. Belki kalabalık bir buluşmada anlatılan kısa bir fikir, daha sonra yeniden konuşmak isteyebileceğin bir konuya dönüşebilir. İlk anda yalnız merak uyandıran o ayrıntı, başka bir görüşmenin başlangıcı olabilir. Fincanın üst bölümündeki daha açık dağılım, bu ihtimale eşlik eden ferah bir aralık çağrıştırabilir. Büyük bir değişim beklemeden başlayan bir konuşma, tarafların birbirini farklı yönlerden tanımasına yer bırakabilir. Anahtar burada tek bir cevaptan çok, denenebilecek bir yaklaşımın anlamını taşıyor.\n\nİlk olasılık, ortak bir hazırlığın seni yeni biriyle yan yana getirmesiyle ilgili olabilir. Bir etkinliğin saatini belirlemek, küçük bir liste hazırlamak veya bir ayrıntıyı birlikte çözmek, sohbetin resmiyetini azaltabilir. Karşılıklı yapılan sade bir öneri, herkesin farklı bir katkı sunabildiği bir çalışma biçimi doğurabilir. Belki başlangıçta zor görünen bir iş, parçalar paylaşıldığında daha rahat ilerleyebilir. Bu yakınlaşmanın devamı, hemen büyük sözler verilmesinden çok, bir sonraki küçük adımın birlikte seçilmesiyle anlam kazanabilir.\n\nDiğer ihtimal ise beklenmedik bir boşluğun başka bir uğraşa fırsat sunması olabilir. Bir plan değişirse, elde kalan zamanı alışılmış biçimde doldurmak yerine farklı bir öneriyi değerlendirebilirsin. Örneğin kısa bir gezide başlayan konuşma, daha önce birbirinden uzak görünen iki ilgiyi buluşturabilir. Kimin hangi konuyu merak ettiğini öğrenmek, görüşmenin yönünü hafifçe değiştirebilir. Böyle bir karşılaşma gerçekleşirse, ilginç olan ilk önerinin aynen uygulanması değil, konuşma sırasında ortaya çıkabilecek yeni seçenekler olabilir. Anahtarın açılma çağrışımı bu bölümde, birlikte düşünülebilecek farklı bir ihtimali anlatıyor.\n\nBelki aynı öneri başka bir ortamda yeniden karşılık bulabilir. Önce yalnız konuşulan bir düşünce, uygun bir buluşmada küçük bir denemeye dönüşebilir. Sonucun hemen belirginleşmesi gerekmeyebilir; bir ayrıntının beklenmedik biçimde işe yaraması bile anlatının yönüne farklı bir renk katabilir. Henüz kararlaştırılmamış o denemede hangi katkının öne çıkabileceği, bu falın devamında açık kalan merak olabilir."
+}

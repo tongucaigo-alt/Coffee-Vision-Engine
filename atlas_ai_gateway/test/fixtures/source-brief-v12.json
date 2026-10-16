@@ -1,0 +1,161 @@
+{
+  "synthetic": true,
+  "context": {
+    "version": "atlas-fortune-context-v3",
+    "language": "tr",
+    "status": "ready",
+    "photos": [
+      {
+        "photoNumber": 1,
+        "surface": "cup",
+        "declaredRole": "free",
+        "analysisState": "complete",
+        "userObservations": [],
+        "physicalMeasurementsStatus": "available",
+        "physicalMeasurementScope": "wholeImageContentNotUserRegion",
+        "globalPhysicalMeasurements": {
+          "residuePixelCount": 30,
+          "contentResidueRatio": 0.2,
+          "componentCount": 3,
+          "candidateRelationCount": 1,
+          "selectedRelationCount": 0
+        },
+        "regionalSummary": {
+          "version": "atlas-regional-summary-v1",
+          "bands": [
+            {
+              "position": "top",
+              "density": 0.6
+            },
+            {
+              "position": "middle",
+              "density": 0.2
+            },
+            {
+              "position": "bottom",
+              "density": 0.1
+            },
+            {
+              "position": "left",
+              "density": 0.1
+            },
+            {
+              "position": "center",
+              "density": 0.2
+            },
+            {
+              "position": "right",
+              "density": 0.6
+            }
+          ],
+          "components": [],
+          "relations": []
+        }
+      },
+      {
+        "photoNumber": 2,
+        "surface": "cup",
+        "declaredRole": "free",
+        "analysisState": "complete",
+        "userObservations": [],
+        "physicalMeasurementsStatus": "available",
+        "physicalMeasurementScope": "wholeImageContentNotUserRegion",
+        "globalPhysicalMeasurements": {
+          "residuePixelCount": 30,
+          "contentResidueRatio": 0.2,
+          "componentCount": 3,
+          "candidateRelationCount": 1,
+          "selectedRelationCount": 0
+        },
+        "regionalSummary": {
+          "version": "atlas-regional-summary-v1",
+          "bands": [
+            {
+              "position": "top",
+              "density": 0.6
+            },
+            {
+              "position": "middle",
+              "density": 0.2
+            },
+            {
+              "position": "bottom",
+              "density": 0.1
+            },
+            {
+              "position": "left",
+              "density": 0.1
+            },
+            {
+              "position": "center",
+              "density": 0.2
+            },
+            {
+              "position": "right",
+              "density": 0.6
+            }
+          ],
+          "components": [],
+          "relations": []
+        }
+      },
+      {
+        "photoNumber": 3,
+        "surface": "saucer",
+        "declaredRole": null,
+        "analysisState": "complete",
+        "userObservations": [],
+        "physicalMeasurementsStatus": "available",
+        "physicalMeasurementScope": "wholeImageContentNotUserRegion",
+        "globalPhysicalMeasurements": {
+          "residuePixelCount": 30,
+          "contentResidueRatio": 0.2,
+          "componentCount": 3,
+          "candidateRelationCount": 1,
+          "selectedRelationCount": 0
+        },
+        "regionalSummary": {
+          "version": "atlas-regional-summary-v1",
+          "bands": [
+            {
+              "position": "top",
+              "density": 0.1
+            },
+            {
+              "position": "middle",
+              "density": 0.3
+            },
+            {
+              "position": "bottom",
+              "density": 0.7
+            }
+          ],
+          "components": [],
+          "relations": []
+        }
+      }
+    ],
+    "narrative": {
+      "version": "atlas-narrative-v1",
+      "topic": "relationships",
+      "arc": "notice-explore-choice",
+      "closing": "gentle-question",
+      "maxPhysicalDetails": 3
+    },
+    "creativeSymbol": {
+      "catalogVersion": "atlas-creative-symbols-v1",
+      "origin": "creativeSelectionNotVisualDetection",
+      "symbolId": "key",
+      "symbolName": "Anahtar"
+    },
+    "personalization": {
+      "zodiac": "libra"
+    }
+  },
+  "expectedCues": [
+    "fincanın alt bölümündeki daha açık dağılım",
+    "tabağın üst bölümündeki daha açık dağılım",
+    "fincanın üst bölümündeki toplanma"
+  ],
+  "expectedBrief": "Anlatı konusu: ilişkiler.\nAkış: bir ayrıntıdan başlayıp iki ihtimali aç ve bir seçime yaklaş.\nBitiş: en fazla bir yumuşak soruyla bitir.\nYaratıcı anlatı sembolü: Anahtar. Kullanıcı bunu bildirmedi; görüntüde tespit edilmedi. Yalnız çağrışımını kullan, paylaştığın deme ve fincanda konumlandırma.\nKullanıcının izin verdiği burç: Terazi. En fazla bir hafif değinme; kişilik veya özel hayat çıkarımı yapma.\nFincan için izinli kısa fiziksel ifadeler: [\"fincanın alt bölümündeki daha açık dağılım\",\"fincanın üst bölümündeki toplanma\"].\nTabak için izinli kısa fiziksel ifadeler: [\"tabağın üst bölümündeki daha açık dağılım\"].\nHer mevcut yüzeyden bir ifadeyi tam, doğal bir cümlenin içinde aynen kullan. İfadeyi tek başına bırakma; sembolün bulunduğu yer olarak anlatma."
+}

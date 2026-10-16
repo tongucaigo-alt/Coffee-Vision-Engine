@@ -16,6 +16,20 @@ final class ConnectedStructureAnalyzer {
       return VisionConnectedStructureResult(structures: const []);
     }
 
+    // A validated simple complete directed graph is one weak structure.
+    if (graph.relations.length ==
+        componentIds.length * (componentIds.length - 1)) {
+      return VisionConnectedStructureResult(
+        structures: [
+          VisionConnectedStructure(
+            id: 1,
+            componentIds: componentIds,
+            directedEdgeCount: graph.relations.length,
+          ),
+        ],
+      );
+    }
+
     final outgoing = <int, List<int>>{
       for (final componentId in componentIds) componentId: <int>[],
     };

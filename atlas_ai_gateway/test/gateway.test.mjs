@@ -41,7 +41,7 @@ test('shared language cases distinguish reporting from visual evidence',()=>{
   }
 });
 test('shared prompt version and byte hash include the language repair instructions',()=>{
-  assert.equal(prompt.version,'atlas-fortune-prompt-v6');
+  assert.equal(prompt.version,'atlas-fortune-prompt-v14');
   assert.equal(promptHash,createHash('sha256').update(promptBytes).digest('hex'));
   assert.match(messages(context())[0].content,/You have not seen any photo\./);
   assert.ok(!messages(context())[1].content.includes('bunu açıkça söyle'));
@@ -157,4 +157,24 @@ test('client repetition repair is owner-only, idempotent and bounded to one repa
   assert.equal((await f.request(0,`/jobs/${jobId}`,'POST',{reason:'repetition'})).status,202);
   const result=await finished(f,0,jobId);assert.equal(result.result.attempts,2);
   await f.request(0,`/jobs/${jobId}`,'POST',{reason:'repetition'});await wait(20);assert.equal(calls,2);
+});
+
+test('v3 gateway advertises support, sends source rules and bounds repair',async t=>{
+  const stories=JSON.parse(readFileSync(new URL('./fixtures/personalized-quality-cases.json',import.meta.url)));
+  const input=context(); input.version='atlas-fortune-context-v3'; input.photos=input.photos.slice(0,1);
+  input.creativeSymbol={catalogVersion:'atlas-creative-symbols-v1',origin:'creativeSelectionNotVisualDetection',symbolId:'key',symbolName:'Anahtar'};
+  input.personalization={zodiac:'libra'};
+  input.photos[0].regionalSummary={version:'atlas-regional-summary-v1',bands:[{position:'top',density:.1},{position:'middle',density:.2},{position:'bottom',density:.6}],components:[],relations:[]};
+  let calls=0;
+  const f=await fixture(t,async(url,opts)=>{
+    calls++;const body=JSON.parse(opts.body);
+    assert.match(body.messages[0].content,/yaratıcı sembolü/);
+    assert.match(body.messages.at(-1).content,/izin verdiği burç: Terazi/);
+    return new Response(JSON.stringify({choices:[{message:{content:stories.transportStory+(calls===1?' Paylaştığın anahtar sana bir ihtimal sunabilir.':'')},finish_reason:'stop'}]}));
+  });
+  assert.ok((await(await f.request(0,'/capabilities')).json()).contextVersions.includes(input.version));
+  const submitted=await f.request(0,'/jobs','POST',{context:input,modelAlias:'atlas',promptVersion:prompt.version});
+  assert.equal(submitted.status,202);
+  const job=await finished(f,0,(await submitted.json()).jobId);
+  assert.equal(job.state,'completed');assert.equal(calls,2);
 });

@@ -6,6 +6,7 @@ import 'package:uuid/uuid.dart';
 import 'ai_contract.dart';
 import 'ai_transport.dart';
 import 'ai_bundled.dart';
+import 'fortune_personalization.dart';
 
 class AiCancellation {
   bool cancelled = false;
@@ -122,7 +123,10 @@ class AiClient {
       key,
     );
     if (p.provider == AiProvider.atlas) {
-      if (contextVersion == 'atlas-fortune-context-v2' &&
+      if ([
+            'atlas-fortune-context-v2',
+            personalizedContextVersion,
+          ].contains(contextVersion) &&
           (data['contextVersions'] is! List ||
               !(data['contextVersions'] as List).contains(contextVersion) ||
               data['clientRepetitionRepair'] != true)) {
@@ -157,6 +161,7 @@ class AiClient {
     void Function(FortuneProgress)? onProgress,
   }) async {
     final input = validateAiContext(context);
+    final repetitionTexts = prompt.repetitionReferences(input, previousTexts);
     cancellation.check();
     if (p.provider == AiProvider.atlas) {
       await models(p, key, contextVersion: input['version'] as String);
@@ -208,13 +213,17 @@ class AiClient {
                       ) !=
                       null &&
                   !(bestEffort &&
+                      input['version'] != personalizedContextVersion &&
                       usableFortuneText(result['text'] as String?, 'stop'))) {
             throw const AiFailure('Yanıt kalite kontrolünden geçmedi.');
           }
-          if (!bestEffort &&
-              !playTestEnabled &&
-              input['version'] == 'atlas-fortune-context-v2' &&
-              narrativeRepetition(result['text'] as String, previousTexts) !=
+          if ((input['version'] == personalizedContextVersion ||
+                  (!bestEffort && !playTestEnabled)) &&
+              [
+                'atlas-fortune-context-v2',
+                personalizedContextVersion,
+              ].contains(input['version']) &&
+              narrativeRepetition(result['text'] as String, repetitionTexts) !=
                   null) {
             if (result['attempts'] != 1 || repetitionRepairRequested) {
               throw const AiFailure(
@@ -232,11 +241,22 @@ class AiClient {
             onProgress?.call(const FortuneProgress(FortunePhase.repairing));
             continue;
           }
+          result['qualityWarnings'] = fortuneQualityWarnings(
+            result['text'] as String,
+            input,
+          );
+          result['diagnostics'] = safeAiDiagnostics(result['diagnostics']);
           return result;
         }
         if (['failed', 'cancelled'].contains(status['state'])) {
-          throw const AiFailure(
+          final diagnostics = safeAiDiagnostics(status['diagnostics']);
+          throw AiFailure(
             'Fal tamamlanamadı veya iptal edildi. Kayıtların korunuyor.',
+            code: diagnostics['code'] as String? ?? 'ai_failure',
+            stage: diagnostics['stage'] as String? ?? 'generation',
+            reason: diagnostics['reason'] as String?,
+            attempts: diagnostics['attempts'] as int? ?? 0,
+            durationMs: diagnostics['durationMs'] as int? ?? 0,
           );
         }
         onProgress?.call(
@@ -272,27 +292,36 @@ class AiClient {
       onStatus('Fal hazırlanıyor…');
       final remaining = 180000 - watch.elapsedMilliseconds;
       if (remaining <= 0) throw const AiFailure('Üretim süresi doldu.');
-      final data = await _request(
-        p,
-        'POST',
-        '/chat/completions',
-        key,
-        timeout: Duration(milliseconds: remaining),
-        body: {
-          'model': p.model,
-          'messages': prompt.messages(
-            input,
-            noThink: p.noThink && !kimiInstant,
-            repair: attempt == 1,
-            repairReason: lastError,
-            previousReply: previousReply,
-          ),
-          'stream': false,
-          if (kimiInstant) 'thinking': {'type': 'disabled'},
-          'temperature': temperature,
-          'max_tokens': prompt.data['maxTokens'],
-        },
-      );
+      late final Map<String, dynamic> data;
+      try {
+        data = await _request(
+          p,
+          'POST',
+          '/chat/completions',
+          key,
+          timeout: Duration(milliseconds: remaining),
+          body: {
+            'model': p.model,
+            'messages': prompt.messages(
+              input,
+              noThink: p.noThink && !kimiInstant,
+              repair: attempt == 1,
+              repairReason: lastError,
+              previousReply: previousReply,
+            ),
+            'stream': false,
+            if (kimiInstant) 'thinking': {'type': 'disabled'},
+            'temperature': temperature,
+            'max_tokens': prompt.data['maxTokens'],
+          },
+        );
+      } on AiFailure catch (error) {
+        throw error.timed(
+          attempt == 0 ? 'generating' : 'repairing',
+          attempt + 1,
+          watch.elapsedMilliseconds,
+        );
+      }
       cancellation.check();
       final choice = (data['choices'] as List).first as Map;
       final content = (choice['message'] as Map)['content'] as String?;
@@ -303,15 +332,27 @@ class AiClient {
         context: input,
       );
       lastError ??=
-          input['version'] != 'atlas-fortune-context-v2' || content == null
+          ![
+                'atlas-fortune-context-v2',
+                personalizedContextVersion,
+              ].contains(input['version']) ||
+              content == null
           ? null
-          : narrativeRepetition(content, previousTexts);
+          : narrativeRepetition(content, repetitionTexts);
       if (lastError == null ||
           (bestEffort &&
+              input['version'] != personalizedContextVersion &&
               usableFortuneText(content, choice['finish_reason'] as String?))) {
         return {
           'text': content!.trim(),
           'qualityWarning': ?lastError,
+          'qualityWarnings': fortuneQualityWarnings(content, input),
+          'diagnostics': {
+            'code': 'completed',
+            'stage': attempt == 0 ? 'generating' : 'repairing',
+            'attempts': attempt + 1,
+            'durationMs': watch.elapsedMilliseconds,
+          },
           'model': p.model,
           'promptVersion': prompt.version,
           'promptHash': prompt.hash,
@@ -323,8 +364,13 @@ class AiClient {
         };
       }
     }
-    throw const AiFailure(
-      'Yanıt kalite kontrolünden geçmedi. Farklı bir modelle deneyebilirsin.',
+    throw AiFailure(
+      'Fal hazırlanamadı. Kaydın korunuyor; yeniden deneyebilirsin.',
+      code: 'quality_rejected',
+      stage: 'repairing',
+      reason: lastError,
+      attempts: 2,
+      durationMs: watch.elapsedMilliseconds,
     );
   }
 }

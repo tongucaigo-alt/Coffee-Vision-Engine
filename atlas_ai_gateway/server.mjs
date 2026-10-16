@@ -4,7 +4,7 @@ import { reportStore } from './reports.mjs';
 import { readFileSync } from 'node:fs';
 import { createHash, randomUUID } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
-import { exact, validateContext, messages, qualityError, prompt, promptHash } from './contract.mjs';
+import { exact, validateContext, messages, qualityError, qualityWarnings, exampleRepetitionError, prompt, promptHash } from './contract.mjs';
 
 const hash = value => createHash('sha256').update(value).digest('hex');
 export function createGateway({config, tokens, fetchImpl = fetch, runtimeMs = 180000, queueMs = 1800000, retentionMs = 1800000, saveReport = null}) {
@@ -16,6 +16,7 @@ export function createGateway({config, tokens, fetchImpl = fetch, runtimeMs = 18
   function end(job, state, error) {
     if (['completed','failed','cancelled'].includes(job.state)) return;
     job.state = state; job.error = error; job.endedAt = Date.now();
+    job.diagnostics={code:error??state,stage:job.phase??"queued",attempts:job.attempts??0,durationMs:(job.productionMs??0)+(job.startedAt ? Date.now()-job.startedAt : 0),...(job.qualityReason ? {reason:job.qualityReason} : {})};
   }
   async function pump() {
     if (active || stopping || stalled) return;
@@ -47,10 +48,10 @@ export function createGateway({config, tokens, fetchImpl = fetch, runtimeMs = 18
         const choice = data.choices?.[0];
         const text = choice?.message?.content;
         job.previousReply=typeof text==='string'?text.slice(0,12000):null;
-        const error = qualityError(text,choice?.finish_reason,job.context,false);
-        lastError = error;
+        const error = qualityError(text,choice?.finish_reason,job.context,false) ?? exampleRepetitionError(text,job.context);
+        lastError = error; job.qualityReason=error;
         if (!error) {
-          job.result = {text:text.trim(),model:job.model.model,modelAlias:job.alias,promptVersion:prompt.version,promptHash,temperature:prompt.temperature,maxTokens:prompt.maxTokens,noThink:!!job.model.noThink,durationMs:(job.productionMs??0)+Date.now()-job.startedAt,attempts:attempt+1,reasoningTokens:data.usage?.completion_tokens_details?.reasoning_tokens??null,reasoningReturned:!!choice?.message?.reasoning_content};
+          job.result = {qualityWarnings:qualityWarnings(text,job.context),diagnostics:{code:"completed",stage:job.phase,attempts:attempt+1,durationMs:(job.productionMs??0)+Date.now()-job.startedAt},text:text.trim(),model:job.model.model,modelAlias:job.alias,promptVersion:prompt.version,promptHash,temperature:prompt.temperature,maxTokens:prompt.maxTokens,noThink:!!job.model.noThink,durationMs:(job.productionMs??0)+Date.now()-job.startedAt,attempts:attempt+1,reasoningTokens:data.usage?.completion_tokens_details?.reasoning_tokens??null,reasoningReturned:!!choice?.message?.reasoning_content};
           end(job,'completed');
         } else if (attempt === 1) end(job,'failed','quality_rejected');
       }
@@ -78,7 +79,7 @@ export function createGateway({config, tokens, fetchImpl = fetch, runtimeMs = 18
       if (!owner) return reply(res,401,{error:'unauthorized'});
       const url = new URL(req.url,'http://localhost');
       const route = url.pathname;
-      if (req.method === 'GET' && route === '/api/ai/v1/capabilities') return reply(res,200,{apiVersion:1,reportVersion:saveReport?1:null,contextVersions:['atlas-fortune-context-v1','atlas-fortune-context-v2'],clientRepetitionRepair:true,serverInstanceId:instance,promptVersion:prompt.version,promptHash,models:Object.keys(models()),available:!stalled,capacity:10});
+      if (req.method === 'GET' && route === '/api/ai/v1/capabilities') return reply(res,200,{apiVersion:1,reportVersion:saveReport?1:null,contextVersions:['atlas-fortune-context-v1','atlas-fortune-context-v2','atlas-fortune-context-v3'],clientRepetitionRepair:true,serverInstanceId:instance,promptVersion:prompt.version,promptHash,models:Object.keys(models()),available:!stalled,capacity:10});
       if (req.method === 'POST' && route === '/api/ai/v1/reports') {
         if (!saveReport) return reply(res,503,{error:'reporting_unavailable'});
         const window = reportCounts.get(owner);
@@ -138,7 +139,7 @@ export function createGateway({config, tokens, fetchImpl = fetch, runtimeMs = 18
       if(req.method==='DELETE') { end(job,'cancelled'); return reply(res,200,{state:job.state}); }
       if(req.method==='GET') {
         const queue=[...jobs.values()].filter(j=>j.state==='queued');
-        return reply(res,200,{jobId:job.id,serverInstanceId:instance,state:job.state,phase:job.phase??null,queuePosition:job.state==='queued'?queue.indexOf(job)+1:0,result:job.result??null,error:job.error??null});
+        return reply(res,200,{jobId:job.id,serverInstanceId:instance,state:job.state,phase:job.phase??null,queuePosition:job.state==='queued'?queue.indexOf(job)+1:0,result:job.result??null,error:job.error??null,diagnostics:job.diagnostics??null});
       }
       reply(res,405,{error:'method_not_allowed'});
     } catch { if(!res.headersSent) reply(res,500,{error:'service_error'}); else res.end(); }

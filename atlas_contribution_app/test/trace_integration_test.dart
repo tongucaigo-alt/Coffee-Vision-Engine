@@ -74,6 +74,42 @@ void main() {
   );
 
   test(
+    'V76 never reuses a V75 mask cached for the same photo and crop',
+    () async {
+      final dir = await Directory.systemTemp.createTemp('trace-v76-version-');
+      addTearDown(() => dir.delete(recursive: true));
+      final p = photo();
+      final source = File('${dir.path}/photo.jpg')
+        ..writeAsBytesSync(testImage());
+      final owner = sha256.convert(utf8.encode('owner')).toString();
+      final oldIdentity =
+          '${p.checksum}|opencv-4.13-traces-v3-cup-domain|${jsonEncode(p.visibleCrop.toJson())}';
+      final oldName = sha256.convert(utf8.encode(oldIdentity)).toString();
+      final folder = Directory('${dir.path}/cache/$owner')
+        ..createSync(recursive: true);
+      final old = File('${folder.path}/$oldName.json')
+        ..writeAsStringSync(jsonEncode(validResult()));
+      final oldBytes = old.readAsBytesSync();
+      var calls = 0;
+      messenger.setMockMethodCallHandler(TraceService.channel, (_) async {
+        calls++;
+        return {...validResult(), 'candidates': []};
+      });
+      final service = TraceService(Directory('${dir.path}/cache'));
+      expect(
+        (await service.analyze('owner', source, p))['candidates'],
+        isEmpty,
+      );
+      expect(
+        (await service.analyze('owner', source, p))['candidates'],
+        isEmpty,
+      );
+      expect(calls, 1);
+      expect(old.readAsBytesSync(), oldBytes);
+    },
+  );
+
+  test(
     'selective experiment is off by default and owns a separate cache',
     () async {
       expect(adaptiveTracesEnabled, isFalse);
@@ -117,6 +153,8 @@ void main() {
       (r) => r['candidates'][0]['boundary'] = [5000],
       (r) => r['candidates'][0]['box'] = [95, 40, 10, 10],
       (r) => r['candidates'][0]['signature'] = [1],
+      (r) => r['cupBoundary'] = [20, 20, 0, 30, 0],
+      (r) => r['cupBoundary'] = [20, 20, 30, 30],
     ]) {
       final r = validResult();
       change(r);

@@ -5,7 +5,7 @@ import 'package:test/test.dart';
 void main() {
   group('coffee_pattern package boundary', () {
     test('depends only on coffee_vision in production', () {
-      final pubspec = File('pubspec.yaml').readAsStringSync();
+      final pubspec = File('pubspec.yaml').readAsStringSync().replaceAll('\r\n', '\n');
       final dependencies = _yamlSection(pubspec, 'dependencies');
 
       expect(dependencies, contains('coffee_vision:'));

@@ -7,7 +7,7 @@ import 'photo_crop.dart';
 import 'opencv_traces.dart';
 import 'trace_overlay.dart';
 import 'label_picker.dart' show labelIcons;
-import 'fortune_orbit.dart';
+import 'coffee_loading_animation.dart';
 
 enum FortunePhase {
   saving,
@@ -47,9 +47,11 @@ class FortuneScan extends StatefulWidget {
     this.showDecorativeSymbols = false,
     this.symbolAnchorsFor,
     this.traces,
+    this.noTracesMessage = false,
     super.key,
   });
   final TraceSet? traces;
+  final bool noTracesMessage;
   final FortuneProgress progress;
   final List<ContributionPhoto> photos;
   final ImageProvider Function(ContributionPhoto) imageFor;
@@ -70,12 +72,6 @@ class _FortuneScanState extends State<FortuneScan>
     vsync: this,
     duration: const Duration(seconds: 4),
   );
-  // A common multiple of 7s, 26s and 2.4s keeps every visual loop continuous.
-  // The original 4s controller still owns photo/symbol cadence independently.
-  late final AnimationController _orbit = AnimationController(
-    vsync: this,
-    duration: const Duration(seconds: 1092),
-  );
   bool _reduce = false;
   bool get _animate =>
       !_reduce &&
@@ -89,10 +85,8 @@ class _FortuneScanState extends State<FortuneScan>
     super.didUpdateWidget(oldWidget);
     if (_animate) {
       if (!_animation.isAnimating) _animation.forward();
-      if (!_orbit.isAnimating) _orbit.repeat();
     } else {
       _animation.stop();
-      _orbit.stop();
     }
   }
 
@@ -121,17 +115,14 @@ class _FortuneScanState extends State<FortuneScan>
     _reduce = MediaQuery.disableAnimationsOf(context);
     if (!_animate) {
       _animation.stop();
-      _orbit.stop();
     } else {
       if (!_animation.isAnimating) _animation.forward();
-      if (!_orbit.isAnimating) _orbit.repeat();
     }
   }
 
   @override
   void dispose() {
     _animation.dispose();
-    _orbit.dispose();
     super.dispose();
   }
 
@@ -153,6 +144,11 @@ class _FortuneScanState extends State<FortuneScan>
       padding: const EdgeInsets.all(24),
       children: [
         const SizedBox(height: 24),
+        if (widget.noTracesMessage)
+          const Text(
+            'Bu fotoğraflarda belirgin telve izi çıkarılamadı. Hikâyen mevcut bilgilerle hazırlanıyor.',
+            textAlign: TextAlign.center,
+          ),
         if (photo != null)
           Stack(
             alignment: Alignment.center,
@@ -183,22 +179,18 @@ class _FortuneScanState extends State<FortuneScan>
                     ),
                   ),
                 ),
-              Positioned.fill(
-                child: IgnorePointer(
-                  child: ExcludeSemantics(
-                    child: AnimatedBuilder(
-                      animation: _orbit,
-                      builder: (_, _) => CustomPaint(
-                        key: const ValueKey('fortune-orbit-frame'),
-                        painter: FortuneOrbitPainter(_orbit.value * 1092),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
             ],
           ),
-        const SizedBox(height: 28),
+        const SizedBox(height: 12),
+        Center(
+          key: const ValueKey('fortune-loading-area'),
+          child: CoffeeLoadingAnimation(
+            key: const ValueKey('fortune-coffee-loading'),
+            active: _animate,
+            reducedMotion: _reduce,
+          ),
+        ),
+        const SizedBox(height: 8),
         Semantics(
           liveRegion: true,
           child: Text(

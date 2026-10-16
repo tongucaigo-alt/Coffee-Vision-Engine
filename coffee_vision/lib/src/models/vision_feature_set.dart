@@ -1,3 +1,4 @@
+import '../canonical_order.dart';
 import 'vision_feature_image_provenance.dart';
 import 'vision_global_features.dart';
 import 'vision_analysis_region.dart';
@@ -334,16 +335,15 @@ final class VisionFeatureSet {
     final componentIds = componentFeatures
         .map((feature) => feature.componentId)
         .toSet();
-    final canonical = values.toList()
-      ..sort((first, second) {
-        final sourceComparison = first.sourceComponentId.compareTo(
-          second.sourceComponentId,
-        );
-        if (sourceComparison != 0) return sourceComparison;
-        return first.targetComponentId.compareTo(second.targetComponentId);
-      });
+    final canonical = canonicalCopy(values, (first, second) {
+      final sourceComparison = first.sourceComponentId.compareTo(
+        second.sourceComponentId,
+      );
+      if (sourceComparison != 0) return sourceComparison;
+      return first.targetComponentId.compareTo(second.targetComponentId);
+    });
 
-    final pairs = <({int source, int target})>{};
+    int previousSource = 0, previousTarget = 0;
     var selectedCount = 0;
     for (final feature in canonical) {
       if (!componentIds.contains(feature.sourceComponentId) ||
@@ -361,17 +361,16 @@ final class VisionFeatureSet {
           'must not contain self relations',
         );
       }
-      final pair = (
-        source: feature.sourceComponentId,
-        target: feature.targetComponentId,
-      );
-      if (!pairs.add(pair)) {
+      if (feature.sourceComponentId == previousSource &&
+          feature.targetComponentId == previousTarget) {
         throw ArgumentError.value(
           feature,
           'spatialRelationFeatures',
           'must not contain duplicate directed component pairs',
         );
       }
+      previousSource = feature.sourceComponentId;
+      previousTarget = feature.targetComponentId;
       _validateSelectionReason(edgeSelectionProfile, feature);
       if (feature.selected) selectedCount++;
     }
@@ -387,18 +386,7 @@ final class VisionFeatureSet {
             'globalFeatures.candidateRelationCount',
       );
     }
-    for (final sourceId in componentIds) {
-      for (final targetId in componentIds) {
-        if (sourceId == targetId) continue;
-        if (!pairs.contains((source: sourceId, target: targetId))) {
-          throw ArgumentError.value(
-            canonical,
-            'spatialRelationFeatures',
-            'must contain every directed component pair exactly once',
-          );
-        }
-      }
-    }
+    // Complete pair coverage follows from cardinality and uniqueness above.
     if (selectedCount != globalFeatures.selectedRelationCount) {
       throw ArgumentError.value(
         selectedCount,

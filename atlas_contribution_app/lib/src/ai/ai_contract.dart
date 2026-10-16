@@ -4,6 +4,8 @@ import '../models.dart';
 import '../mvp/regional_summary.dart';
 import 'narrative.dart';
 import '../mvp/review_models.dart';
+import 'fortune_personalization.dart';
+import '../user_profile_store.dart';
 
 const aiLabEnabled = bool.fromEnvironment('ATLAS_AI_LAB');
 const playTestEnabled = bool.fromEnvironment('ATLAS_PLAY_TEST');
@@ -74,13 +76,16 @@ void _keys(Map value, List<String> keys) {
 
 /// Reject rather than silently stripping research/private fields.
 Map<String, dynamic> validateAiContext(Map<String, dynamic> value) {
-  final v2 = value['version'] == 'atlas-fortune-context-v2';
+  final v3 = value['version'] == personalizedContextVersion;
+  final v2 = value['version'] == 'atlas-fortune-context-v2' || v3;
   _keys(value, [
     'version',
     'language',
     'status',
     'photos',
     if (value.containsKey('narrative')) 'narrative',
+    if (v3) 'creativeSymbol',
+    if (v3 && value.containsKey('personalization')) 'personalization',
   ]);
   if (value.containsKey('narrative')) validateNarrative(value['narrative']);
   if ((!v2 && value['version'] != 'atlas-fortune-context-v1') ||
@@ -189,6 +194,7 @@ Map<String, dynamic> validateAiContext(Map<String, dynamic> value) {
       'En az bir fincan fotoğrafı ve kullanılabilir gözlem veya ölçüm gerekiyor.',
     );
   }
+  if (v3) validatePersonalizedContext(value);
   return immutableDocument(value);
 }
 
@@ -207,20 +213,89 @@ class FortunePrompt {
   final Map<String, dynamic> data;
   final String hash;
   String get version => data['version'] as String;
+  bool usesSourceBrief(Map<String, dynamic> context) =>
+      context['version'] == personalizedContextVersion &&
+      data['personalizedFormat'] == 'source-brief-example-v1';
+
+  List<String> repetitionReferences(
+    Map<String, dynamic> context,
+    List<String> previous,
+  ) => [
+    ...previous,
+    if (usesSourceBrief(context))
+      (data['personalizedStyleExample'] as Map)['assistant'] as String,
+  ];
+
+  String exampleCopyRepairHint(String? previousReply, String? reason) {
+    if (reason != 'repetition' || previousReply == null) return '';
+    final example =
+        (data['personalizedStyleExample'] as Map)['assistant'] as String;
+    final copied = previousReply
+        .split(RegExp(r'[.!?\n]+'))
+        .map((s) => s.trim())
+        .where((s) => narrativeRepetition(s, [example]) != null)
+        .take(3)
+        .toList();
+    if (copied.isEmpty) return '';
+    return 'Şu cümleler üslup örneğinden kopyalanmış: ${jsonEncode(copied)}. Bunları tamamen çıkar; aynı düşünceleri başka sözcüklerle tekrarlama. Yeni girdiye özgü farklı bir gelişme yaz.';
+  }
+
   List<Map<String, String>> messages(
     Map<String, dynamic> context, {
     required bool noThink,
     bool repair = false,
     String? repairReason,
     String? previousReply,
+  }) {
+    if (!usesSourceBrief(context)) {
+      return _legacyMessages(
+        context,
+        noThink: noThink,
+        repair: repair,
+        repairReason: repairReason,
+        previousReply: previousReply,
+      );
+    }
+    final example = data['personalizedStyleExample'] as Map;
+    final request =
+        '${data['personalizedUserPrefix']}${sourceAwareBrief(context)}';
+    final repairText = repair
+        ? '\nÖnceki adayın kelime sayısı: ${previousReply?.trim().split(RegExp(r"\s+")).length ?? 0}. ${data['personalizedRepair']} ${(data['personalizedRepairHints'] as Map?)?[repairReason] ?? ''} ${lengthRepairHint(previousReply, repairReason)} ${exampleCopyRepairHint(previousReply, repairReason)}'
+        : '';
+    final suffix = noThink ? '\n/no_think' : '';
+    return [
+      {'role': 'system', 'content': data['personalizedSystem'] as String},
+      {'role': 'user', 'content': example['user'] as String},
+      {'role': 'assistant', 'content': example['assistant'] as String},
+      if (repair && previousReply != null) ...[
+        {'role': 'user', 'content': '$request$suffix'},
+        {'role': 'assistant', 'content': previousReply},
+      ],
+      {'role': 'user', 'content': '$request$repairText$suffix'},
+    ];
+  }
+
+  List<Map<String, String>> _legacyMessages(
+    Map<String, dynamic> context, {
+    required bool noThink,
+    bool repair = false,
+    String? repairReason,
+    String? previousReply,
   }) => [
-    {'role': 'system', 'content': data['system'] as String},
+    {
+      'role': 'system',
+      'content':
+          (context['version'] == personalizedContextVersion
+                  ? data['personalizedSystem'] ?? data['system']
+                  : data['system'])
+              as String,
+    },
     if (repair && previousReply != null)
       {'role': 'assistant', 'content': previousReply},
     {
       'role': 'user',
       'content':
-          '${data['userPrefix']}${jsonEncode(context)}\nİzinli kısa fiziksel ifadeler: ${jsonEncode(physicalCues(context))}. Bu ifadeler dışında fiziksel sahne betimleme.${repair ? '\nÖnceki adayın kelime sayısı: ${previousReply?.trim().split(RegExp(r"\s+")).length ?? 0}. ${data['repair']} ${(data['repairHints'] as Map?)?[repairReason] ?? ''} ${lengthRepairHint(previousReply, repairReason)}' : ''}${noThink ? '\n/no_think' : ''}',
+          '${context['version'] == personalizedContextVersion ? data['personalizedUserPrefix'] ?? data['userPrefix'] : data['userPrefix']}${jsonEncode(context)}\n${personalizedBrief(context)}\nİzinli kısa fiziksel ifadeler: ${jsonEncode(physicalCues(context))}. Bu ifadeler dışında fiziksel sahne betimleme.${repair ? '\nÖnceki adayın kelime sayısı: ${previousReply?.trim().split(RegExp(r"\s+")).length ?? 0}. ${context['version'] == personalizedContextVersion ? data['personalizedRepair'] ?? data['repair'] : data['repair']} ${(context['version'] == personalizedContextVersion ? data['personalizedRepairHints'] as Map? : data['repairHints'] as Map?)?[repairReason] ?? ''} ${lengthRepairHint(previousReply, repairReason)}' : ''}${noThink ? '\n/no_think' : ''}',
     },
   ];
 }
@@ -231,6 +306,74 @@ String _turkishLower(String text) =>
 /// These bounded language checks are also covered by the gateway's shared
 /// fixtures. They are not a claim of complete semantic validation.
 List<String> physicalCues(Map<String, dynamic>? context) {
+  if (context?['version'] != personalizedContextVersion) {
+    return _legacyPhysicalCues(context);
+  }
+  final groups = <String, List<String>>{'cup': [], 'saucer': []};
+  for (final photo in context!['photos'] as List) {
+    final group = groups[photo['surface']]!;
+    for (final cue in _legacyPhysicalCues({
+      'photos': [photo],
+    })) {
+      if (!group.contains(cue)) group.add(cue);
+    }
+  }
+  final selected = <String>[];
+  for (var i = 0; selected.length < 3; i++) {
+    var found = false;
+    for (final group in groups.values) {
+      if (i < group.length && selected.length < 3) {
+        selected.add(group[i]);
+        found = true;
+      }
+    }
+    if (!found) break;
+  }
+  return selected;
+}
+
+/// Keep a saucer from being displaced by three cues from the cup's views.
+String sourceAwareBrief(Map<String, dynamic> context) {
+  const topics = {
+    'relationships': 'ilişkiler',
+    'work': 'iş ve üretim',
+    'social': 'sosyal bağlantılar',
+    'decisions': 'seçimler',
+    'rest': 'dinlenme',
+    'beginnings': 'başlangıçlar',
+  };
+  const arcs = {
+    'notice-explore-choice':
+        'bir ayrıntıdan başlayıp iki ihtimali aç ve bir seçime yaklaş',
+    'contrast-perspective-small-step':
+        'bir karşıtlıktan başlayıp farklı bir bakışa ve küçük bir gelişmeye ilerle',
+    'pause-connection-opening':
+        'bir duraklamadan başlayıp bağlantı ve yeni bir ihtimale ilerle',
+  };
+  const closings = {
+    'gentle-question': 'en fazla bir yumuşak soruyla bitir',
+    'small-invitation': 'küçük bir olasılığı açık bırak',
+    'open-possibility': 'yeni bir ihtimali açık bırak',
+  };
+  final narrative = context['narrative'] as Map?;
+  final cues = physicalCues(context);
+  return [
+    'Anlatı konusu: ${topics[narrative?['topic']] ?? 'gündelik ihtimaller'}.',
+    if (arcs[narrative?['arc']] case final String arc) 'Akış: $arc.',
+    if (closings[narrative?['closing']] case final String closing)
+      'Bitiş: $closing.',
+    personalizedBrief(context),
+    for (final surface in ['fincanın', 'tabağın'])
+      if (cues.any((cue) => cue.startsWith(surface)))
+        '${surface == 'fincanın' ? 'Fincan' : 'Tabak'} için izinli kısa fiziksel ifadeler: ${jsonEncode(cues.where((cue) => cue.startsWith(surface)).toList())}.',
+    if (cues.isEmpty)
+      'Fiziksel betim ekleme; eksik bilgiden de söz etme.'
+    else
+      'Her mevcut yüzeyden bir ifadeyi tam, doğal bir cümlenin içinde aynen kullan. İfadeyi tek başına bırakma; sembolün bulunduğu yer olarak anlatma.',
+  ].join('\n');
+}
+
+List<String> _legacyPhysicalCues(Map<String, dynamic>? context) {
   final cues = <String>[];
   for (final p in context?['photos'] as List? ?? []) {
     final summary = p['regionalSummary'];
@@ -286,17 +429,36 @@ List<String> physicalCues(Map<String, dynamic>? context) {
   return cues.toSet().take(3).toList();
 }
 
+String _symbolStem(String name) =>
+    {
+      'balık': 'balı(?:k|ğ)',
+      'kalp': 'kal(?:p|b)',
+      'ağaç': 'ağa(?:ç|c)',
+    }[name] ??
+    RegExp.escape(name);
+
 String? _fortuneGroundingError(String lower, Map<String, dynamic>? context) {
   if (RegExp(
-    r'piksel|%\s*\d|yüzde|bileşen|ilişkisel|üç kupa|üç farklı yüzey|üç fincan|ölçüm|ölçülen|çekim aç|kamera aç|(?:sağ|sol|üst) açı|(?:üç|3) (?:farklı )?açı|residuepixelcount|contentresidueratio|componentcount|candidaterelationcount|selectedrelationcount|globalphysicalmeasurements|physicalmeasurement|photonumber|declaredrole|handleright|handleleft',
+    r'piksel|%\s*\d|yüzde(?:si|lik)?(?![a-zçğıöşü])|bileşen|ilişkisel|üç kupa|üç farklı yüzey|üç fincan|ölçüm|ölçülen|çekim aç|kamera aç|(?:sağ|sol|üst) açı|(?:üç|3) (?:farklı )?açı|residuepixelcount|contentresidueratio|componentcount|candidaterelationcount|selectedrelationcount|globalphysicalmeasurements|physicalmeasurement|photonumber|declaredrole|handleright|handleleft',
   ).hasMatch(lower)) {
     return 'technical';
   }
   // Numbered captures/views expose acquisition metadata. Keep ordinary life
   // perspectives and "ilk bakışta" outside this deliberately narrow check.
+  // A singular photo simile describes an idea, not the submitted capture.
+  // Only this metadata check ignores it; visual claims are still checked below.
+  final captureText = lower
+      .replaceAll(
+        RegExp(r'(^|[^a-zçğıöşü])bir\s+fotoğraf\s+gibi(?=$|[^a-zçğıöşü])'),
+        ' benzetme ',
+      )
+      .replaceAll(
+        RegExp(r'(^|[^a-zçğıöşü])bir\s+görünümü\s+olabilir(?=$|[^a-zçğıöşü])'),
+        ' benzetme ',
+      );
   if (RegExp(
     r'(^|[^a-zçğıöşü0-9])(?:(?:[1-4]|bir|iki|üç|dört)(?:\s+(?:ayrı|farklı))?\s+(?:çekim|fotoğraf|görüntü|görünüm)[a-zçğıöşü]*|(?:birinci|ikinci|üçüncü|dördüncü|[1-4]\.)\s+(?:çekim|fotoğraf|görüntü|görünüm|açı)[a-zçğıöşü]*|(?:[2-4]|iki|üç|dört)(?:\s+(?:ayrı|farklı))?\s+bakış(?:ta|tan|taki|ında|ından|larında|larından))($|[^a-zçğıöşü])',
-  ).hasMatch(lower)) {
+  ).hasMatch(captureText)) {
     return 'technical';
   }
   // Empty reporting is not evidence that a scene or the reader lacks symbols.
@@ -320,13 +482,60 @@ String? _fortuneGroundingError(String lower, Map<String, dynamic>? context) {
         for (final observation in photo['userObservations'] as List)
           _turkishLower(observation['symbolName'] as String),
     };
+    if (context['version'] == personalizedContextVersion) {
+      final active = {
+        ...reported,
+        if (context['creativeSymbol'] is Map)
+          _turkishLower(
+            (context['creativeSymbol'] as Map)['symbolName'] as String,
+          ),
+      };
+      for (final name in active) {
+        final escaped = _symbolStem(name);
+        if (RegExp(
+              '(?:fincan|telve|tabak)[a-zçğıöşü]*[^.!?\\n]{0,90}$escaped',
+            ).hasMatch(visualText) ||
+            RegExp(
+              '$escaped[^.!?\\n]{0,90}(?:fincan|telve|tabak)',
+            ).hasMatch(visualText) ||
+            RegExp(
+              '(?:paylaştığın|bildirdiğin|gördüğün)[^.!?\\n]{0,25}$escaped[^.!?\\n]{0,35}(?:kanat|gaga|kuyruk|uçuyor|uçuş|süzül|çırp|silüet|siluet|belirdi)',
+            ).hasMatch(lower)) {
+          return 'unsupported_visual_claim';
+        }
+      }
+      if (!active.any((name) {
+        final stem = _symbolStem(name);
+        return RegExp(
+          '(^|[^a-zçğıöşü])$stem[’\x27]?[a-zçğıöşü]{0,12}(?=\$|[^a-zçğıöşü])',
+        ).hasMatch(lower);
+      })) {
+        return 'missing_story_symbol';
+      }
+    }
     for (final name in contributionLabels.values.map(_turkishLower)) {
       if (reported.contains(name)) continue;
       final escaped = RegExp.escape(name);
+      final creativeName = (context['creativeSymbol'] as Map?)?['symbolName'];
+      final isCreative =
+          creativeName is String && _turkishLower(creativeName) == name;
+      final attributionName = context['version'] == personalizedContextVersion
+          ? '${_symbolStem(name)}[’\x27]?[a-zçğıöşü]{0,12}'
+          : escaped;
+      // Choosing a direction in life is not a claim of submitting a shape.
+      final attributionVerbs = name == 'yol'
+          ? '(?:paylaştığın|işaretlediğin|belirttiğin|bildirdiğin|gördüğün)'
+          : '(?:paylaştığın|işaretlediğin|belirttiğin|seçtiğin|bildirdiğin|gördüğün)';
+      if (name == 'yol' &&
+          RegExp(
+            r'seçtiğin\s+(?:bir\s+)?yol[’\x27]?[a-zçğıöşü]*\s+(?:sembol|şekl|şekil|figür|simge|işaret)',
+          ).hasMatch(lower)) {
+        return 'unsupported_symbol_claim';
+      }
       // Match explicit symbol/attribution phrases, not ordinary words such as
       // kalp, yol, ev, ay, or seeing a situation from another angle.
       if (RegExp(
-        '(^|[^a-zçğıöşü])$escaped(?:[’\x27][a-zçğıöşü]+)?\\s+(?:sembol|şekl|şekil|figür|simge|işaret)|(?:paylaştığın|işaretlediğin|belirttiğin|seçtiğin|bildirdiğin|gördüğün)\\s+(?:bir\\s+)?$escaped(?=\$|[^a-zçğıöşü])',
+        '${isCreative ? '' : '(^|[^a-zçğıöşü])$escaped(?:[’\x27][a-zçğıöşü]+)?\\s+(?:sembol|şekl|şekil|figür|simge|işaret)|'}$attributionVerbs\\s+(?:bir\\s+)?$attributionName(?=\$|[^a-zçğıöşü])',
       ).hasMatch(lower)) {
         return 'unsupported_symbol_claim';
       }
@@ -355,7 +564,8 @@ String? fortuneQualityError(
     return 'reasoning';
   }
   if (text.trim().isEmpty || text.length > 12000) return 'incomplete';
-  if (editorial && text.trim().split(RegExp(r'\s+')).length < 150) {
+  if ((editorial || context?['version'] == personalizedContextVersion) &&
+      text.trim().split(RegExp(r'\s+')).length < 150) {
     return 'length';
   }
   if (editorial && context?['version'] == 'atlas-fortune-context-v2') {
@@ -364,18 +574,75 @@ String? fortuneQualityError(
     if (text.trim().split(RegExp(r'\n\s*\n')).length != 4) return 'structure';
   }
   final lower = _turkishLower(text);
+  // Explicit uncertainty/denial is not a promise. Only certainty checks use
+  // this text; grounding and source attribution still inspect the full story.
+  final certaintyText = lower
+      .replaceAll(
+        RegExp(
+          r'garanti(?:si)?\s+(?:değil(?:dir)?|yok(?:tur)?)(?=$|[^a-zçğıöşü])',
+        ),
+        'belirsizlik',
+      )
+      .replaceAll(
+        RegExp(r'olacağını\s+bilmeden(?=$|[^a-zçğıöşü])'),
+        'belirsizlik',
+      )
+      .replaceAll(
+        RegExp(
+          r'olacağını\s+şimdiden\s+bilmeyi\s+gerektirmiyor(?=$|[^a-zçğıöşü])',
+        ),
+        'belirsizlik',
+      );
+  if (context?['version'] == personalizedContextVersion &&
+      RegExp(
+        r'(^|[^a-zçğıöşü])[a-zçğıöşü]+(?:acaksın|eceksin)($|[^a-zçğıöşü])',
+      ).hasMatch(certaintyText)) {
+    return 'certainty';
+  }
   if (RegExp(
     r'kesinlikle|kesin olarak|yüzde yüz|%\s*100|garanti|mutlaka|olacaksın|kazanacaksın|evleneceksin|gerçekleşecek|olacaktır|öleceksin|olacağını|şekillenecek|getirecek|açılacak|karşılaşacaksın|bulacaksın|seni bekliyor',
-  ).hasMatch(lower)) {
+  ).hasMatch(certaintyText)) {
     return 'certainty';
   }
   if (RegExp(
     r'(^|[^a-zçğıöşü])(olacak|yaşanacak|göreceksin|hissedeceksin|başlayacak|bitecek|kalacak|taşıyacak|çıkacak)($|[^a-zçğıöşü])',
-  ).hasMatch(lower)) {
+  ).hasMatch(certaintyText)) {
     return 'certainty';
+  }
+  if (context?['version'] == personalizedContextVersion) {
+    final cues = physicalCues(context);
+    final sentences = lower
+        .split(RegExp(r'[.!?\n]'))
+        .map((s) => s.trim())
+        .toSet();
+    if (cues.any(sentences.contains)) return 'fragmented_physical_phrase';
+    for (final surface in ['fincanın', 'tabağın']) {
+      final group = cues.where((cue) => cue.startsWith(surface));
+      if (group.isNotEmpty && !group.any(lower.contains)) {
+        return 'missing_physical_surface';
+      }
+    }
   }
   final groundingError = _fortuneGroundingError(lower, context);
   if (groundingError != null) return groundingError;
+  if (context?['version'] == personalizedContextVersion) {
+    final zodiac = (context!['personalization'] as Map?)?['zodiac'];
+    if (zodiac == null && RegExp(r'burc|burç').hasMatch(lower)) {
+      return 'unsupported_personalization';
+    }
+    if (zodiac != null) {
+      final sign = ZodiacSign.values.byName(zodiac as String);
+      final name = _turkishLower(sign.label);
+      if (RegExp(
+            '$name[^.!?\\n]{0,45}(?:kararsız|tereddüt|günlerin|mevsim|kontrollü|gurur|doğal|doğası|doğasındaki|sıcaklı|cesur|lider|inat|hassas|mükemmel|titiz|kişili|karakter|yapısı|yapın|olduğun için|özelliğin)',
+          ).hasMatch(lower) ||
+          RegExp(
+            r'burcu(?:nun|n)[^.!?\n]{0,35}(?:yapı|kişili|karakter|kararsız)',
+          ).hasMatch(lower)) {
+        return 'unsupported_personalization';
+      }
+    }
+  }
   if (!RegExp(
     r'olabilir|belki|çağrıştır|düşünülebilir|ihtimal',
   ).hasMatch(lower)) {
@@ -384,11 +651,107 @@ String? fortuneQualityError(
   return null;
 }
 
+/// Never persist free-form upstream error descriptions as diagnostics.
+Map<String, dynamic> safeAiDiagnostics(Object? value) {
+  if (value is! Map) return {};
+  const codes = {
+    'completed',
+    'failed',
+    'cancelled',
+    'ai_failure',
+    'quality_rejected',
+    'timeout',
+    'connection',
+    'tls',
+    'invalid_response',
+    'transport_unknown',
+    'upstream_unavailable',
+    'upstream_state_unknown',
+    'generation_timeout',
+    'queue_timeout',
+  };
+  const stages = {
+    'generation',
+    'generating',
+    'repairing',
+    'transport',
+    'queued',
+    'preparing',
+  };
+  const reasons = {
+    'length',
+    'structure',
+    'certainty',
+    'repetition',
+    'technical',
+    'incomplete',
+    'reasoning',
+    'unsupported_visual_claim',
+    'unsupported_absence_claim',
+    'unsupported_symbol_claim',
+    'unsupported_personalization',
+    'missing_story_symbol',
+    'fragmented_physical_phrase',
+    'missing_physical_surface',
+  };
+  return {
+    if (codes.contains(value['code']) ||
+        (value['code'] is String &&
+            RegExp(r'^http_[1-5][0-9]{2}$').hasMatch(value['code'] as String)))
+      'code': value['code'],
+    if (stages.contains(value['stage'])) 'stage': value['stage'],
+    if (reasons.contains(value['reason'])) 'reason': value['reason'],
+    if (value['attempts'] is int &&
+        value['attempts'] >= 0 &&
+        value['attempts'] <= 2)
+      'attempts': value['attempts'],
+    if (value['durationMs'] is int &&
+        value['durationMs'] >= 0 &&
+        value['durationMs'] <= 2147483647)
+      'durationMs': value['durationMs'],
+  };
+}
+
 class AiFailure implements Exception {
-  const AiFailure(this.message);
+  const AiFailure(
+    this.message, {
+    this.code = 'ai_failure',
+    this.stage = 'generation',
+    this.reason,
+    this.attempts = 0,
+    this.durationMs = 0,
+  });
   final String message;
+  final String code, stage;
+  final String? reason;
+  final int attempts, durationMs;
+  Map<String, dynamic> get diagnostics => {
+    'code': code,
+    'stage': stage,
+    'attempts': attempts,
+    'durationMs': durationMs,
+    if (reason != null) 'reason': reason,
+  };
+  AiFailure timed(String phase, int count, int elapsed) => AiFailure(
+    message,
+    code: code,
+    stage: phase,
+    reason: reason,
+    attempts: count,
+    durationMs: elapsed,
+  );
   @override
   String toString() => message;
+}
+
+/// Editorial preferences do not hide blocking source or completion errors.
+List<String> fortuneQualityWarnings(String text, Map<String, dynamic> context) {
+  if (context['version'] != personalizedContextVersion) return const [];
+  final words = text.trim().split(RegExp(r'\s+')).length;
+  return [
+    if (words < 250 || words > 400) 'length',
+    if (text.trim().split(RegExp(r'\n\s*\n')).length != 4) 'structure',
+  ];
 }
 
 /// Beta delivery policy: editorial checks remain diagnostic, not a gate.

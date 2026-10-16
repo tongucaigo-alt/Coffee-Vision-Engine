@@ -1,3 +1,4 @@
+import '../canonical_order.dart';
 import 'vision_component_relation.dart';
 import 'vision_edge_selection_decision.dart';
 import 'vision_edge_selection_profile.dart';
@@ -9,36 +10,34 @@ final class VisionEdgeSelectionResult {
     required Iterable<VisionComponentRelation> candidateRelations,
     required Iterable<VisionEdgeSelectionDecision> decisionRecords,
   }) {
-    final candidates = candidateRelations.toList()..sort(_compareRelations);
-    final candidatePairs = <({int source, int target})>{};
+    final candidates = canonicalCopy(candidateRelations, _compareRelations);
+    int candidateSource = 0, candidateTarget = 0;
     for (final candidate in candidates) {
-      final pair = (
-        source: candidate.sourceComponentId,
-        target: candidate.targetComponentId,
-      );
-      if (!candidatePairs.add(pair)) {
+      if (candidate.sourceComponentId == candidateSource &&
+          candidate.targetComponentId == candidateTarget) {
         throw ArgumentError.value(
           candidate,
           'candidateRelations',
           'must not contain duplicate directed relation pairs',
         );
       }
+      candidateSource = candidate.sourceComponentId;
+      candidateTarget = candidate.targetComponentId;
     }
 
-    final decisions = decisionRecords.toList()..sort(_compareDecisions);
-    final decisionPairs = <({int source, int target})>{};
+    final decisions = canonicalCopy(decisionRecords, _compareDecisions);
+    int decisionSource = 0, decisionTarget = 0;
     for (final decision in decisions) {
-      final pair = (
-        source: decision.sourceComponentId,
-        target: decision.targetComponentId,
-      );
-      if (!decisionPairs.add(pair)) {
+      if (decision.sourceComponentId == decisionSource &&
+          decision.targetComponentId == decisionTarget) {
         throw ArgumentError.value(
           decision,
           'decisionRecords',
           'must not contain duplicate directed relation decisions',
         );
       }
+      decisionSource = decision.sourceComponentId;
+      decisionTarget = decision.targetComponentId;
       _validateReason(profile, decision);
     }
 

@@ -17,6 +17,7 @@ import 'ai_runtime.dart';
 import 'ai_bundled.dart';
 import 'play_access_page.dart';
 import 'narrative.dart';
+import 'fortune_personalization.dart';
 import '../fortune_progress.dart';
 import '../opencv_traces.dart';
 import '../trace_overlay.dart';
@@ -343,6 +344,7 @@ class _AiFortunePageState extends State<AiFortunePage> {
   bool _checkingPhotos = false;
   bool _generationCancelled = false;
   TraceSet _traces = TraceSet.empty;
+  bool _traceLoadComplete = false;
   int _traceRun = 0;
   ReviewSession get session => _controller.session;
   ContributionPhoto _tracePhoto(ReviewPhoto review) =>
@@ -389,6 +391,9 @@ class _AiFortunePageState extends State<AiFortunePage> {
   }
 
   void _analysisProgress() {
+    if (session.currentInitialObservation != null) {
+      widget.runtime.preparation.permitDisplay();
+    }
     final id = _controller.activePhotoId;
     if (id != null) {
       final p = session.photos.firstWhere((p) => p.id == id);
@@ -436,6 +441,7 @@ class _AiFortunePageState extends State<AiFortunePage> {
 
   Future<void> _act(Future<void> Function() action) async {
     if (_busy) return;
+    final operationWatch = Stopwatch()..start();
     setState(() {
       _busy = true;
       _message = null;
@@ -450,6 +456,20 @@ class _AiFortunePageState extends State<AiFortunePage> {
         });
       }
     } catch (e) {
+      final diagnostic = e is AiFailure
+          ? e
+          : AiFailure(
+              'İşlem tamamlanamadı.',
+              code: 'ai_failure',
+              stage: 'preparing',
+              durationMs: operationWatch.elapsedMilliseconds,
+            );
+      await widget.runtime.store
+          .recordDiagnostic(
+            diagnostic,
+            widget.runtime.preparation.stageDurations,
+          )
+          .catchError((Object _) {});
       if (mounted) setState(() => _message = _error(e));
     } finally {
       if (mounted) {
@@ -553,9 +573,10 @@ class _AiFortunePageState extends State<AiFortunePage> {
 
   Future<void> _loadTraces({bool preparing = false}) async {
     if (!openCvTracesEnabled) return;
+    _traceLoadComplete = false;
     final run = ++_traceRun;
     final snapshot = session;
-    if (snapshot.currentInitialObservation == null) return;
+    if (snapshot.currentInitialObservation == null && !preparing) return;
     final set = await widget.runtime.traces.loadSet(
       owner: snapshot.id,
       photos: snapshot.orderedPhotos.map(_tracePhoto).toList(),
@@ -579,9 +600,12 @@ class _AiFortunePageState extends State<AiFortunePage> {
       },
     );
     if (mounted && run == _traceRun && !(preparing && _generationCancelled)) {
-      setState(() => _traces = set);
+      setState(() {
+        _traces = set;
+        _traceLoadComplete = true;
+      });
       if (preparing) {
-        widget.runtime.preparation.updateTraces(set);
+        widget.runtime.preparation.updateTraces(set, complete: true);
       }
     }
   }
@@ -605,6 +629,7 @@ class _AiFortunePageState extends State<AiFortunePage> {
         );
       }
       presentation.begin(
+        requireMarkedPhotos: openCvTracesEnabled,
         photos: session.orderedPhotos.map(_tracePhoto).toList(),
         imageFor: (p) => FileImage(widget.runtime.reviews.file(p.localName)),
         anchorsFor: _symbolAnchors,
@@ -636,10 +661,15 @@ class _AiFortunePageState extends State<AiFortunePage> {
         'Kaynak kayıt değişti. Ekranı kapatıp güncel kaydı aç.',
       );
     }
+    final phaseWatch = Stopwatch()..start();
+    final stages = <String, int>{};
+    if (session.currentInitialObservation != null) presentation.permitDisplay();
+    final traceWork = _loadTraces(preparing: true);
     await _controller.analyze(
       enrich: true,
       isCancelled: () => _generationCancelled,
     );
+    stages['localAnalysis'] = phaseWatch.elapsedMilliseconds;
     checkCancelled();
     if (!mounted) return;
     final preparation = session.preparedInput;
@@ -648,7 +678,8 @@ class _AiFortunePageState extends State<AiFortunePage> {
         session.currentInitialObservation == null) {
       throw const AiFailure('Önce incelemeyi tamamla.');
     }
-    await _loadTraces(preparing: true);
+    await traceWork;
+    stages['preparationTotal'] = phaseWatch.elapsedMilliseconds;
     checkCancelled();
     if (!mounted) return;
     if (!await widget.runtime.bridge.isCurrent(session)) {
@@ -663,12 +694,14 @@ class _AiFortunePageState extends State<AiFortunePage> {
           (r) =>
               ['failed', 'cancelled', 'interrupted'].contains(r['state']) &&
               r['sourceFingerprint'] == preparationSourceFingerprint(session) &&
-              (r['context'] as Map?)?['version'] ==
-                  'atlas-fortune-context-v2' &&
+              [
+                'atlas-fortune-context-v2',
+                personalizedContextVersion,
+              ].contains((r['context'] as Map?)?['version']) &&
               (r['context'] as Map?)?['narrative'] != null,
         )
         .firstOrNull;
-    final contextData = validateAiContext(
+    final baseContext = validateAiContext(
       freezeNarrativeContext(
         Map<String, dynamic>.from(preparation['payload'] as Map),
         retry == null
@@ -676,6 +709,20 @@ class _AiFortunePageState extends State<AiFortunePage> {
             : Map<String, dynamic>.from(
                 (retry['context'] as Map)['narrative'] as Map,
               ),
+      ),
+    );
+    final profile = await widget.runtime.readingProfile();
+    checkCancelled();
+    if (!mounted) return;
+    final contextData = validateAiContext(
+      personalizeFortuneContext(
+        baseContext,
+        readingIdentity:
+            '${session.id}|${preparationSourceFingerprint(session)}',
+        profile: profile,
+        previousContext: retry == null
+            ? null
+            : Map<String, dynamic>.from(retry['context'] as Map),
       ),
     );
     final selected = [
@@ -694,11 +741,14 @@ class _AiFortunePageState extends State<AiFortunePage> {
       'sessionId': session.id,
       'groupId': session.groupId,
       'sourceFingerprint': preparationSourceFingerprint(session),
-      'context': contextData,
+      'context': storedFortuneContext(contextData),
       'createdAtUtc': DateTime.now().toUtc().toIso8601String(),
       'comparison': _compare,
       'answers': <Map<String, dynamic>>[],
       'state': 'running',
+      'diagnostics': {
+        'stageMs': {...presentation.stageDurations, ...stages},
+      },
       'vote': null,
     };
     checkCancelled();
@@ -744,10 +794,20 @@ class _AiFortunePageState extends State<AiFortunePage> {
       }
       answers.shuffle(Random.secure());
       result['state'] = 'completed';
+      result['diagnostics'] = {
+        'code': 'completed',
+        'stageMs': {...presentation.stageDurations, ...stages},
+        'durationMs': phaseWatch.elapsedMilliseconds,
+      };
       widget.runtime.progress.value = const FortuneProgress(
         FortunePhase.completed,
       );
-    } catch (_) {
+    } catch (error) {
+      result['diagnostics'] = {
+        'stageMs': {...presentation.stageDurations, ...stages},
+        if (error is AiFailure) ...error.diagnostics,
+        if (error is! AiFailure) 'code': 'generation_unknown',
+      };
       result['state'] = _cancel!.cancelled ? 'cancelled' : 'failed';
       widget.runtime.progress.value = FortuneProgress(
         _cancel!.cancelled ? FortunePhase.cancelled : FortunePhase.failed,
@@ -831,7 +891,16 @@ class _AiFortunePageState extends State<AiFortunePage> {
                     progress: progress,
                     showDecorativeSymbols: true,
                     symbolAnchorsFor: _symbolAnchors,
-                    photos: session.orderedPhotos.map(_tracePhoto).toList(),
+                    photos: session.orderedPhotos
+                        .map(_tracePhoto)
+                        .where(
+                          (p) => _traces.selected.any(
+                            (t) => t.photoIndex == _traces.indexOf(p),
+                          ),
+                        )
+                        .toList(),
+                    noTracesMessage:
+                        _traceLoadComplete && _traces.selected.isEmpty,
                     traces: _traces,
                     imageFor: (p) =>
                         FileImage(widget.runtime.reviews.file(p.localName)),
@@ -893,26 +962,63 @@ class _AiFortunePageState extends State<AiFortunePage> {
                             44 *
                                 (MediaQuery.textScalerOf(context).scale(16) /
                                     16),
-                        child: ListView.separated(
-                          scrollDirection: Axis.horizontal,
-                          itemCount: session.orderedPhotos.length,
-                          separatorBuilder: (_, _) => const SizedBox(width: 8),
-                          itemBuilder: (context, i) {
-                            final p = session.orderedPhotos[i];
-                            return SizedBox(
-                              width: 148,
-                              child: InkWell(
-                                onTap: () => showDialog<void>(
-                                  context: context,
-                                  builder: (ctx) => Dialog(
-                                    child: Padding(
-                                      padding: const EdgeInsets.all(16),
-                                      child: SingleChildScrollView(
-                                        child: Column(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            Text(p.title),
-                                            TracePhotoViewer(
+                        child: LayoutBuilder(
+                          builder: (context, constraints) => Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: List.generate(
+                              session.orderedPhotos.length,
+                              (i) {
+                                final p = session.orderedPhotos[i];
+                                return SizedBox(
+                                  width: min(
+                                    148.0,
+                                    constraints.maxWidth /
+                                        session.orderedPhotos.length,
+                                  ),
+                                  child: Padding(
+                                    padding: EdgeInsets.only(
+                                      right:
+                                          i == session.orderedPhotos.length - 1
+                                          ? 0
+                                          : 4,
+                                    ),
+                                    child: InkWell(
+                                      onTap: () => showDialog<void>(
+                                        context: context,
+                                        builder: (ctx) => Dialog(
+                                          child: Padding(
+                                            padding: const EdgeInsets.all(16),
+                                            child: SingleChildScrollView(
+                                              child: Column(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  Text(p.title),
+                                                  TracePhotoViewer(
+                                                    photo: _tracePhoto(p),
+                                                    image: FileImage(
+                                                      widget.runtime.reviews
+                                                          .file(
+                                                            p.photo.localName,
+                                                          ),
+                                                    ),
+                                                    set: _visibleTraces,
+                                                  ),
+                                                  TextButton(
+                                                    onPressed: () =>
+                                                        Navigator.pop(ctx),
+                                                    child: const Text('Kapat'),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                      child: Column(
+                                        children: [
+                                          SizedBox(
+                                            height: 70,
+                                            child: TracePhoto(
                                               photo: _tracePhoto(p),
                                               image: FileImage(
                                                 widget.runtime.reviews.file(
@@ -921,49 +1027,28 @@ class _AiFortunePageState extends State<AiFortunePage> {
                                               ),
                                               set: _visibleTraces,
                                             ),
-                                            TextButton(
-                                              onPressed: () =>
-                                                  Navigator.pop(ctx),
-                                              child: const Text('Kapat'),
+                                          ),
+                                          Expanded(
+                                            child: Text(
+                                              p.title,
+                                              textAlign: TextAlign.center,
+                                              maxLines: 2,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: const TextStyle(
+                                                fontSize: 16,
+                                                height: 1.4,
+                                                color: atlasCoffee,
+                                              ),
                                             ),
-                                          ],
-                                        ),
+                                          ),
+                                        ],
                                       ),
                                     ),
                                   ),
-                                ),
-                                child: Column(
-                                  children: [
-                                    SizedBox(
-                                      height: 70,
-                                      child: TracePhoto(
-                                        photo: _tracePhoto(p),
-                                        image: FileImage(
-                                          widget.runtime.reviews.file(
-                                            p.photo.localName,
-                                          ),
-                                        ),
-                                        set: _visibleTraces,
-                                      ),
-                                    ),
-                                    Expanded(
-                                      child: Text(
-                                        p.title,
-                                        textAlign: TextAlign.center,
-                                        maxLines: 2,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(
-                                          fontSize: 16,
-                                          height: 1.4,
-                                          color: atlasCoffee,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            );
-                          },
+                                );
+                              },
+                            ),
+                          ),
                         ),
                       ),
                       const SizedBox(height: 20),

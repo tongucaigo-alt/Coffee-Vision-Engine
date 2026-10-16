@@ -465,8 +465,21 @@ extension _AtlasHomePresentation on _ContributionHomeState {
                     Padding(
                       padding: const EdgeInsets.only(right: 16),
                       child: IconButton.filled(
-                        tooltip: 'Üye Girişi',
-                        onPressed: () => _atlasPlaceholderInfo('Üye Girişi'),
+                        tooltip: 'Bilgilerim',
+                        onPressed: _atlasBusy
+                            ? null
+                            : () => Navigator.push<void>(
+                                context,
+                                MaterialPageRoute<void>(
+                                  builder: (_) => UserProfilePage(
+                                    store: UserProfileStore(
+                                      Directory(
+                                        '${widget.store.directory.parent.path}/user-profile',
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
                         style: IconButton.styleFrom(
                           minimumSize: const Size(48, 48),
                           shape: const CircleBorder(),
