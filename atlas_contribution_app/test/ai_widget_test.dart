@@ -26,6 +26,8 @@ import 'package:atlas_contribution_app/src/ai/fortune_personalization.dart';
 class _Client extends AiClient {
   _Client(super.prompt);
   final inputs = <Map<String, dynamic>>[];
+  final budgets = <AiGenerationBudget?>[];
+  final attemptLimits = <int>[];
   @override
   Future<Map<String, dynamic>> generate(
     AiProfile p,
@@ -36,7 +38,14 @@ class _Client extends AiClient {
     String? requestId,
     List<String> previousTexts = const [],
     void Function(FortuneProgress)? onProgress,
+    Future<void> Function()? beforeRequest,
+    AiGenerationBudget? budget,
+    int maxAttempts = 2,
   }) async {
+    await beforeRequest?.call();
+    budgets.add(budget);
+    attemptLimits.add(maxAttempts);
+    budget?.reserveAttempts(1);
     inputs.add(context);
     return {
       'text': List.filled(
@@ -228,6 +237,7 @@ void main() {
         await runtime.userProfile.save(
           const UserProfile(
             addressName: 'PRIVATE_WIDGET_NAME',
+            age: 65,
             zodiac: ZodiacSign.libra,
             useZodiacInReading: true,
           ),
@@ -272,6 +282,7 @@ void main() {
           photos: photos,
         );
         await runtime.reviews.save(session);
+        await runtime.store.setReadingFocus(session.id, 'love');
         final c = ReviewController(
           store: runtime.reviews,
           session: session,
@@ -388,10 +399,17 @@ void main() {
       }
       await tester.pumpAndSettle();
       expect(client.inputs, hasLength(2));
-      expect(client.inputs.first['version'], personalizedContextVersion);
+      expect(client.attemptLimits, [1, 1]);
+      expect(identical(client.budgets[0], client.budgets[1]), true);
+      expect(client.budgets[0]!.attempts, 2);
+      expect(client.inputs.first['version'], currentFortuneContextVersion);
+      expect(client.inputs.first['readingFocus'], 'love');
       expect(client.inputs.first['creativeSymbol'], isNull);
       expect(client.inputs[0], client.inputs[1]);
-      expect(client.inputs.first['personalization'], {'zodiac': 'libra'});
+      expect(client.inputs.first['personalization'], {
+        'zodiac': 'libra',
+        'age': 65,
+      });
       expect(jsonEncode(client.inputs), isNot(contains('PRIVATE_WIDGET_NAME')));
       expect(
         session.preparedInput!['payload']['version'],
@@ -402,6 +420,8 @@ void main() {
         () => runtime.store.results(session.id),
       );
       expect(finished!.single['state'], 'completed');
+      final memoryState = await tester.runAsync(() => runtime.store.read());
+      expect(memoryState!['fortuneMemoryV1']['completedKeys'], hasLength(1));
       expect(
         (finished.single['context'] as Map).containsKey('personalization'),
         false,

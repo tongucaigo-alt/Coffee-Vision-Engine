@@ -75,6 +75,8 @@ class ContributionHome extends StatefulWidget {
     this.onRecorded,
     this.onReadFortune,
     this.onGenerateFortune,
+    this.loadReadingFocus,
+    this.onReadingFocusChanged,
     this.aiDescription,
     this.fortuneProgress,
     this.preparation,
@@ -103,6 +105,9 @@ class ContributionHome extends StatefulWidget {
   final Future<void> Function(Map<String, dynamic>)? onRecorded;
   final Future<void> Function(Map<String, dynamic>)? onReadFortune;
   final Future<void> Function(Map<String, dynamic>)? onGenerateFortune;
+  final Future<String> Function(String rootId)? loadReadingFocus;
+  final Future<void> Function(String rootId, String focus)?
+  onReadingFocusChanged;
   final Future<String?> Function()? aiDescription;
   final ValueNotifier<FortuneProgress>? fortuneProgress;
   final FortunePreparationController? preparation;

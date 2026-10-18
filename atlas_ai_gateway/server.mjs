@@ -24,14 +24,15 @@ export function createGateway({config, tokens, fetchImpl = fetch, runtimeMs = 18
     if (!job) return;
     if (Date.now()-job.createdAt > queueMs) { end(job,'failed','queue_timeout'); queueMicrotask(pump); return; }
     active = job; job.state = 'running'; job.startedAt = Date.now();
-    const remainingMs=runtimeMs-(job.productionMs??0);
+    const remainingMs=Math.min(runtimeMs,job.maxDurationMs??runtimeMs)-(job.productionMs??0);
     if(remainingMs<=0) { end(job,'failed','generation_timeout'); active=null; queueMicrotask(pump); return; }
     // Do not abort fetch and assume that the GPU has stopped. Retain this slot
     // until the upstream response drains; a network error pauses the worker.
     const deadline = setTimeout(() => end(job,'failed','generation_timeout'), remainingMs);
     try {
       let lastError = job.repairReason??null;
-      for (let attempt=job.attempts??0; attempt<2 && job.state === 'running'; attempt++) {
+      const attemptLimit=job.maxAttempts??2;
+      for (let attempt=job.attempts??0; attempt<attemptLimit && job.state === 'running'; attempt++) {
         job.attempts=attempt+1; job.phase=attempt===0?'generating':'repairing';
         const upstream = new URL(job.model.baseUrl.replace(/\/$/,'')+'/chat/completions');
         const response = await fetchImpl(upstream, {
@@ -53,7 +54,7 @@ export function createGateway({config, tokens, fetchImpl = fetch, runtimeMs = 18
         if (!error) {
           job.result = {qualityWarnings:qualityWarnings(text,job.context),diagnostics:{code:"completed",stage:job.phase,attempts:attempt+1,durationMs:(job.productionMs??0)+Date.now()-job.startedAt},text:text.trim(),model:job.model.model,modelAlias:job.alias,promptVersion:prompt.version,promptHash,temperature:prompt.temperature,maxTokens:prompt.maxTokens,noThink:!!job.model.noThink,durationMs:(job.productionMs??0)+Date.now()-job.startedAt,attempts:attempt+1,reasoningTokens:data.usage?.completion_tokens_details?.reasoning_tokens??null,reasoningReturned:!!choice?.message?.reasoning_content};
           end(job,'completed');
-        } else if (attempt === 1) end(job,'failed','quality_rejected');
+        } else if (attempt + 1 >= attemptLimit) end(job,'failed','quality_rejected');
       }
     } catch {
       // An interrupted socket is not proof that a remote generation stopped.
@@ -79,7 +80,7 @@ export function createGateway({config, tokens, fetchImpl = fetch, runtimeMs = 18
       if (!owner) return reply(res,401,{error:'unauthorized'});
       const url = new URL(req.url,'http://localhost');
       const route = url.pathname;
-      if (req.method === 'GET' && route === '/api/ai/v1/capabilities') return reply(res,200,{apiVersion:1,reportVersion:saveReport?1:null,contextVersions:['atlas-fortune-context-v1','atlas-fortune-context-v2','atlas-fortune-context-v3'],clientRepetitionRepair:true,serverInstanceId:instance,promptVersion:prompt.version,promptHash,models:Object.keys(models()),available:!stalled,capacity:10});
+      if (req.method === 'GET' && route === '/api/ai/v1/capabilities') return reply(res,200,{apiVersion:1,reportVersion:saveReport?1:null,contextVersions:['atlas-fortune-context-v1','atlas-fortune-context-v2','atlas-fortune-context-v3','atlas-fortune-context-v4'],clientRepetitionRepair:true,serverInstanceId:instance,promptVersion:prompt.version,promptHash,models:Object.keys(models()),available:!stalled,capacity:10});
       if (req.method === 'POST' && route === '/api/ai/v1/reports') {
         if (!saveReport) return reply(res,503,{error:'reporting_unavailable'});
         const window = reportCounts.get(owner);
@@ -103,7 +104,12 @@ export function createGateway({config, tokens, fetchImpl = fetch, runtimeMs = 18
         let body;
         try {
           body=JSON.parse(Buffer.concat(chunks).toString('utf8'));
-          exact(body,['context','modelAlias','promptVersion']); validateContext(body.context);
+          exact(body,['context','modelAlias','promptVersion',...(Object.hasOwn(body,'generationLimits')?['generationLimits']:[])]); validateContext(body.context);
+          if(Object.hasOwn(body,'generationLimits')) {
+            exact(body.generationLimits,['maxAttempts','maxDurationMs']);
+            const limits=body.generationLimits;
+            if(!Number.isSafeInteger(limits.maxAttempts)||limits.maxAttempts<1||limits.maxAttempts>2||!Number.isSafeInteger(limits.maxDurationMs)||limits.maxDurationMs<1||limits.maxDurationMs>180000) throw new Error();
+          }
           if(body.promptVersion!==prompt.version) throw new Error();
         } catch { return reply(res,400,{error:'invalid_context_or_version'}); }
         const idempotency = req.headers['idempotency-key'];
@@ -117,7 +123,7 @@ export function createGateway({config, tokens, fetchImpl = fetch, runtimeMs = 18
         const open=[...jobs.values()].filter(j=>j.state==='queued'||j.state==='running'||j===active);
         if(open.length>=10 || open.some(j=>j.owner===owner)) return reply(res,429,{error:'busy'},{'Retry-After':'5'});
         const id=randomUUID();
-        const job={id,key,owner,digest,context:body.context,alias:body.modelAlias,model:{...model},state:'queued',createdAt:Date.now()};
+        const job={id,key,owner,digest,context:body.context,alias:body.modelAlias,model:{...model},state:'queued',createdAt:Date.now(),maxAttempts:body.generationLimits?.maxAttempts??2,maxDurationMs:body.generationLimits?.maxDurationMs??runtimeMs};
         jobs.set(id,job); dedupe.set(key,job);
         reply(res,202,{jobId:id,serverInstanceId:instance,pollAfterMs:3000}); void pump(); return;
       }
@@ -130,7 +136,7 @@ export function createGateway({config, tokens, fetchImpl = fetch, runtimeMs = 18
         try { const body=JSON.parse(Buffer.concat(chunks).toString('utf8')); exact(body,['reason']); if(body.reason!=='repetition') throw new Error(); }
         catch { return reply(res,400,{error:'invalid_repair'}); }
         if(job.repairRequested) return reply(res,202,{jobId:job.id,serverInstanceId:instance});
-        if(job.state!=='completed' || job.attempts!==1 || job===active) return reply(res,409,{error:'repair_unavailable'});
+        if(job.state!=='completed' || job.attempts!==1 || job.attempts >= (job.maxAttempts??2) || job===active) return reply(res,409,{error:'repair_unavailable'});
         const open=[...jobs.values()].filter(j=>j.state==='queued'||j.state==='running'||j===active);
         if(stalled || open.length>=10 || open.some(j=>j.owner===owner)) return reply(res,429,{error:'busy'});
         job.repairRequested=true; job.repairReason='repetition'; job.result=null; job.endedAt=null; job.state='queued';

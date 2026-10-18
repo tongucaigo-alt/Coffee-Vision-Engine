@@ -264,7 +264,19 @@ extension _AtlasHomePresentation on _ContributionHomeState {
       return;
     }
     _change(() => _busy = true);
+    String? initialFocus;
     try {
+      try {
+        initialFocus = await widget.loadReadingFocus?.call(draft.rootId);
+      } catch (_) {
+        if (mounted) {
+          showNotice(
+            context,
+            'Konu seçimin okunamadı. Yeniden deneyebilirsin.',
+          );
+        }
+        return;
+      }
       for (final p in draft.photos) {
         if (!mounted) return;
         await _checkPhoto(p);
@@ -278,6 +290,10 @@ extension _AtlasHomePresentation on _ContributionHomeState {
       MaterialPageRoute<bool>(
         builder: (_) => AnnotationSequence(
           photos: draft.photos,
+          initialFocus: initialFocus,
+          onFocusChanged: widget.onReadingFocusChanged == null
+              ? null
+              : (focus) => widget.onReadingFocusChanged!(draft.rootId, focus),
           loadTraces: widget.loadAnnotationTraces == null
               ? null
               : () => widget.loadAnnotationTraces!(draft),

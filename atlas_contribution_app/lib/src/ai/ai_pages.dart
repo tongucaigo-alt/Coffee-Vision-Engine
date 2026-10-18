@@ -18,6 +18,7 @@ import 'ai_bundled.dart';
 import 'play_access_page.dart';
 import 'narrative.dart';
 import 'fortune_personalization.dart';
+import 'fortune_memory.dart';
 import '../fortune_progress.dart';
 import '../opencv_traces.dart';
 import '../trace_overlay.dart';
@@ -689,6 +690,8 @@ class _AiFortunePageState extends State<AiFortunePage> {
       FortunePhase.generating,
     );
     final recent = await widget.runtime.store.recentSuccessfulResults();
+    final focus = await widget.runtime.store.readingFocus(session.id);
+    final readingKey = '${session.id}|${preparationSourceFingerprint(session)}';
     final retry = _results
         .where(
           (r) =>
@@ -697,7 +700,9 @@ class _AiFortunePageState extends State<AiFortunePage> {
               [
                 'atlas-fortune-context-v2',
                 personalizedContextVersion,
+                currentFortuneContextVersion,
               ].contains((r['context'] as Map?)?['version']) &&
+              ((r['context'] as Map?)?['readingFocus'] ?? 'general') == focus &&
               (r['context'] as Map?)?['narrative'] != null,
         )
         .firstOrNull;
@@ -714,17 +719,31 @@ class _AiFortunePageState extends State<AiFortunePage> {
     final profile = await widget.runtime.readingProfile();
     checkCancelled();
     if (!mounted) return;
-    final contextData = validateAiContext(
+    var contextData = validateAiContext(
       personalizeFortuneContext(
         baseContext,
         readingIdentity:
             '${session.id}|${preparationSourceFingerprint(session)}',
         profile: profile,
+        readingFocus: focus,
         previousContext: retry == null
             ? null
             : Map<String, dynamic>.from(retry['context'] as Map),
       ),
     );
+    FortuneMemoryCandidate? memoryCandidate = await widget.runtime.store
+        .prepareMemory(
+          readingKey: readingKey,
+          focus: focus,
+          context: contextData,
+        );
+    if (memoryCandidate != null) {
+      contextData = validateAiContext({
+        ...contextData,
+        'pastReadingExcerpt': memoryCandidate.excerpt,
+      });
+    }
+    checkCancelled();
     final selected = [
       _profiles.firstWhere((p) => p.id == _first),
       if (_compare) _profiles.firstWhere((p) => p.id == _second),
@@ -754,6 +773,7 @@ class _AiFortunePageState extends State<AiFortunePage> {
     checkCancelled();
     _cancel = AiCancellation();
     await widget.runtime.store.saveResult(result);
+    final generationBudget = AiGenerationBudget();
     try {
       for (final p in selected) {
         _cancel!.check();
@@ -762,6 +782,21 @@ class _AiFortunePageState extends State<AiFortunePage> {
           await widget.runtime.key(p),
           contextData,
           cancellation: _cancel!,
+          budget: generationBudget,
+          maxAttempts: selected.length == 2 ? 1 : 2,
+          beforeRequest: () async {
+            checkCancelled();
+            final candidate = memoryCandidate;
+            if (candidate != null &&
+                !await widget.runtime.store.memoryStillCurrent(
+                  readingKey,
+                  candidate,
+                )) {
+              throw const AiFailure(
+                'Geçmiş fal kaynağı değişti. Yeniden deneyebilirsin.',
+              );
+            }
+          },
           onProgress: (p) => widget.runtime.progress.value = p,
           previousTexts: [
             for (final r in recent)
@@ -815,7 +850,10 @@ class _AiFortunePageState extends State<AiFortunePage> {
       rethrow;
     } finally {
       if (!await widget.runtime.store.isDeleted(session.id)) {
-        await widget.runtime.store.saveResult(result);
+        await widget.runtime.store.saveResult(
+          result,
+          memoryCandidate: memoryCandidate,
+        );
       }
       _cancel = null;
       if (mounted) await _load();

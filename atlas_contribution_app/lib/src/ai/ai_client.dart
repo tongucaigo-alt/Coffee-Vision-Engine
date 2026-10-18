@@ -21,6 +21,49 @@ class AiCancellation {
   }
 }
 
+/// One explicit reading action shares this budget across model comparisons.
+/// Gateway attempts are reserved until the server reports its final count.
+class AiGenerationBudget {
+  AiGenerationBudget({
+    this.maxAttempts = 2,
+    this.duration = const Duration(seconds: 180),
+  }) {
+    if (maxAttempts < 1 ||
+        maxAttempts > 2 ||
+        duration.inMilliseconds < 1 ||
+        duration.inMilliseconds > 180000) {
+      throw ArgumentError('Invalid generation budget');
+    }
+  }
+  final int maxAttempts;
+  final Duration duration;
+  final Stopwatch _watch = Stopwatch()..start();
+  int _attempts = 0;
+  int get attempts => _attempts;
+  int get remainingAttempts => maxAttempts - _attempts;
+  int get remainingMilliseconds =>
+      (duration.inMilliseconds - _watch.elapsedMilliseconds).clamp(0, 180000);
+  void reserveAttempts(int count) {
+    if (remainingMilliseconds <= 0) {
+      throw const AiFailure('Üretim süresi doldu.', code: 'generation_timeout');
+    }
+    if (count < 1 || count > remainingAttempts) {
+      throw const AiFailure(
+        'Üretim deneme sınırına ulaşıldı.',
+        code: 'quality_rejected',
+      );
+    }
+    _attempts += count;
+  }
+
+  void releaseAttempts(int count) {
+    if (count < 0 || count > _attempts) {
+      throw StateError('Invalid attempt count');
+    }
+    _attempts -= count;
+  }
+}
+
 class AiClient {
   AiClient(
     this.prompt, {
@@ -126,6 +169,7 @@ class AiClient {
       if ([
             'atlas-fortune-context-v2',
             personalizedContextVersion,
+            currentFortuneContextVersion,
           ].contains(contextVersion) &&
           (data['contextVersions'] is! List ||
               !(data['contextVersions'] as List).contains(contextVersion) ||
@@ -159,17 +203,40 @@ class AiClient {
     String? requestId,
     List<String> previousTexts = const [],
     void Function(FortuneProgress)? onProgress,
+    Future<void> Function()? beforeRequest,
+    AiGenerationBudget? budget,
+    int maxAttempts = 2,
   }) async {
+    if (maxAttempts < 1 || maxAttempts > 2) {
+      throw ArgumentError('Invalid attempt limit');
+    }
+    final sharedBudget = budget ?? AiGenerationBudget();
+    final attemptLimit = maxAttempts < sharedBudget.remainingAttempts
+        ? maxAttempts
+        : sharedBudget.remainingAttempts;
+    if (attemptLimit == 0) {
+      throw const AiFailure(
+        'Üretim deneme sınırına ulaşıldı.',
+        code: 'quality_rejected',
+      );
+    }
     final input = validateAiContext(context);
     final repetitionTexts = prompt.repetitionReferences(input, previousTexts);
     cancellation.check();
     if (p.provider == AiProvider.atlas) {
       await models(p, key, contextVersion: input['version'] as String);
       cancellation.check();
+      await beforeRequest?.call();
+      cancellation.check();
+      sharedBudget.reserveAttempts(attemptLimit);
       final request = {
         'context': input,
         'modelAlias': p.model,
         'promptVersion': prompt.version,
+        'generationLimits': {
+          'maxAttempts': attemptLimit,
+          'maxDurationMs': sharedBudget.remainingMilliseconds,
+        },
       };
       final id = requestId ?? const Uuid().v4();
       final job = await _request(
@@ -190,6 +257,7 @@ class AiClient {
         await cancellation.remoteCancel!();
         cancellation.check();
       }
+      // Existing queue allowance is separate from the bounded upstream work.
       final deadline = DateTime.now().add(const Duration(minutes: 34));
       var repetitionRepairRequested = false;
       while (DateTime.now().isBefore(deadline)) {
@@ -213,23 +281,29 @@ class AiClient {
                       ) !=
                       null &&
                   !(bestEffort &&
-                      input['version'] != personalizedContextVersion &&
+                      !isPersonalizedContextVersion(input['version']) &&
                       usableFortuneText(result['text'] as String?, 'stop'))) {
             throw const AiFailure('Yanıt kalite kontrolünden geçmedi.');
           }
-          if ((input['version'] == personalizedContextVersion ||
+          if ((isPersonalizedContextVersion(input['version']) ||
                   (!bestEffort && !playTestEnabled)) &&
               [
                 'atlas-fortune-context-v2',
                 personalizedContextVersion,
+                currentFortuneContextVersion,
               ].contains(input['version']) &&
               narrativeRepetition(result['text'] as String, repetitionTexts) !=
                   null) {
-            if (result['attempts'] != 1 || repetitionRepairRequested) {
+            if (result['attempts'] != 1 ||
+                repetitionRepairRequested ||
+                attemptLimit < 2 ||
+                sharedBudget.remainingMilliseconds == 0) {
               throw const AiFailure(
                 'Hikâye önceki anlatılarla fazla benzeşti. Kayıtların korunuyor.',
               );
             }
+            await beforeRequest?.call();
+            cancellation.check();
             await _request(
               p,
               'POST',
@@ -246,6 +320,13 @@ class AiClient {
             input,
           );
           result['diagnostics'] = safeAiDiagnostics(result['diagnostics']);
+          final actualAttempts = result['attempts'];
+          if (actualAttempts is! int ||
+              actualAttempts < 1 ||
+              actualAttempts > attemptLimit) {
+            throw const AiFailure('Geçersiz üretim deneme bilgisi.');
+          }
+          sharedBudget.releaseAttempts(attemptLimit - actualAttempts);
           return result;
         }
         if (['failed', 'cancelled'].contains(status['state'])) {
@@ -282,7 +363,7 @@ class AiClient {
     final temperature = kimiInstant ? 0.6 : prompt.data['temperature'];
     final watch = Stopwatch()..start();
     String? lastError, previousReply;
-    for (var attempt = 0; attempt < 2; attempt++) {
+    for (var attempt = 0; attempt < attemptLimit; attempt++) {
       cancellation.check();
       onProgress?.call(
         FortuneProgress(
@@ -290,16 +371,19 @@ class AiClient {
         ),
       );
       onStatus('Fal hazırlanıyor…');
-      final remaining = 180000 - watch.elapsedMilliseconds;
+      final remaining = sharedBudget.remainingMilliseconds;
       if (remaining <= 0) throw const AiFailure('Üretim süresi doldu.');
       late final Map<String, dynamic> data;
       try {
+        await beforeRequest?.call();
+        cancellation.check();
+        sharedBudget.reserveAttempts(1);
         data = await _request(
           p,
           'POST',
           '/chat/completions',
           key,
-          timeout: Duration(milliseconds: remaining),
+          timeout: Duration(milliseconds: sharedBudget.remainingMilliseconds),
           body: {
             'model': p.model,
             'messages': prompt.messages(
@@ -335,13 +419,14 @@ class AiClient {
           ![
                 'atlas-fortune-context-v2',
                 personalizedContextVersion,
+                currentFortuneContextVersion,
               ].contains(input['version']) ||
               content == null
           ? null
           : narrativeRepetition(content, repetitionTexts);
       if (lastError == null ||
           (bestEffort &&
-              input['version'] != personalizedContextVersion &&
+              !isPersonalizedContextVersion(input['version']) &&
               usableFortuneText(content, choice['finish_reason'] as String?))) {
         return {
           'text': content!.trim(),
@@ -369,7 +454,7 @@ class AiClient {
       code: 'quality_rejected',
       stage: 'repairing',
       reason: lastError,
-      attempts: 2,
+      attempts: attemptLimit,
       durationMs: watch.elapsedMilliseconds,
     );
   }

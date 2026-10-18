@@ -14,7 +14,7 @@ void main() {
   tearDown(() => root.delete(recursive: true));
 
   test(
-    'optional fields persist, reopen and edit using schema version 2',
+    'optional fields persist, reopen and edit using schema version 3',
     () async {
       expect((await store.read()).addressName, isEmpty);
       expect((await store.read()).zodiac, isNull);
@@ -32,10 +32,11 @@ void main() {
               )
               as Map;
       expect(json, {
-        'version': 2,
+        'version': 3,
         'addressName': 'Çağrı',
         'zodiac': 'libra',
         'useZodiacInReading': false,
+        'age': null,
       });
       await reopened.save(const UserProfile());
       expect((await store.read()).addressName, isEmpty);
@@ -71,6 +72,61 @@ void main() {
         store.save(const UserProfile(useZodiacInReading: true)),
         throwsArgumentError,
       );
+    },
+  );
+
+  test(
+    'age is optional in older profiles and persists, clears and deletes',
+    () async {
+      await store.directory.create();
+      final file = File('${store.directory.path}/profile.json');
+      for (final version in [1, 2]) {
+        await file.writeAsString(
+          jsonEncode({
+            'version': version,
+            'addressName': '',
+            'zodiac': null,
+            if (version == 2) 'useZodiacInReading': false,
+          }),
+        );
+        expect((await store.read()).age, isNull);
+      }
+      for (final age in [18, 65, 120]) {
+        await store.save(UserProfile(age: age));
+        expect((await UserProfileStore(store.directory).read()).age, age);
+      }
+      await store.save(const UserProfile());
+      expect((await store.read()).age, isNull);
+      await store.save(const UserProfile(age: 60));
+      await store.delete();
+      expect((await store.read()).age, isNull);
+    },
+  );
+
+  test(
+    'invalid ages never replace a valid profile or silently normalize on read',
+    () async {
+      await store.save(const UserProfile(age: 60));
+      for (final age in [-1, 0, 17, 121]) {
+        await expectLater(
+          store.save(UserProfile(age: age)),
+          throwsArgumentError,
+        );
+        expect((await store.read()).age, 60);
+      }
+      final file = File('${store.directory.path}/profile.json');
+      for (final age in [17, 121, '60', 60.5, true]) {
+        final text = jsonEncode({
+          'version': 3,
+          'addressName': '',
+          'zodiac': null,
+          'useZodiacInReading': false,
+          'age': age,
+        });
+        await file.writeAsString(text);
+        await expectLater(store.read(), throwsFormatException);
+        expect(await file.readAsString(), text);
+      }
     },
   );
 

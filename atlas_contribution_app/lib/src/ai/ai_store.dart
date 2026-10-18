@@ -2,11 +2,14 @@ import 'dart:convert';
 import 'dart:io';
 import 'ai_contract.dart';
 import 'fortune_personalization.dart';
+import 'fortune_memory.dart';
 
 /// App-local AI metadata. Never included in either research ZIP exporter.
 class AiStore {
-  AiStore(this.directory);
+  AiStore(this.directory, {FortuneMemoryEngine? memory})
+    : _memory = memory ?? FortuneMemoryEngine();
   final Directory directory;
+  final FortuneMemoryEngine _memory;
   Future<void> _tail = Future.value();
   Future<Map<String, dynamic>> read() async {
     await _tail;
@@ -147,11 +150,55 @@ class AiStore {
     return rows.take(5).toList();
   }
 
-  Future<void> saveResult(Map<String, dynamic> result) => change((d) {
+  Future<String> readingFocus(String sessionId) async {
+    final stored = ((await read())['readingPreferences'] as Map?)?[sessionId];
+    final focus = stored is Map ? stored['focus'] : null;
+    return readingFocusValues.contains(focus) ? focus as String : 'general';
+  }
+
+  Future<void> setReadingFocus(String sessionId, String focus) => change((d) {
+    if (!readingFocusValues.contains(focus)) {
+      throw ArgumentError.value(focus, 'focus');
+    }
+    if ((d['deleted'] as List).contains(sessionId)) {
+      throw const AiFailure('Bu kayıt silindi.');
+    }
+    final preferences =
+        d.putIfAbsent('readingPreferences', () => <String, dynamic>{}) as Map;
+    preferences[sessionId] = {'focus': focus};
+  });
+
+  Future<FortuneMemoryCandidate?> prepareMemory({
+    required String readingKey,
+    required String focus,
+    required Map<String, dynamic> context,
+  }) async {
+    FortuneMemoryCandidate? candidate;
+    await change((d) {
+      candidate = _memory.prepare(
+        d,
+        readingKey: readingKey,
+        focus: focus,
+        context: context,
+      );
+    });
+    return candidate;
+  }
+
+  Future<bool> memoryStillCurrent(
+    String key,
+    FortuneMemoryCandidate candidate,
+  ) async => _memory.isCurrent(await read(), key, candidate);
+
+  Future<void> saveResult(
+    Map<String, dynamic> result, {
+    FortuneMemoryCandidate? memoryCandidate,
+  }) => change((d) {
     if ((d['deleted'] as List).contains(result['sessionId'])) {
       throw const AiFailure('Bu kayıt silindi.');
     }
     final list = d['results'] as List;
+    _memory.complete(d, result, candidate: memoryCandidate);
     list.removeWhere((r) => r['id'] == result['id']);
     list.add({
       ...result,
@@ -240,6 +287,13 @@ class AiStore {
     (d['starredResultIds'] as List?)?.removeWhere(removed.contains);
     (d['contentReports'] as List?)?.removeWhere((r) => r['sessionId'] == id);
     (d['results'] as List).removeWhere((r) => r['sessionId'] == id);
+    (d['readingPreferences'] as Map?)?.remove(id);
+    final pending = (d['fortuneMemoryV1'] as Map?)?['pending'] as Map?;
+    pending?.removeWhere(
+      (key, receipt) =>
+          key.toString().startsWith('$id|') ||
+          removed.contains(receipt['sourceId']),
+    );
     // Minimal exposure history remains alongside existing research tombstones;
     // no narrative, profile, input or media is retained here.
     if (!(d['deleted'] as List).contains(id)) (d['deleted'] as List).add(id);

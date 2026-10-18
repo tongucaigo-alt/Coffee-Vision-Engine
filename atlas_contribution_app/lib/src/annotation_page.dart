@@ -29,6 +29,9 @@ class AnnotationPage extends StatefulWidget {
     this.onSaveOnly,
     this.onSkip,
     this.completionLabel = 'Fotoğrafı tamamla',
+    this.selectedFocus,
+    this.onFocusChanged,
+    this.focusBusy = false,
     super.key,
   });
   final ContributionPhoto photo;
@@ -39,6 +42,10 @@ class AnnotationPage extends StatefulWidget {
   final Widget? navigation;
   final VoidCallback? onComplete, onFinish, onSaveOnly, onSkip;
   final String completionLabel;
+  // The owner persists this preference separately from photo records.
+  final String? selectedFocus;
+  final ValueChanged<String?>? onFocusChanged;
+  final bool focusBusy;
   final Future<void> Function(ContributionPhoto) onSave;
   @override
   State<AnnotationPage> createState() => _AnnotationPageState();
@@ -58,6 +65,7 @@ class _AnnotationPageState extends State<AnnotationPage> {
   RegionBox? _box;
   String? _editingId;
   bool _saving = false;
+  String? _localFocus;
   bool _highlight = false;
   Timer? _highlightTimer;
   late bool _markMode = widget.modern;
@@ -681,6 +689,119 @@ class _AnnotationPageState extends State<AnnotationPage> {
     );
   }
 
+  Widget _focusChoices(double modeHeight) => LayoutBuilder(
+    builder: (context, box) {
+      const labels = ['Aşk', 'İş', 'Para'];
+      const icons = [
+        LucideIcons.heart,
+        LucideIcons.briefcaseBusiness,
+        LucideIcons.circleDollarSign,
+      ];
+      const colors = [atlasCopperInk, atlasCoffee, atlasSageInk];
+      const style = TextStyle(
+        fontFamily: 'Plus Jakarta Sans',
+        fontSize: 10,
+        height: 1.1,
+        fontWeight: FontWeight.w600,
+      );
+      final text = TextPainter(
+        text: const TextSpan(text: 'Para', style: style),
+        textDirection: Directionality.of(context),
+        textScaler: MediaQuery.textScalerOf(context),
+      )..layout();
+      final inline = text.height > 18;
+      final width = math.max(
+        48.0,
+        text.width.ceilToDouble() + (inline ? 25 : 8),
+      );
+      final selected = widget.onFocusChanged == null
+          ? _localFocus
+          : widget.selectedFocus;
+      final choices = Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (var i = 0; i < labels.length; i++) ...[
+            if (i > 0) const SizedBox(width: 4),
+            SizedBox(
+              width: width,
+              height: 48,
+              child: TextButton(
+                key: ValueKey('coffee-focus-${labels[i]}'),
+                onPressed: _saving || widget.focusBusy
+                    ? null
+                    : () {
+                        final next = selected == labels[i] ? null : labels[i];
+                        if (widget.onFocusChanged case final changed?) {
+                          changed(next);
+                        } else {
+                          setState(() => _localFocus = next);
+                        }
+                      },
+                style: TextButton.styleFrom(
+                  padding: EdgeInsets.zero,
+                  minimumSize: const Size(48, 48),
+                  foregroundColor: colors[i],
+                ),
+                child: Semantics(
+                  selected: selected == labels[i],
+                  child: Transform.translate(
+                    offset: Offset(0, 24 - modeHeight / 2),
+                    child: Container(
+                      key: ValueKey('coffee-focus-surface-${labels[i]}'),
+                      width: width,
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 3,
+                        horizontal: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: selected == labels[i]
+                            ? atlasSageSurface
+                            : atlasCard,
+                        border: Border.all(
+                          color: selected == labels[i]
+                              ? atlasSageInk
+                              : atlasBorder,
+                        ),
+                        borderRadius: BorderRadius.circular(9),
+                      ),
+                      child: Flex(
+                        direction: inline ? Axis.horizontal : Axis.vertical,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(icons[i], size: 13),
+                          SizedBox(
+                            width: inline ? 4 : 0,
+                            height: inline ? 0 : 2,
+                          ),
+                          Text(
+                            labels[i],
+                            style: style,
+                            maxLines: 1,
+                            softWrap: false,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ],
+      );
+      return Align(
+        alignment: Alignment.bottomRight,
+        child: width * 3 + 8 <= box.maxWidth
+            ? choices
+            : SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: choices,
+              ),
+      );
+    },
+  );
+
   Widget _modeHeader() => LayoutBuilder(
     builder: (context, box) {
       const style = TextStyle(
@@ -703,6 +824,13 @@ class _AnnotationPageState extends State<AnnotationPage> {
       return Stack(
         clipBehavior: Clip.none,
         children: [
+          Positioned(
+            left: 56 + width * 2 + 8,
+            right: 16,
+            bottom: -4,
+            height: 48,
+            child: _focusChoices(height),
+          ),
           Positioned(
             left: 56,
             bottom: -4,
@@ -733,6 +861,7 @@ class _AnnotationPageState extends State<AnnotationPage> {
                           child: Align(
                             alignment: Alignment.bottomCenter,
                             child: Container(
+                              key: ValueKey('coffee-mode-surface-$mode'),
                               height: height,
                               width: width,
                               alignment: Alignment.center,

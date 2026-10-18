@@ -37,6 +37,9 @@ Map<String, dynamic> personalizedTestContext({String? symbol, String? zodiac}) {
           'symbolName': 'Anahtar',
         }
       : null;
+  // These shared fixtures intentionally exercise the strict legacy v3 policy.
+  data['version'] = personalizedContextVersion;
+  data.remove('readingFocus');
   if (zodiac != null) data['personalization'] = {'zodiac': zodiac};
   return validateAiContext(data);
 }

@@ -26,10 +26,12 @@ class UserProfile {
     this.addressName = '',
     this.zodiac,
     this.useZodiacInReading = false,
+    this.age,
   });
   final String addressName;
   final ZodiacSign? zodiac;
   final bool useZodiacInReading;
+  final int? age;
 }
 
 /// Kept outside contribution, AI and audit stores; never part of an export.
@@ -65,7 +67,7 @@ class UserProfileStore {
     if (!await _file.exists()) return const UserProfile();
     final data = jsonDecode(await _file.readAsString());
     if (data is! Map ||
-        ![1, 2].contains(data['version']) ||
+        ![1, 2, 3].contains(data['version']) ||
         data['addressName'] is! String ||
         (data['zodiac'] != null && data['zodiac'] is! String)) {
       throw const FormatException('Unsupported profile');
@@ -78,14 +80,19 @@ class UserProfileStore {
     if (data['zodiac'] != null && zodiac == null) {
       throw const FormatException('Invalid zodiac');
     }
-    final useZodiac = data['version'] == 2 ? data['useZodiacInReading'] : false;
+    final useZodiac = data['version'] >= 2 ? data['useZodiacInReading'] : false;
     if (useZodiac is! bool || (useZodiac && zodiac == null)) {
       throw const FormatException('Invalid zodiac preference');
+    }
+    final age = data['version'] == 3 ? data['age'] : null;
+    if (age != null && (age is! int || age < 18 || age > 120)) {
+      throw const FormatException('Invalid age');
     }
     return UserProfile(
       addressName: name,
       zodiac: zodiac,
       useZodiacInReading: useZodiac,
+      age: age as int?,
     );
   });
 
@@ -95,13 +102,17 @@ class UserProfileStore {
     if (profile.useZodiacInReading && profile.zodiac == null) {
       throw ArgumentError('Zodiac opt-in requires a selection');
     }
+    if (profile.age != null && (profile.age! < 18 || profile.age! > 120)) {
+      throw ArgumentError('Age must be between 18 and 120');
+    }
     await directory.create(recursive: true);
     await _pending.writeAsString(
       jsonEncode({
-        'version': 2,
+        'version': 3,
         'addressName': name,
         'zodiac': profile.zodiac?.name,
         'useZodiacInReading': profile.useZodiacInReading,
+        'age': profile.age,
       }),
       flush: true,
     );

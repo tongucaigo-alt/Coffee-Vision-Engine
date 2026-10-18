@@ -13,6 +13,8 @@ class AnnotationSequence extends StatefulWidget {
     required this.onSave,
     this.loadTraces,
     this.onTraceShown,
+    this.initialFocus,
+    this.onFocusChanged,
     super.key,
   });
   final Future<TraceSet> Function()? loadTraces;
@@ -20,6 +22,8 @@ class AnnotationSequence extends StatefulWidget {
   final List<ContributionPhoto> photos;
   final ImageProvider Function(ContributionPhoto) imageFor;
   final Future<void> Function(ContributionPhoto) onSave;
+  final String? initialFocus;
+  final Future<void> Function(String focus)? onFocusChanged;
   @override
   State<AnnotationSequence> createState() => _AnnotationSequenceState();
 }
@@ -27,7 +31,15 @@ class AnnotationSequence extends StatefulWidget {
 class _AnnotationSequenceState extends State<AnnotationSequence> {
   late final _photos = List<ContributionPhoto>.of(widget.photos);
   int _index = 0;
+  late String? _selectedFocus = switch (widget.initialFocus) {
+    'love' => 'Aşk',
+    'work' => 'İş',
+    'money' => 'Para',
+    _ => null,
+  };
   bool _busy = false;
+  bool _savingFocus = false;
+  bool get _blocked => _busy || _savingFocus;
   TraceSet _traces = TraceSet.empty;
   final _exposed = <String>{};
   bool _loadingTraces = false;
@@ -85,7 +97,32 @@ class _AnnotationSequenceState extends State<AnnotationSequence> {
     }
   }
 
+  Future<void> _changeFocus(String? label) async {
+    if (_blocked) return;
+    final focus = switch (label) {
+      'Aşk' => 'love',
+      'İş' => 'work',
+      'Para' => 'money',
+      _ => 'general',
+    };
+    setState(() => _savingFocus = true);
+    try {
+      await widget.onFocusChanged?.call(focus);
+      if (mounted) setState(() => _selectedFocus = label);
+    } catch (_) {
+      if (mounted) {
+        showNotice(
+          context,
+          'Konu seçimin kaydedilemedi. Yeniden deneyebilirsin.',
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _savingFocus = false);
+    }
+  }
+
   void _next() {
+    if (_blocked) return;
     if (_index < _photos.length - 1) {
       _select(_index + 1);
     } else {
@@ -94,7 +131,7 @@ class _AnnotationSequenceState extends State<AnnotationSequence> {
   }
 
   Future<void> _skipRemaining({bool? generate}) async {
-    if (_busy) return;
+    if (_blocked) return;
     setState(() => _busy = true);
     try {
       for (var i = 0; i < _photos.length; i++) {
@@ -124,7 +161,7 @@ class _AnnotationSequenceState extends State<AnnotationSequence> {
   Widget build(BuildContext context) {
     final photo = _photos[_index];
     return PopScope(
-      canPop: !_busy,
+      canPop: !_blocked,
       child: Theme(
         data: coffeeFlowTheme(Theme.of(context)),
         child: AnnotationPage(
@@ -136,9 +173,12 @@ class _AnnotationSequenceState extends State<AnnotationSequence> {
           onSave: _save,
           onComplete: _next,
           modern: true,
-          onFinish: _busy ? null : () => _skipRemaining(generate: true),
-          onSaveOnly: _busy ? null : () => _skipRemaining(generate: false),
-          onSkip: _busy ? null : () => _skipRemaining(),
+          selectedFocus: _selectedFocus,
+          onFocusChanged: _changeFocus,
+          focusBusy: _blocked,
+          onFinish: _blocked ? null : () => _skipRemaining(generate: true),
+          onSaveOnly: _blocked ? null : () => _skipRemaining(generate: false),
+          onSkip: _blocked ? null : () => _skipRemaining(),
           completionLabel: _index == _photos.length - 1
               ? 'Tamamla'
               : 'Sonraki Fotoğraf',
@@ -148,7 +188,7 @@ class _AnnotationSequenceState extends State<AnnotationSequence> {
               PhotoNavigation(
                 index: _index,
                 count: _photos.length,
-                onSelect: _busy ? null : _select,
+                onSelect: _blocked ? null : _select,
                 overlay: true,
                 bottomInset: MediaQuery.textScalerOf(context).scale(14) > 19
                     ? 80

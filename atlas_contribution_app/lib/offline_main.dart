@@ -133,6 +133,16 @@ class OfflineContributionApp extends StatelessWidget {
                 },
           fortuneProgress: ai?.progress,
           preparation: ai?.preparation,
+          loadReadingFocus: ai == null
+              ? null
+              : (rootId) =>
+                    ai!.store.readingFocus(ai!.bridge.sessionId(rootId)),
+          onReadingFocusChanged: ai == null
+              ? null
+              : (rootId, focus) => ai!.store.setReadingFocus(
+                  ai!.bridge.sessionId(rootId),
+                  focus,
+                ),
           loadAnnotationTraces: ai == null || !openCvTracesEnabled
               ? null
               : (draft) => ai!.traces.loadSet(
@@ -214,7 +224,8 @@ class OfflineContributionApp extends StatelessWidget {
                   try {
                     await controller.save(next);
                     controller.addListener(() {
-                      if (controller.session.currentInitialObservation != null) {
+                      if (controller.session.currentInitialObservation !=
+                          null) {
                         ai!.preparation.permitDisplay();
                       }
                       final id = controller.activePhotoId;

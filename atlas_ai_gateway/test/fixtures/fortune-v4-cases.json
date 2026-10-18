@@ -1,0 +1,154 @@
+{
+  "context": {
+    "version": "atlas-fortune-context-v4",
+    "language": "tr",
+    "status": "ready",
+    "readingFocus": "general",
+    "creativeSymbol": {
+      "catalogVersion": "atlas-creative-symbols-v1",
+      "origin": "creativeSelectionNotVisualDetection",
+      "symbolId": "key",
+      "symbolName": "Anahtar"
+    },
+    "photos": [
+      {
+        "photoNumber": 1,
+        "surface": "cup",
+        "declaredRole": "free",
+        "analysisState": "complete",
+        "userObservations": [],
+        "physicalMeasurementsStatus": "available",
+        "physicalMeasurementScope": "wholeImageContentNotUserRegion",
+        "globalPhysicalMeasurements": {
+          "residuePixelCount": 30,
+          "contentResidueRatio": 0.2,
+          "componentCount": 3,
+          "candidateRelationCount": 1,
+          "selectedRelationCount": 0
+        },
+        "regionalSummary": {
+          "version": "atlas-regional-summary-v1",
+          "bands": [
+            {
+              "position": "top",
+              "density": 0.1
+            },
+            {
+              "position": "middle",
+              "density": 0.2
+            },
+            {
+              "position": "bottom",
+              "density": 0.6
+            }
+          ],
+          "components": [],
+          "relations": []
+        }
+      }
+    ]
+  },
+  "story": "Üç vakte kadar beklediğin konu hakkında bir haber alacaksın. Anahtarın çözüm çağrışımı, burada uzun uzun konuşmaktan çok yerinde sorulacak kısa bir soruya bağlanıyor. İlk cevap bütün ayrıntıları açmayacak; konuşmanın hangi yönde ilerleyeceği karşılıklı vereceğiniz cevaplara bağlı. Fincanın üst bölümündeki daha açık dağılım da bu anlatıya hareket edecek bir yer bırakıyor. Kimin önce söze gireceği veya konuyu nereye taşıyacağı ise henüz açık.\n\nYakın zamanda küçük bir davetle programın değişecek. Başlangıçta kısa bir uğrama diye düşündüğün görüşmede konuşma başka bir yere açılacak. Birinin söylediği küçük bir ayrıntı aklında kalacak. Oradan hemen karar vermen gereken bir sonuç çıkmıyor; eve dönerken aynı konuşmanın iki ayrı tarafını düşüneceksin. Karşı tarafın senden ne beklediği, ikinci konuşmada daha anlaşılır hale gelecek.\n\nBu arada beklettiğin bir seçim yeniden önüne gelecek. Alışık olduğun seçenek daha rahat, diğeriyse biraz merak uyandırıyor. İlk hareket bir soru sormakla başlayacak; devamında aynı fikirde kalıp kalmayacağını o cevap belirleyecek. Bir başkasının görüşü kulağına farklı gelecek ama seçimi senin yerine yapmayacak.\n\nSon anda değişen bir saat, daha önce aynı ortamda uzun konuşmadığın biriyle seni yan yana getirecek. Konuşma uzarsa asıl meraklı bölüm, ilk başta gelme sebebinizden başka bir konuda açılacak.",
+  "cases": [
+    {
+      "id": "confident-future-without-required-hedge",
+      "suffix": "",
+      "error": null
+    },
+    {
+      "id": "guarantee-still-blocks",
+      "suffix": "Bu sonuç kesinlikle gerçekleşecek.",
+      "error": "certainty"
+    },
+    {
+      "id": "technical-still-blocks",
+      "suffix": "Piksel sayısı arttı.",
+      "error": "technical"
+    },
+    {
+      "id": "unsupported-visual-still-blocks",
+      "suffix": "Fincanında belirgin bir kuş görüyorum.",
+      "error": "unsupported_visual_claim"
+    },
+    {
+      "id": "creative-attribution-still-blocks",
+      "suffix": "Paylaştığın anahtar kapıyı açacak.",
+      "error": "unsupported_symbol_claim"
+    },
+    {
+      "id": "missing-history-cannot-be-invented",
+      "suffix": "Eski fallarından birinde bir görüşmeden söz etmiştik.",
+      "error": "unsupported_memory"
+    },
+    {
+      "id": "bounded-history-paraphrase",
+      "excerpt": "Yarım kalan bir konuşma yeniden gündemine gelecek.",
+      "suffix": "Eski fallarından birinde yarım kalan bir konuşmadan söz etmiştik.",
+      "error": null
+    },
+    {
+      "id": "history-time-not-imported",
+      "excerpt": "Üç vakte kadar yarım kalan bir konuşma gündemine gelecek.",
+      "suffix": "Eski fallarından birinde üç vakte kadar bir konuşma olacak demiştik.",
+      "error": "unsupported_memory"
+    },
+    {
+      "id": "history-fulfillment-not-invented",
+      "excerpt": "Bir konuşma gündemine gelecek.",
+      "suffix": "Eski fallarından birinde anlattığımız konuşma gerçekleşti.",
+      "error": "unsupported_memory"
+    },
+    {
+      "id": "history-only-one-mention",
+      "excerpt": "Bir konuşma gündemine gelecek.",
+      "suffix": "Eski fallarından birinde bir konuşma vardı. Eski fallarından birinde başka bir konuşma vardı.",
+      "error": "unsupported_memory"
+    },
+    {
+      "id": "age-no-stereotype",
+      "age": 65,
+      "suffix": "Bu yaşta emekli olduğun için dinlenmen gerekecek.",
+      "error": "unsupported_personalization"
+    },
+    {
+      "id": "age-does-not-imply-work-or-marriage",
+      "age": 65,
+      "suffix": "Görüşmenin devamını getirip getirmemek sana bağlı.",
+      "error": null
+    },
+    {
+      "id": "old-fal-variant-not-hallucinated",
+      "suffix": "Geçen falında bir görüşmeden söz etmiştik.",
+      "error": "unsupported_memory"
+    },
+    {
+      "id": "starred-source-wording-not-exposed",
+      "excerpt": "Bir görüşme gündeme gelecek.",
+      "suffix": "Yıldızladığın falda bir görüşmeden söz etmiştik.",
+      "error": "unsupported_memory"
+    },
+    {
+      "id": "old-spelled-time-not-imported",
+      "excerpt": "Üç gün sonra bir görüşme olacak.",
+      "suffix": "Eski fallarından birinde üç gün sonra bir görüşme olacak demiştik.",
+      "error": "unsupported_memory"
+    },
+    {
+      "id": "old-excerpt-copy-even-with-new-prefix",
+      "excerpt": "Yarım kalan uzun konuşma yeniden gündemine gelecek.",
+      "suffix": "Eski fallarından birinde yarım kalan uzun konuşma yeniden gündemine gelecek diye söz etmiştik.",
+      "error": "repetition"
+    },
+    {
+      "id": "age-does-not-imply-grandchildren",
+      "age": 65,
+      "suffix": "Torununla ilgili bir plan gündemine gelecek.",
+      "error": "unsupported_personalization"
+    },
+    {
+      "id": "symbol-cannot-be-placed-in-allowed-physical-cue",
+      "suffix": "Anahtar, fincanın üst bölümündeki daha açık dağılımda kendini gösteriyor.",
+      "error": "unsupported_visual_claim"
+    }
+  ]
+}

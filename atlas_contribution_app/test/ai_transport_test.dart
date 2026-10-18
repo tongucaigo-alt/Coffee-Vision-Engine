@@ -395,6 +395,7 @@ void main() {
             'serverInstanceId': 'test-instance',
             'result': {
               'text': answer.trim(),
+              'attempts': 1,
               'promptVersion': version,
               'promptHash': hash,
             },

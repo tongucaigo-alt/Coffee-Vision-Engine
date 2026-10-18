@@ -41,7 +41,7 @@ test('shared language cases distinguish reporting from visual evidence',()=>{
   }
 });
 test('shared prompt version and byte hash include the language repair instructions',()=>{
-  assert.equal(prompt.version,'atlas-fortune-prompt-v14');
+  assert.equal(prompt.version,'atlas-fortune-prompt-v17');
   assert.equal(promptHash,createHash('sha256').update(promptBytes).digest('hex'));
   assert.match(messages(context())[0].content,/You have not seen any photo\./);
   assert.ok(!messages(context())[1].content.includes('bunu açıkça söyle'));
@@ -177,4 +177,33 @@ test('v3 gateway advertises support, sends source rules and bounds repair',async
   assert.equal(submitted.status,202);
   const job=await finished(f,0,(await submitted.json()).jobId);
   assert.equal(job.state,'completed');assert.equal(calls,2);
+});
+
+
+test('bounded generation limits reject invalid input before any model call',async t=>{
+  let calls=0;
+  const f=await fixture(t,async()=>{calls++;return response();});
+  for(const limits of [{maxAttempts:0,maxDurationMs:1000},{maxAttempts:3,maxDurationMs:1000},{maxAttempts:1,maxDurationMs:180001},{maxAttempts:1,maxDurationMs:0},{maxAttempts:1,maxDurationMs:1000,extra:true}]) {
+    const r=await f.request(0,'/jobs','POST',{context:context(),modelAlias:'atlas',promptVersion:prompt.version,generationLimits:limits});
+    assert.equal(r.status,400);
+  }
+  assert.equal(calls,0);
+});
+
+test('single attempt comparisons never trigger an automatic or manual second call',async t=>{
+  let calls=0;
+  const f=await fixture(t,async()=>{calls++;return new Response(JSON.stringify({choices:[{message:{content:'kesinlikle'},finish_reason:'stop'}]}));});
+  const r=await f.request(0,'/jobs','POST',{context:context(),modelAlias:'atlas',promptVersion:prompt.version,generationLimits:{maxAttempts:1,maxDurationMs:1000}});
+  assert.equal(r.status,202);
+  const job=await r.json();const done=await finished(f,0,job.jobId);
+  assert.equal(done.state,'failed');assert.equal(done.diagnostics.attempts,1);assert.equal(calls,1);
+  assert.equal((await f.request(0,`/jobs/${job.jobId}`,'POST',{reason:'repetition'})).status,409);
+});
+
+test('client remaining duration bounds gateway work while upstream slot drains',async t=>{
+  let calls=0;
+  const f=await fixture(t,async()=>{calls++;await wait(70);return response();});
+  const r=await f.request(0,'/jobs','POST',{context:context(),modelAlias:'atlas',promptVersion:prompt.version,generationLimits:{maxAttempts:1,maxDurationMs:10}});
+  const job=await r.json();const done=await finished(f,0,job.jobId);
+  assert.equal(done.state,'failed');assert.equal(done.error,'generation_timeout');assert.equal(calls,1);
 });

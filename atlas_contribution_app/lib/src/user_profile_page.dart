@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'atlas_design.dart';
 import 'theme.dart';
@@ -14,6 +15,8 @@ class UserProfilePage extends StatefulWidget {
 
 class _UserProfilePageState extends State<UserProfilePage> {
   final _name = TextEditingController();
+  final _age = TextEditingController();
+  String? _ageError;
   ZodiacSign? _zodiac;
   bool _useZodiacInReading = false;
   bool _loading = true, _busy = false;
@@ -28,6 +31,7 @@ class _UserProfilePageState extends State<UserProfilePage> {
   @override
   void dispose() {
     _name.dispose();
+    _age.dispose();
     super.dispose();
   }
 
@@ -40,6 +44,8 @@ class _UserProfilePageState extends State<UserProfilePage> {
       final profile = await widget.store.read();
       if (!mounted) return;
       _name.text = profile.addressName;
+      _age.text = profile.age?.toString() ?? '';
+      _ageError = null;
       _zodiac = profile.zodiac;
       _useZodiacInReading = profile.useZodiacInReading;
     } catch (_) {
@@ -54,13 +60,23 @@ class _UserProfilePageState extends State<UserProfilePage> {
   Future<void> _save() async {
     if (_loading || _busy || _error != null) return;
     FocusScope.of(context).unfocus();
-    setState(() => _busy = true);
+    final ageText = _age.text.trim();
+    final age = ageText.isEmpty ? null : int.tryParse(ageText);
+    if (ageText.isNotEmpty && (age == null || age < 18 || age > 120)) {
+      setState(() => _ageError = '18 ile 120 arasında bir yaş yaz.');
+      return;
+    }
+    setState(() {
+      _ageError = null;
+      _busy = true;
+    });
     try {
       await widget.store.save(
         UserProfile(
           addressName: _name.text,
           zodiac: _zodiac,
           useZodiacInReading: _useZodiacInReading,
+          age: age,
         ),
       );
       if (mounted) {
@@ -81,7 +97,7 @@ class _UserProfilePageState extends State<UserProfilePage> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Bilgilerin silinsin mi?'),
-        content: const Text('Hitap adın ve burcun bu cihazdan silinir.'),
+        content: const Text('Hitap adın, burcun ve yaşın bu cihazdan silinir.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -101,6 +117,8 @@ class _UserProfilePageState extends State<UserProfilePage> {
       if (!mounted) return;
       setState(() {
         _name.clear();
+        _age.clear();
+        _ageError = null;
         _zodiac = null;
         _useZodiacInReading = false;
         _error = null;
@@ -161,6 +179,27 @@ class _UserProfilePageState extends State<UserProfilePage> {
                 trailing: const Icon(Icons.expand_more),
                 onTap: _chooseZodiac,
               ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              key: const ValueKey('profile-age'),
+              controller: _age,
+              enabled: !_busy && _error == null,
+              keyboardType: TextInputType.number,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              maxLength: 3,
+              textInputAction: TextInputAction.done,
+              onChanged: (_) {
+                if (_ageError != null) setState(() => _ageError = null);
+              },
+              decoration: InputDecoration(
+                labelText: 'Yaş (isteğe bağlı)',
+                errorText: _ageError,
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Yaşını yazıp kaydedersen yeni fal yorumunun dilini uyarlamak için yorum hizmetine gönderilir. Boş bırakabilirsin.',
             ),
             const SizedBox(height: 24),
             const AtlasNotice(

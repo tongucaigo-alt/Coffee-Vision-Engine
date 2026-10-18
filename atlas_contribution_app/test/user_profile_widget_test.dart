@@ -83,7 +83,7 @@ void main() {
     await _tap(tester, 'Kaydet');
     expect(store.saves, 1);
     expect(store.profile.addressName, isEmpty);
-    await tester.enterText(find.byType(TextField), 'Deniz');
+    await tester.enterText(find.byKey(const ValueKey('profile-name')), 'Deniz');
     await _tap(tester, 'Burç (isteğe bağlı)');
     await tester.scrollUntilVisible(
       find.text('Terazi'),
@@ -94,11 +94,14 @@ void main() {
     await _tap(tester, 'Kaydet');
     await mount();
     expect(
-      tester.widget<TextField>(find.byType(TextField)).controller!.text,
+      tester
+          .widget<TextField>(find.byKey(const ValueKey('profile-name')))
+          .controller!
+          .text,
       'Deniz',
     );
     expect(find.text('Terazi'), findsOneWidget);
-    await tester.enterText(find.byType(TextField), 'Ece');
+    await tester.enterText(find.byKey(const ValueKey('profile-name')), 'Ece');
     await _tap(tester, 'Burç (isteğe bağlı)');
     await _tap(tester, 'Bilmiyorum / Belirtmek istemiyorum');
     await _tap(tester, 'Kaydet');
@@ -112,7 +115,10 @@ void main() {
     await _tap(tester, 'Sil');
     await mount();
     expect(
-      tester.widget<TextField>(find.byType(TextField)).controller!.text,
+      tester
+          .widget<TextField>(find.byKey(const ValueKey('profile-name')))
+          .controller!
+          .text,
       isEmpty,
     );
     expect(store.deletes, 1);
@@ -129,12 +135,18 @@ void main() {
     );
     store.failRead = false;
     await _tap(tester, 'Yeniden dene');
-    await tester.enterText(find.byType(TextField), 'Korunan');
+    await tester.enterText(
+      find.byKey(const ValueKey('profile-name')),
+      'Korunan',
+    );
     store.failSave = true;
     await _tap(tester, 'Kaydet');
     expect(find.text('Kaydedilemedi. Tekrar deneyebilirsin.'), findsOneWidget);
     expect(
-      tester.widget<TextField>(find.byType(TextField)).controller!.text,
+      tester
+          .widget<TextField>(find.byKey(const ValueKey('profile-name')))
+          .controller!
+          .text,
       'Korunan',
     );
     store.failSave = false;
@@ -147,6 +159,45 @@ void main() {
   });
 
   testWidgets(
+    'age is explicit, optional, validated and cleared on save or delete',
+    (tester) async {
+      final store = _ProfileStore()..profile = const UserProfile(age: 60);
+      await tester.pumpWidget(_app(UserProfilePage(store: store)));
+      await tester.pumpAndSettle();
+      final field = find.byKey(const ValueKey('profile-age'));
+      expect(tester.widget<TextField>(field).controller!.text, '60');
+      expect(
+        find.textContaining('yorum hizmetine gönderilir. Boş bırakabilirsin.'),
+        findsOneWidget,
+      );
+      for (final value in ['17', '121']) {
+        await tester.ensureVisible(field);
+        await tester.enterText(field, value);
+        await _tap(tester, 'Kaydet');
+        expect(find.text('18 ile 120 arasında bir yaş yaz.'), findsOneWidget);
+        expect(store.saves, 0);
+        expect(store.profile.age, 60);
+      }
+      await tester.ensureVisible(field);
+      await tester.enterText(field, '65');
+      await _tap(tester, 'Kaydet');
+      expect(store.profile.age, 65);
+      await tester.ensureVisible(field);
+      await tester.enterText(field, '');
+      await _tap(tester, 'Kaydet');
+      expect(store.profile.age, isNull);
+      await tester.ensureVisible(field);
+      await tester.enterText(field, '70');
+      await _tap(tester, 'Kaydet');
+      await _tap(tester, 'Bilgilerimi sil');
+      await _tap(tester, 'Sil');
+      expect(store.profile.age, isNull);
+      expect(tester.widget<TextField>(field).controller!.text, isEmpty);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
     'saving only name never enables legacy zodiac; explicit reselection does',
     (tester) async {
       final store = _ProfileStore()
@@ -156,7 +207,10 @@ void main() {
         );
       await tester.pumpWidget(_app(UserProfilePage(store: store)));
       await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextField), 'Yeni ad');
+      await tester.enterText(
+        find.byKey(const ValueKey('profile-name')),
+        'Yeni ad',
+      );
       await _tap(tester, 'Kaydet');
       expect(store.profile.zodiac, ZodiacSign.libra);
       expect(store.profile.useZodiacInReading, false);
@@ -215,7 +269,10 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byType(UserProfilePage), findsOneWidget);
       expect(
-        tester.widget<TextField>(find.byType(TextField)).controller!.text,
+        tester
+            .widget<TextField>(find.byKey(const ValueKey('profile-name')))
+            .controller!
+            .text,
         'Deniz',
       );
       await tester.pageBack();
@@ -238,7 +295,7 @@ void main() {
       _app(UserProfilePage(store: _ProfileStore()), scale: 2),
     );
     await tester.pumpAndSettle();
-    await tester.showKeyboard(find.byType(TextField));
+    await tester.showKeyboard(find.byKey(const ValueKey('profile-name')));
     tester.view.viewInsets = const FakeViewPadding(bottom: 200);
     addTearDown(tester.view.resetViewInsets);
     await tester.pumpAndSettle();
@@ -262,23 +319,39 @@ void main() {
     tester.view.physicalSize = const Size(390, 844);
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
-    final key = GlobalKey();
-    await tester.pumpWidget(
-      _app(UserProfilePage(store: _ProfileStore()), capture: key),
-    );
-    await tester.pumpAndSettle();
-    await tester.runAsync(() async {
-      final boundary =
-          key.currentContext!.findRenderObject()! as RenderRepaintBoundary;
-      final image = await boundary.toImage(pixelRatio: 2);
-      final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
-      final directory = await Directory(
-        'build/profile-previews',
-      ).create(recursive: true);
-      await File(
-        '${directory.path}/profile.png',
-      ).writeAsBytes(bytes!.buffer.asUint8List());
-      image.dispose();
-    });
+    for (final scale in [1.0, 2.0]) {
+      final key = GlobalKey();
+      await tester.pumpWidget(const SizedBox());
+      await tester.pumpWidget(
+        _app(
+          UserProfilePage(store: _ProfileStore()),
+          capture: key,
+          scale: scale,
+        ),
+      );
+      await tester.pumpAndSettle();
+      for (final position in ['top', 'bottom']) {
+        if (position == 'bottom') {
+          await tester.ensureVisible(find.text('Bilgilerimi sil'));
+          await tester.pumpAndSettle();
+        }
+        await tester.runAsync(() async {
+          final boundary =
+              key.currentContext!.findRenderObject()! as RenderRepaintBoundary;
+          final image = await boundary.toImage(pixelRatio: 2);
+          final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+          const output = String.fromEnvironment(
+            'ATLAS_PROFILE_SCREENSHOT_DIR',
+            defaultValue: 'build/profile-previews',
+          );
+          final directory = await Directory(output).create(recursive: true);
+          await File(
+            '${directory.path}/profile-${scale.toInt()}-$position.png',
+          ).writeAsBytes(bytes!.buffer.asUint8List());
+          image.dispose();
+        });
+      }
+      expect(tester.takeException(), isNull);
+    }
   });
 }
