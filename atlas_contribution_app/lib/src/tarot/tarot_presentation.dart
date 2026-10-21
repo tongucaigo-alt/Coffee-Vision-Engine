@@ -1,5 +1,166 @@
 part of 'tarot_pages.dart';
 
+/// Paint-only guidance: no layout space, card movement or persisted state.
+class _TarotRevealGuidance extends StatefulWidget {
+  const _TarotRevealGuidance({
+    required this.position,
+    required this.active,
+    required this.nudge,
+    required this.child,
+  });
+  final int position;
+  final bool active;
+  final int nudge;
+  final Widget child;
+
+  @override
+  State<_TarotRevealGuidance> createState() => _TarotRevealGuidanceState();
+}
+
+class _TarotRevealGuidanceState extends State<_TarotRevealGuidance>
+    with TickerProviderStateMixin, WidgetsBindingObserver {
+  late final AnimationController _pulse;
+  late final AnimationController _nudge;
+  bool _foreground = true;
+  bool _motion = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    final state = WidgetsBinding.instance.lifecycleState;
+    _foreground = state == null || state == AppLifecycleState.resumed;
+    _pulse = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 800),
+    );
+    _nudge = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 450),
+    );
+  }
+
+  void _syncAnimation() {
+    final run = widget.active && _foreground && _motion;
+    if (run) {
+      if (!_pulse.isAnimating) _pulse.repeat(reverse: true);
+    } else {
+      _pulse.stop();
+      _nudge.stop();
+      _pulse.value = 0;
+      _nudge.value = 0;
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _motion =
+        !MediaQuery.disableAnimationsOf(context) &&
+        TickerMode.valuesOf(context).enabled &&
+        ModalRoute.isCurrentOf(context) != false;
+    _syncAnimation();
+  }
+
+  @override
+  void didUpdateWidget(_TarotRevealGuidance oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _syncAnimation();
+    if (widget.nudge != oldWidget.nudge &&
+        widget.active &&
+        _foreground &&
+        _motion &&
+        !_nudge.isAnimating) {
+      _nudge.forward(from: 0);
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    setState(() {
+      _foreground = state == AppLifecycleState.resumed;
+      _syncAnimation();
+    });
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _pulse.dispose();
+    _nudge.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => Stack(
+    fit: StackFit.passthrough,
+    clipBehavior: Clip.none,
+    children: [
+      widget.child,
+      if (widget.active)
+        Positioned.fill(
+          child: IgnorePointer(
+            child: ExcludeSemantics(
+              child: AnimatedBuilder(
+                animation: Listenable.merge([_pulse, _nudge]),
+                builder: (context, _) {
+                  final moving = _foreground && _motion;
+                  final boost = math.sin(_nudge.value * math.pi);
+                  final strength = moving
+                      ? (.45 +
+                                .55 * Curves.easeInOut.transform(_pulse.value) +
+                                .55 * boost)
+                            .clamp(0.0, 1.0)
+                      : 1.0;
+                  return CustomPaint(
+                    painter: _TarotGuidanceGlow(moving ? strength : 0),
+                    child: DecoratedBox(
+                      key: ValueKey('tarot-guidance-active-${widget.position}'),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: atlasCopper.withValues(alpha: strength),
+                          width: 2,
+                        ),
+                        boxShadow: const [],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+        ),
+    ],
+  );
+}
+
+class _TarotGuidanceGlow extends CustomPainter {
+  const _TarotGuidanceGlow(this.strength);
+  final double strength;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (strength == 0) return;
+    final bounds = Offset.zero & size;
+    canvas.save();
+    canvas.clipRect(bounds.inflate(8));
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(bounds.deflate(1), const Radius.circular(9)),
+      Paint()
+        ..color = atlasCopper.withValues(alpha: .65 * strength)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4),
+    );
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(_TarotGuidanceGlow oldDelegate) =>
+      strength != oldDelegate.strength;
+}
+
 class _TarotHomeCards extends StatelessWidget {
   const _TarotHomeCards();
   @override

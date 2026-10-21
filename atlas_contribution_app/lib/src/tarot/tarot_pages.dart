@@ -198,16 +198,19 @@ class TarotDrawPage extends StatefulWidget {
 }
 
 class _TarotDrawPageState extends State<TarotDrawPage>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late TarotDraw _draw;
   late final AnimationController _shuffle;
+  late final AnimationController _arrival;
   final _scroll = ScrollController();
   bool _busy = false, _revealing = false, _reading = false;
   bool _moodSaving = false;
+  int _guidanceNudge = 0;
   String? _moodError;
   String? _error;
   bool get _locked =>
       _busy ||
+      _arrival.isAnimating ||
       _revealing ||
       _shuffle.isAnimating ||
       widget.runtime.busy(_draw.id);
@@ -223,6 +226,14 @@ class _TarotDrawPageState extends State<TarotDrawPage>
     _shuffle.addStatusListener((_) {
       if (mounted) setState(() {});
     });
+    _arrival =
+        AnimationController(
+          vsync: this,
+          duration: const Duration(milliseconds: 240),
+          value: 1,
+        )..addStatusListener((_) {
+          if (mounted) setState(() {});
+        });
     widget.runtime.addListener(_reload);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted &&
@@ -247,6 +258,7 @@ class _TarotDrawPageState extends State<TarotDrawPage>
     widget.runtime.removeListener(_reload);
     unawaited(widget.runtime.cancel(_draw.id).catchError((Object _) {}));
     _shuffle.dispose();
+    _arrival.dispose();
     _scroll.dispose();
     super.dispose();
   }
@@ -273,8 +285,25 @@ class _TarotDrawPageState extends State<TarotDrawPage>
 
   Future<void> _select(int index) => _act(() async {
     final next = await widget.runtime.store.select(_draw.id, index);
-    if (mounted) setState(() => _draw = next);
+    if (!mounted) return;
+    if (next.selected.length == next.requiredCards &&
+        !MediaQuery.disableAnimationsOf(context)) {
+      _arrival.forward(from: 0);
+    }
+    setState(() => _draw = next);
   });
+  bool _canReveal(int position) =>
+      !_locked &&
+      !_reading &&
+      _draw.selected.length == _draw.requiredCards &&
+      _draw.revealed == position;
+
+  void _nudgeExpectedCard() {
+    if (!_locked && !_reading && !MediaQuery.disableAnimationsOf(context)) {
+      setState(() => _guidanceNudge++);
+    }
+  }
+
   Future<void> _reveal(int position) => _act(() async {
     final next = await widget.runtime.store.reveal(_draw.id, position);
     if (mounted) {
@@ -651,31 +680,37 @@ class _TarotDrawPageState extends State<TarotDrawPage>
           )
         : Semantics(
             key: ValueKey('chosen-$i'),
-            button:
-                _draw.revealed == i &&
-                !_locked &&
-                _draw.selected.length == count,
+            button: _canReveal(i),
+            onTap: _canReveal(i) ? () => _reveal(i) : null,
             label: i < _draw.revealed
                 ? '${_draw.positions[i]}: ${_draw.chosen[i].card.name}, ${_draw.chosen[i].reversed ? 'ters' : 'düz'}'
-                : '${_draw.positions[i]}, kapalı kart',
+                : '${_draw.positions[i]}, kapalı kart${_canReveal(i) ? ', açmak için dokun' : ''}',
             child: GestureDetector(
               key: ValueKey('tarot-slot-$i'),
-              onTap:
-                  !_locked &&
-                      _draw.revealed == i &&
-                      _draw.selected.length == count
+              excludeFromSemantics: true,
+              onTap: _canReveal(i)
                   ? () => _reveal(i)
+                  : !_locked &&
+                        !_reading &&
+                        _draw.selected.length == count &&
+                        i > _draw.revealed
+                  ? _nudgeExpectedCard
                   : null,
-              child: TarotCardView(
-                card: _draw.chosen[i],
-                showFront: i < _draw.revealed,
-                onFlipComplete: () {
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    if (mounted) {
-                      setState(() => _revealing = false);
-                    }
-                  });
-                },
+              child: _TarotRevealGuidance(
+                position: i,
+                active: _canReveal(i),
+                nudge: _guidanceNudge,
+                child: TarotCardView(
+                  card: _draw.chosen[i],
+                  showFront: i < _draw.revealed,
+                  onFlipComplete: () {
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (mounted) {
+                        setState(() => _revealing = false);
+                      }
+                    });
+                  },
+                ),
               ),
             ),
           ),

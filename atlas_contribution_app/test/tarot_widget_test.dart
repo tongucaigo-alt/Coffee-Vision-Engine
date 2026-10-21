@@ -46,6 +46,23 @@ class _HeldMoodStore extends TarotStore {
   }
 }
 
+class _HeldRevealStore extends TarotStore {
+  _HeldRevealStore(super.directory);
+  final started = Completer<void>();
+  final release = Completer<void>();
+  var attempts = 0;
+  @override
+  Future<TarotDraw> reveal(String id, int position) async {
+    attempts++;
+    if (attempts == 1) {
+      started.complete();
+      await release.future;
+      throw const FileSystemException('Test reveal write failure');
+    }
+    return super.reveal(id, position);
+  }
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   late Directory temp;
@@ -105,7 +122,10 @@ void main() {
         () => Future<void>.delayed(const Duration(milliseconds: 30)),
       );
     }
-    await tester.pumpAndSettle();
+    // The expected card deliberately keeps pulsing while it waits for a tap.
+    // Drain IO and finite transitions without waiting for that loop to settle.
+    await tester.pump(const Duration(milliseconds: 700));
+    await tester.pump();
   }
 
   Future<GlobalKey> mount(
@@ -279,7 +299,7 @@ void main() {
       find.byType(SingleChildScrollView).first,
       const Offset(0, -440),
     );
-    await tester.pumpAndSettle();
+    await settleIo(tester);
     await capture(tester, key, '06-reading-sample');
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());
@@ -528,7 +548,7 @@ void main() {
               await tester.ensureVisible(
                 find.byKey(const ValueKey('tarot-reading')),
               );
-              await tester.pumpAndSettle();
+              await settleIo(tester);
             }
             if (entry.key == 'chosen' || entry.key == 'daily') {
               for (final mood in TarotMood.values) {
@@ -543,7 +563,7 @@ void main() {
               await tester.ensureVisible(
                 find.byKey(const ValueKey('tarot-mood-picker')),
               );
-              await tester.pumpAndSettle();
+              await settleIo(tester);
             }
             expect(
               tester.takeException(),
@@ -578,7 +598,7 @@ void main() {
       find.byKey(const ValueKey('tarot-home-scroll')),
       const Offset(0, -600),
     );
-    await tester.pumpAndSettle();
+    await settleIo(tester);
     expect(tester.takeException(), isNull);
     key = await mount(
       tester,
@@ -733,6 +753,316 @@ void main() {
     expect(calls, 0);
     await tester.pumpWidget(const SizedBox());
   });
+
+  Finder guide(int position) =>
+      find.byKey(ValueKey('tarot-guidance-active-$position'));
+
+  BoxDecoration guidanceDecoration(WidgetTester tester, int position) =>
+      tester.widget<DecoratedBox>(guide(position)).decoration as BoxDecoration;
+
+  testWidgets('guidance follows completed flips without writes or haptics', (
+    tester,
+  ) async {
+    final closed = fixture().copy(revealed: 0);
+    await saveDraw(tester, closed);
+    var haptics = 0;
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      (call) async {
+        if (call.method == 'HapticFeedback.vibrate') haptics++;
+        return null;
+      },
+    );
+    addTearDown(
+      () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        null,
+      ),
+    );
+    final key = await mount(
+      tester,
+      TarotDrawPage(runtime: runtime, draw: closed),
+      size: const Size(384, 832),
+      padding: const EdgeInsets.only(top: 40, bottom: 48),
+    );
+    final cardBounds = tester.getRect(
+      find.byKey(const ValueKey('tarot-slot-0')),
+    );
+    final scroll = tester
+        .state<ScrollableState>(find.byType(Scrollable).first)
+        .position
+        .maxScrollExtent;
+    expect(guide(0), findsOneWidget);
+    expect(guide(1), findsNothing);
+    final bytes = await tester.runAsync(
+      () => File('${store.directory.path}/state.json').readAsString(),
+    );
+    final firstColor =
+        (guidanceDecoration(tester, 0).border! as Border).top.color;
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(
+      (guidanceDecoration(tester, 0).border! as Border).top.color,
+      isNot(firstColor),
+    );
+    // Out-of-order taps intensify the expected card, never reveal another one.
+    await tester.tap(find.byKey(const ValueKey('tarot-slot-2')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 225));
+    expect((guidanceDecoration(tester, 0).border! as Border).top.color.a, 1);
+    for (var i = 0; i < 5; i++) {
+      await tester.tap(find.byKey(const ValueKey('tarot-slot-1')));
+    }
+    await tester.pump(const Duration(milliseconds: 226));
+    expect(
+      await tester.runAsync(
+        () => File('${store.directory.path}/state.json').readAsString(),
+      ),
+      bytes,
+    );
+    await capture(tester, key, 'guidance-0-past');
+    for (var i = 0; i < 3; i++) {
+      final slot = find.byKey(ValueKey('tarot-slot-$i'));
+      await tester.runAsync(() => tester.tap(slot));
+      await tester.runAsync(() => store.get(closed.id));
+      await tester.pump();
+      expect(guide(i), findsNothing);
+      if (i < 2) expect(guide(i + 1), findsNothing);
+      await tester.pump(const Duration(milliseconds: 300));
+      if (i < 2) expect(guide(i + 1), findsNothing);
+      await tester.runAsync(() => tester.tap(slot));
+      await tester.pump(const Duration(milliseconds: 301));
+      await tester.pump();
+      if (i < 2) {
+        expect(guide(i + 1), findsOneWidget);
+        await capture(tester, key, 'guidance-${i + 1}-next');
+      }
+      expect(
+        (await tester.runAsync(() => store.get(closed.id)))!.revealed,
+        i + 1,
+      );
+    }
+    expect(
+      find.byWidgetPredicate(
+        (w) =>
+            w.key is ValueKey<String> &&
+            (w.key! as ValueKey<String>).value.startsWith(
+              'tarot-guidance-active-',
+            ),
+      ),
+      findsNothing,
+    );
+    expect(
+      tester.getRect(find.byKey(const ValueKey('tarot-slot-0'))),
+      cardBounds,
+    );
+    // Labels revealed underneath cards may add height; the halo adds none.
+    expect(scroll, 0);
+    expect(calls, 0);
+    expect(haptics, 0);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets(
+    'guidance waits for selected card arrival then resumes exact draw',
+    (tester) async {
+      final partial = fixture().copy(selected: [0, 1], revealed: 0);
+      await saveDraw(tester, partial);
+      await mount(tester, TarotDrawPage(runtime: runtime, draw: partial));
+      expect(guide(0), findsNothing);
+      await tester.runAsync(
+        () => tester.tap(find.byKey(const ValueKey('tarot-deck-2'))),
+      );
+      await tester.runAsync(() => store.get(partial.id));
+      await tester.pump();
+      expect(guide(0), findsNothing);
+      await tester.pump(const Duration(milliseconds: 239));
+      expect(guide(0), findsNothing);
+      await tester.pump(const Duration(milliseconds: 2));
+      expect(guide(0), findsOneWidget);
+      await tester.runAsync(
+        () => tester.tap(find.byKey(const ValueKey('tarot-slot-0'))),
+      );
+      await settleIo(tester);
+      final reopened = (await tester.runAsync(() => store.get(partial.id)))!;
+      await tester.pumpWidget(const SizedBox());
+      await mount(tester, TarotDrawPage(runtime: runtime, draw: reopened));
+      expect(guide(0), findsNothing);
+      expect(guide(1), findsOneWidget);
+      expect(reopened.selected, [0, 1, 2]);
+      expect(calls, 0);
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+
+  testWidgets(
+    'failed reveal keeps expected guidance and blocks duplicate writes',
+    (tester) async {
+      final held = _HeldRevealStore(store.directory);
+      final closed = fixture().copy(revealed: 0);
+      await saveDraw(tester, closed);
+      runtime.dispose();
+      runtime = TarotRuntime(
+        store: held,
+        catalog: catalog(),
+        promptVersion: 'v1',
+        promptHash: 'hash',
+        generateReading: (draw, token) async {
+          calls++;
+          return sampleReading;
+        },
+      );
+      await mount(tester, TarotDrawPage(runtime: runtime, draw: closed));
+      await tester.tap(find.byKey(const ValueKey('tarot-slot-0')));
+      await tester.runAsync(() => held.started.future);
+      await tester.pump();
+      expect(guide(0), findsNothing);
+      await tester.tap(find.byKey(const ValueKey('tarot-slot-0')));
+      expect(held.attempts, 1);
+      held.release.complete();
+      await settleIo(tester);
+      expect(guide(0), findsOneWidget);
+      expect((await tester.runAsync(() => held.get(closed.id)))!.revealed, 0);
+      expect(find.textContaining('İşlem tamamlanamadı'), findsOneWidget);
+      await tester.runAsync(
+        () => tester.tap(find.byKey(const ValueKey('tarot-slot-0'))),
+      );
+      await settleIo(tester);
+      expect(guide(1), findsOneWidget);
+      expect(held.attempts, 2);
+      expect(calls, 0);
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+
+  testWidgets(
+    'daily static guidance hides identity and has one accessible action',
+    (tester) async {
+      final closed = fixture(spread: TarotSpread.daily).copy(revealed: 0);
+      await saveDraw(tester, closed);
+      final semantics = tester.ensureSemantics();
+      final key = await mount(
+        tester,
+        TarotDrawPage(runtime: runtime, draw: closed),
+        reduced: true,
+        size: const Size(320, 568),
+        scale: 2,
+      );
+      expect(guide(0), findsOneWidget);
+      final decoration = guidanceDecoration(tester, 0);
+      expect(decoration.boxShadow, isEmpty);
+      expect((decoration.border! as Border).top.color, atlasCopper);
+      final node = tester
+          .getSemantics(find.byKey(const ValueKey('chosen-0')))
+          .getSemanticsData();
+      expect(node.label, contains('açmak için dokun'));
+      expect(node.label, isNot(contains(closed.chosen.single.card.name)));
+      expect(node.hasAction(ui.SemanticsAction.tap), true);
+      expect(tester.binding.hasScheduledFrame, false);
+      await capture(tester, key, 'guidance-daily-reduced-2x');
+      await tester.ensureVisible(find.byKey(const ValueKey('tarot-slot-0')));
+      await tester.runAsync(
+        () => tester.tap(find.byKey(const ValueKey('tarot-slot-0'))),
+      );
+      await settleIo(tester);
+      expect(guide(0), findsNothing);
+      expect(calls, 0);
+      semantics.dispose();
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+
+  testWidgets('guidance stops when app is backgrounded or route is covered', (
+    tester,
+  ) async {
+    final closed = fixture().copy(revealed: 0);
+    await saveDraw(tester, closed);
+    await mount(tester, TarotDrawPage(runtime: runtime, draw: closed));
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 2));
+    expect(tester.binding.hasScheduledFrame, false);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pump();
+    expect(tester.binding.hasScheduledFrame, true);
+    final navigator = Navigator.of(
+      tester.element(find.byKey(const ValueKey('tarot-slot-0'))),
+    );
+    unawaited(
+      navigator.push<void>(
+        MaterialPageRoute(
+          builder: (_) => const Scaffold(body: Text('Covered')),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pump();
+    expect(tester.binding.hasScheduledFrame, false);
+    navigator.pop();
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pump();
+    expect(guide(0), findsOneWidget);
+    expect(tester.binding.hasScheduledFrame, true);
+    expect(calls, 0);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets(
+    'active guidance preserves geometry across phone and text sizes',
+    (tester) async {
+      final closed = fixture().copy(revealed: 0);
+      await saveDraw(tester, closed);
+      for (final size in [
+        const Size(320, 568),
+        const Size(360, 700),
+        const Size(412, 700),
+        const Size(384, 832),
+      ]) {
+        for (final scale in [1.0, 2.0]) {
+          final key = await mount(
+            tester,
+            TarotDrawPage(runtime: runtime, draw: closed),
+            size: size,
+            scale: scale,
+            padding: const EdgeInsets.only(top: 40, bottom: 48),
+          );
+          final slot = find.byKey(const ValueKey('tarot-slot-0'));
+          final bounds = tester.getRect(slot);
+          final scroll = tester
+              .state<ScrollableState>(find.byType(Scrollable).first)
+              .position
+              .maxScrollExtent;
+          final mood = tester.getRect(
+            find.byKey(const ValueKey('tarot-mood-picker')),
+          );
+          await tester.pump(const Duration(milliseconds: 800));
+          expect(tester.getRect(slot), bounds);
+          expect(
+            tester.getRect(find.byKey(const ValueKey('tarot-mood-picker'))),
+            mood,
+          );
+          expect(
+            tester
+                .state<ScrollableState>(find.byType(Scrollable).first)
+                .position
+                .maxScrollExtent,
+            scroll,
+          );
+          expect(guide(0), findsOneWidget);
+          expect(guide(1), findsNothing);
+          expect(tester.takeException(), isNull);
+          await capture(
+            tester,
+            key,
+            'guidance-${size.width.toInt()}-${size.height.toInt()}-${scale}x',
+          );
+          await tester.pumpWidget(const SizedBox());
+        }
+      }
+      expect(calls, 0);
+    },
+  );
 
   testWidgets('ready tarot fits A56 without scrolling and keeps mood layout', (
     tester,
