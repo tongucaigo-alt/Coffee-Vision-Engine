@@ -757,6 +757,38 @@ void main() {
   Finder guide(int position) =>
       find.byKey(ValueKey('tarot-guidance-active-$position'));
 
+  testWidgets(
+    'obvious tap hint targets one card and lets touch reach that card',
+    (tester) async {
+      final closed = fixture().copy(revealed: 0);
+      await saveDraw(tester, closed);
+      final key = await mount(
+        tester,
+        TarotDrawPage(runtime: runtime, draw: closed),
+        size: const Size(384, 832),
+        padding: const EdgeInsets.only(top: 40, bottom: 48),
+      );
+      final hint = find.byKey(const ValueKey('tarot-tap-hint-0'));
+      expect(hint, findsOneWidget);
+      expect(find.byIcon(Icons.touch_app_rounded), findsOneWidget);
+      expect(find.text('DOKUN'), findsOneWidget);
+      final bounds = tester.getRect(find.byKey(const ValueKey('tarot-slot-0')));
+      final hintBounds = tester.getRect(hint);
+      expect(hintBounds.width, greaterThanOrEqualTo(56));
+      expect(bounds.contains(hintBounds.center), true);
+      await capture(tester, key, 'clear-tap-hint');
+      // The entire overlay is decorative; tapping the large hand opens the card.
+    await tester.runAsync(() => tester.tapAt(hintBounds.center));
+      await settleIo(tester);
+      expect((await tester.runAsync(() => store.get(closed.id)))!.revealed, 1);
+      expect(find.byKey(const ValueKey('tarot-tap-hint-0')), findsNothing);
+      expect(find.byKey(const ValueKey('tarot-tap-hint-1')), findsOneWidget);
+      expect(find.byIcon(Icons.touch_app_rounded), findsOneWidget);
+      expect(calls, 0);
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+
   BoxDecoration guidanceDecoration(WidgetTester tester, int position) =>
       tester.widget<DecoratedBox>(guide(position)).decoration as BoxDecoration;
 

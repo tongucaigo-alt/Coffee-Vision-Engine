@@ -32,7 +32,7 @@ class _TarotRevealGuidanceState extends State<_TarotRevealGuidance>
     _foreground = state == null || state == AppLifecycleState.resumed;
     _pulse = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 800),
+      duration: const Duration(milliseconds: 1600),
     );
     _nudge = AnimationController(
       vsync: this,
@@ -43,7 +43,7 @@ class _TarotRevealGuidanceState extends State<_TarotRevealGuidance>
   void _syncAnimation() {
     final run = widget.active && _foreground && _motion;
     if (run) {
-      if (!_pulse.isAnimating) _pulse.repeat(reverse: true);
+      if (!_pulse.isAnimating) _pulse.repeat();
     } else {
       _pulse.stop();
       _nudge.stop();
@@ -106,11 +106,9 @@ class _TarotRevealGuidanceState extends State<_TarotRevealGuidance>
                 builder: (context, _) {
                   final moving = _foreground && _motion;
                   final boost = math.sin(_nudge.value * math.pi);
+                  final wave = .5 - .5 * math.cos(_pulse.value * math.pi * 2);
                   final strength = moving
-                      ? (.45 +
-                                .55 * Curves.easeInOut.transform(_pulse.value) +
-                                .55 * boost)
-                            .clamp(0.0, 1.0)
+                      ? (.85 + .15 * wave + .55 * boost).clamp(0.0, 1.0)
                       : 1.0;
                   return CustomPaint(
                     painter: _TarotGuidanceGlow(moving ? strength : 0),
@@ -120,9 +118,15 @@ class _TarotRevealGuidanceState extends State<_TarotRevealGuidance>
                         borderRadius: BorderRadius.circular(10),
                         border: Border.all(
                           color: atlasCopper.withValues(alpha: strength),
-                          width: 2,
+                          width: 3,
                         ),
                         boxShadow: const [],
+                      ),
+                      child: _TarotTapHint(
+                        position: widget.position,
+                        phase: _pulse.value,
+                        boost: boost,
+                        moving: moving,
                       ),
                     ),
                   );
@@ -133,6 +137,106 @@ class _TarotRevealGuidanceState extends State<_TarotRevealGuidance>
         ),
     ],
   );
+}
+
+/// A persistent tap instruction stays obvious even between animation cycles.
+class _TarotTapHint extends StatelessWidget {
+  const _TarotTapHint({
+    required this.position,
+    required this.phase,
+    required this.boost,
+    required this.moving,
+  });
+  final int position;
+  final double phase, boost;
+  final bool moving;
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) {
+      final diameter = (constraints.maxWidth * .64).clamp(56.0, 68.0);
+      final press = moving && phase < .25
+          ? math.sin(phase / .25 * math.pi)
+          : 0.0;
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CustomPaint(
+              painter: _TarotTapRings(moving ? phase : null, boost),
+              child: Transform.scale(
+                scale: 1 - .10 * press + .10 * boost,
+                child: Container(
+                  key: ValueKey('tarot-tap-hint-$position'),
+                  width: diameter,
+                  height: diameter,
+                  decoration: BoxDecoration(
+                    color: atlasCream,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: atlasCopper, width: 2),
+                    boxShadow: const [
+                      BoxShadow(color: Color(0x554a342a), blurRadius: 8),
+                    ],
+                  ),
+                  child: Icon(
+                    Icons.touch_app_rounded,
+                    color: atlasCoffee,
+                    size: diameter * .56,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: atlasCream,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Text(
+                'DOKUN',
+                // Decorative duplicate of the card's accessible tap action.
+                textScaler: TextScaler.noScaling,
+                style: TextStyle(
+                  color: atlasCoffee,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: .5,
+                  height: 1.2,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    },
+  );
+}
+
+class _TarotTapRings extends CustomPainter {
+  const _TarotTapRings(this.phase, this.boost);
+  final double? phase;
+  final double boost;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (phase == null) return;
+    for (final delay in [0.0, .5]) {
+      final t = (phase! + delay) % 1;
+      canvas.drawCircle(
+        size.center(Offset.zero),
+        size.width * (.40 + .26 * t),
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2.5
+          ..color = atlasCream.withValues(alpha: (.9 + .1 * boost) * (1 - t)),
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(_TarotTapRings oldDelegate) =>
+      phase != oldDelegate.phase || boost != oldDelegate.boost;
 }
 
 class _TarotGuidanceGlow extends CustomPainter {
