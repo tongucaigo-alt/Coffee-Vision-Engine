@@ -1,13 +1,8 @@
-import 'dart:convert';
 import 'dart:io';
 
-import 'package:archive/archive.dart';
 import 'package:atlas_contribution_app/src/local_store.dart';
 import 'package:atlas_contribution_app/src/models.dart';
-import 'package:atlas_contribution_app/src/mvp/review_store.dart';
-import 'package:atlas_contribution_app/src/research_export.dart';
 import 'package:atlas_contribution_app/src/offline_contribution.dart';
-import 'package:atlas_contribution_app/src/ai/ai_store.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -17,7 +12,7 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   test(
-    'offline completion survives draft cleanup and exports verified ZIP',
+    'offline completion survives draft cleanup with exact photos and metadata',
     () async {
       final directory = await Directory.systemTemp.createTemp(
         'atlas-offline-test-',
@@ -61,102 +56,21 @@ void main() {
         expect(await store.file(photo.localName).exists(), true);
       }
 
-      const channel = MethodChannel('test.atlas/export');
-      Uint8List? exported;
-      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-          .setMockMethodCallHandler(channel, (call) async {
-            expect(call.method, 'saveToDownloads');
-            final source = File(
-              (call.arguments as Map)['sourcePath'] as String,
-            );
-            exported = await source.readAsBytes();
-            return 'content://downloads/test-export';
-          });
-      final result = await OfflineContributionExporter(
-        store,
-        channel: channel,
-        temporaryDirectory: () async => directory,
-        reviewStore: ReviewStore(Directory('${directory.path}/export-reviews')),
-      ).exportToDownloads();
-      expect(result.recordCount, 1);
-      expect(result.location, startsWith('content://downloads/'));
-      final archive = ZipDecoder().decodeBytes(exported!);
-      final names = archive.files.map((file) => file.name).toSet();
-      expect(names, contains('manifest.json'));
-      expect(
-        names,
-        containsAll([
-          for (final role in legacyCaptureRoles)
-            'records/${draft.id}/${role.name}.jpg',
-          'records/${draft.id}/record.json',
-        ]),
-      );
-      final manifestFile = archive.files.singleWhere(
-        (file) => file.name == 'manifest.json',
-      );
-      final manifest = jsonDecode(
-        utf8.decode(manifestFile.content as List<int>),
-      );
-      expect(manifest['recordCount'], 1);
-      expect(manifest['researchOnly'], true);
-      expect(manifest['files'], hasLength(4));
-
-      final ai = AiStore(Directory('${directory.path}/ai'));
-      final privateResult = {
-        'id': 'private-result',
-        'sessionId': 'private-session',
-        'groupId': draft.groupId,
-        'answers': [
-          {'text': 'private-fortune-text', 'profileName': 'private-profile'},
-        ],
-      };
-      await ai.saveResult(privateResult);
-      await ai.expose(privateResult);
-      final exporter = OfflineContributionExporter(
-        store,
-        channel: channel,
-        temporaryDirectory: () async => directory,
-        reviewStore: ReviewStore(Directory('${directory.path}/export-reviews')),
-        exposureAudit: ai.researchAudit,
-      );
-      await exporter.exportToDownloads();
-      final withAudit = ZipDecoder().decodeBytes(exported!);
-      final auditText = utf8.decode(
-        withAudit.files
-                .singleWhere((f) => f.name.endsWith('/ai-exposure-audit.json'))
-                .content
-            as List<int>,
-      );
-      expect(
-        jsonDecode(auditText)['currentObservations'],
-        'potentiallyAiInfluenced',
-      );
-      for (final secret in [
-        'private-result',
-        'private-session',
-        'private-fortune-text',
-        'private-profile',
-      ]) {
-        expect(auditText, isNot(contains(secret)));
-      }
-      expect(
-        withAudit.files.any((f) => f.name.contains('state.json')),
-        isFalse,
-      );
-      await store.queueDelete(draft.rootId);
-      await expectLater(
-        exporter.exportToDownloads(),
-        throwsA(
-          isA<ExportFailure>().having(
-            (e) => e.code,
-            'code',
-            ExportFailureCode.noRecords,
-          ),
+      final reloaded = ContributionDraft.fromJson(
+        Map<String, dynamic>.from(
+          (await DraftStore(directory).receipts()).single['document'] as Map,
         ),
       );
+      expect(reloaded.toJson(), draft.toJson());
+      for (final photo in reloaded.photos) {
+        expect(
+          await service.readPhoto(draft.id, photo),
+          await store.file(photo.localName).readAsBytes(),
+        );
+      }
+      await store.queueDelete(draft.rootId);
+      expect(await store.pendingDeletes(), [draft.rootId]);
 
-      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-          .setMockMethodCallHandler(channel, null);
       await directory.delete(recursive: true);
     },
   );

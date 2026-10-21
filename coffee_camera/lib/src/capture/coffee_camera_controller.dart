@@ -138,6 +138,11 @@ class CoffeeCameraController extends ChangeNotifier {
   bool _saucerAnalysisActive = false;
   bool _stabilizedSaucerReady = false;
   bool _closed = false;
+  bool _currentCoffeeValid = false;
+  DateTime? _lastCupFrameAt;
+  Timer? _cupFrameExpiry;
+  Timer? _cupMaskExpiry;
+  static const _freshnessLimit = Duration(milliseconds: 750);
 
   CameraExperiencePhase get phase => _phase;
   CoffeeCaptureStep get currentStep => _currentStep;
@@ -179,8 +184,12 @@ class CoffeeCameraController extends ChangeNotifier {
       (kDebugMode || config.enableReleaseAutoCapture);
   bool get autoCaptureEnabled => _autoCapture.enabled;
   bool get coffeeDetected => isCupStep && _analysis.coffeeDetected;
-  bool get captureReady =>
-      isCupStep ? _assessment.autoCaptureReady : _stabilizedSaucerReady;
+  bool get captureReady => isCupStep
+      ? _phase == CameraExperiencePhase.live &&
+            _currentCoffeeValid &&
+            _analysis.coffeeDetected &&
+            _assessment.autoCaptureReady
+      : _stabilizedSaucerReady;
   bool get stabilizedSaucerReady => _stabilizedSaucerReady;
   int get displayQualityScore =>
       !isCupStep && !_stabilizedSaucerReady && _saucerAssessment.score == 100
@@ -272,10 +281,56 @@ class CoffeeCameraController extends ChangeNotifier {
     _notify();
   }
 
-  void _onAnalysis(FrameAnalysisResult result) {
+  void _onAnalysis(FrameAnalysisResult result, bool currentCoffeeValid) {
     if (!cupAnalysisActive) return;
+    final previous = _lastCupFrameAt;
+    if (previous != null && !result.timestamp.isAfter(previous)) return;
+    final age = DateTime.now().difference(result.timestamp);
+    if (age.isNegative || age >= _freshnessLimit) {
+      _expireCupFrame();
+      return;
+    }
+    _lastCupFrameAt = result.timestamp;
+    _currentCoffeeValid = currentCoffeeValid;
     _analysis = result;
-    _evaluate(result.timestamp);
+    _evaluate(result.timestamp, freshFrame: true);
+    if (!cupAnalysisActive) return;
+    _cupFrameExpiry?.cancel();
+    _cupFrameExpiry = Timer(_freshnessLimit - age, _expireCupFrame);
+    if (_currentCoffeeValid && _analysis.coffeeMask != null) {
+      _cupMaskExpiry?.cancel();
+      _cupMaskExpiry = Timer(_freshnessLimit - age, () {
+        if (_closed || !cupAnalysisActive) return;
+        _currentCoffeeValid = false;
+        _analysis = _analysis.copyWith(
+          coffeeDetected: false,
+          clearCoffeeMask: true,
+        );
+        _resetAutoCapture();
+        _evaluate(DateTime.now());
+      });
+    }
+  }
+
+  void _cancelCupFreshness() {
+    _cupFrameExpiry?.cancel();
+    _cupMaskExpiry?.cancel();
+    _cupFrameExpiry = null;
+    _cupMaskExpiry = null;
+    _currentCoffeeValid = false;
+    _lastCupFrameAt = null;
+  }
+
+  void _expireCupFrame() {
+    if (_closed || !cupAnalysisActive) return;
+    _cancelCupFreshness();
+    _analysis = FrameAnalysisResult.initial(
+      cupAnalysisAvailable: detector.isAvailable,
+    );
+    _assessment = QualityAssessment.unavailable();
+    _guidance = config.strings.bringCupToTarget;
+    _resetAutoCapture();
+    _notify();
   }
 
   void _onSaucerAnalysis(SaucerAnalysisResult result) {
@@ -284,7 +339,7 @@ class CoffeeCameraController extends ChangeNotifier {
     _evaluateSaucer();
   }
 
-  void _evaluate(DateTime now) {
+  void _evaluate(DateTime now, {bool freshFrame = false}) {
     if (_viewportSize.isEmpty) return;
     final effective = kDebugMode
         ? _debugSettings.apply(
@@ -294,20 +349,35 @@ class CoffeeCameraController extends ChangeNotifier {
           )
         : _analysis;
     _analysis = effective;
+    if (freshFrame && kDebugMode && _debugSettings.enabled) {
+      _currentCoffeeValid = effective.coffeeDetected;
+    }
     _assessment = _qualityChecker.assess(
       result: effective,
       viewportSize: _viewportSize,
       config: config,
     );
     _guidance = _guidanceEngine.message(
-      result: effective,
+      result: _currentCoffeeValid
+          ? effective
+          : effective.copyWith(coffeeDetected: false),
       assessment: _assessment,
       config: config,
     );
-    if (cupAnalysisActive && _phase == CameraExperiencePhase.live) {
+    if (freshFrame &&
+        cupAnalysisActive &&
+        _phase == CameraExperiencePhase.live) {
       _autoUpdate = _autoCapture.update(
-        ready: _assessment.autoCaptureReady && effective.coffeeDetected,
+        ready: captureReady,
         now: now,
+        hardFailure:
+            !_assessment.cupDetected ||
+            !_assessment.notClipped ||
+            !_assessment.lightEnough ||
+            !_assessment.sharpEnough ||
+            !_assessment.stable ||
+            !_currentCoffeeValid ||
+            !effective.coffeeDetected,
       );
       if (_autoUpdate.shouldCapture) {
         unawaited(capture(CameraCaptureMode.automatic));
@@ -340,6 +410,10 @@ class CoffeeCameraController extends ChangeNotifier {
     if (!canCapture || (!isCupStep && mode == CameraCaptureMode.automatic)) {
       return Future<void>.value();
     }
+    if (mode == CameraCaptureMode.automatic &&
+        (!_autoCapture.enabled || !captureReady)) {
+      return Future<void>.value();
+    }
     final operation = _performCapture(mode);
     _captureOperation = operation;
     return operation.whenComplete(() {
@@ -366,6 +440,7 @@ class CoffeeCameraController extends ChangeNotifier {
     final targetGeometry = step == CoffeeCaptureStep.saucer
         ? TargetGeometry.forSaucer(_viewportSize, config.saucerConfig)
         : null;
+    _cancelCupFreshness();
     _captureInFlight = true;
     _cupAnalysisActive = false;
     _saucerAnalysisActive = false;
@@ -572,6 +647,8 @@ class CoffeeCameraController extends ChangeNotifier {
 
   Future<void> _pause() async {
     if (_closed) return;
+    _clearTransientDetection();
+    _resetAutoCapture();
     _cupAnalysisActive = false;
     _saucerAnalysisActive = false;
     _coordinator.pause();
@@ -624,6 +701,7 @@ class CoffeeCameraController extends ChangeNotifier {
 
   void _setError(CameraFailure error) {
     if (_closed) return;
+    _clearTransientDetection();
     _cupAnalysisActive = false;
     _saucerAnalysisActive = false;
     _coordinator.pause();
@@ -638,6 +716,7 @@ class CoffeeCameraController extends ChangeNotifier {
   }
 
   void _clearTransientDetection() {
+    _cancelCupFreshness();
     _analysis = _analysis.copyWith(
       coffeeDetected: false,
       clearCoffeeMask: true,
@@ -658,6 +737,7 @@ class CoffeeCameraController extends ChangeNotifier {
   }
 
   void _resetCupAnalysisState() {
+    _cancelCupFreshness();
     _analysis = FrameAnalysisResult.initial(
       cupAnalysisAvailable: detector.isAvailable,
       timestamp: DateTime.now(),
@@ -735,6 +815,8 @@ class CoffeeCameraController extends ChangeNotifier {
   Future<void> _close() async {
     if (_closed) return;
     _closed = true;
+    _clearTransientDetection();
+    _resetAutoCapture();
     await _lifecycleTail;
     _cupAnalysisActive = false;
     _saucerAnalysisActive = false;

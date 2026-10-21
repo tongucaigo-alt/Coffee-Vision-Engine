@@ -32,6 +32,25 @@ void main() {
     expect(coffee.mask!.activeCellCount, greaterThanOrEqualTo(24));
   });
 
+  for (final brownLuminance in [90, 125]) {
+    test('detects warm brown grounds at luminance $brownLuminance', () async {
+      final frame = _syntheticFrame(
+        cup: true,
+        grounds: true,
+        groundLuminance: brownLuminance,
+      );
+      final cup = await detector.detect(frame);
+      expect(cup, isNotNull);
+      final coffee = await regionAnalyzer.analyze(
+        frame: frame,
+        cup: cup,
+        config: config,
+      );
+      expect(coffee.score, greaterThanOrEqualTo(config.minimumCoffeePresence));
+      expect(coffee.mask!.activeCellCount, greaterThanOrEqualTo(24));
+    });
+  }
+
   test('does not classify an empty light cup as grounds', () async {
     final frame = _syntheticFrame(cup: true, grounds: false);
     final cup = await detector.detect(frame);
@@ -108,6 +127,7 @@ AnalysisFrame _syntheticFrame({
   bool cup = false,
   bool grounds = false,
   bool striped = false,
+  int groundLuminance = 46,
   bool lowLight = false,
   Offset cupCenter = const Offset(180, 336),
 }) {
@@ -127,7 +147,7 @@ AnalysisFrame _syntheticFrame({
         final groundDistance =
             (Offset(x.toDouble(), y.toDouble()) - cupCenter.translate(0, 12))
                 .distance;
-        if (grounds && groundDistance <= 50) luminance = 46;
+        if (grounds && groundDistance <= 50) luminance = groundLuminance;
       }
       bytes[y * width + x] = luminance;
     }

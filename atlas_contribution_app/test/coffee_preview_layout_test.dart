@@ -6,6 +6,7 @@ import 'package:atlas_contribution_app/src/atlas_design.dart';
 import 'package:atlas_contribution_app/src/contribution_home.dart';
 import 'package:atlas_contribution_app/src/models.dart';
 import 'package:atlas_contribution_app/src/cropped_photo.dart';
+import 'package:atlas_contribution_app/src/coffee_controls.dart';
 import 'contribution_save_status_test.dart' show MemoryStore, PausedService;
 import 'photo_set_test.dart' show setDraft, setImage;
 import 'suitability_fixture.dart';
@@ -20,6 +21,7 @@ void main({
     for (final (name, asset) in [
       ('Literata', 'assets/brand/Literata.ttf'),
       ('Plus Jakarta Sans', 'assets/brand/PlusJakartaSans.ttf'),
+      ('MaterialIcons', 'fonts/MaterialIcons-Regular.otf'),
     ]) {
       await (FontLoader(name)..addFont(rootBundle.load(asset))).load();
     }
@@ -190,6 +192,32 @@ void main({
               expect(next.hitTestable(), findsOneWidget);
               expect(find.text('Tabaksız devam et'), findsNothing);
               expect(find.text('Tabak ekle').hitTestable(), findsOneWidget);
+              final saucerButton = find.widgetWithText(
+                TextButton,
+                'Tabak ekle',
+              );
+              expect(
+                tester
+                    .widget<TextButton>(saucerButton)
+                    .style!
+                    .backgroundColor!
+                    .resolve({}),
+                atlasCard,
+              );
+              expect(
+                tester
+                    .widget<TextButton>(saucerButton)
+                    .style!
+                    .side!
+                    .resolve({})!
+                    .color,
+                atlasSage,
+              );
+              expect(find.byType(CoffeeSaucerAddIcon), findsOneWidget);
+              expect(
+                tester.getSize(saucerButton).height,
+                greaterThanOrEqualTo(48),
+              );
               final frameKey = '$gallery-$count-$width';
               final measuredFrame = tester.getRect(
                 find.byKey(const ValueKey('coffee-photo-frame')),
@@ -286,7 +314,10 @@ void main({
                 );
                 expect(mode.bottom, lessThanOrEqualTo(previewFrame.top));
                 expect(mode.left, 56);
-                expect(mode.overlaps(tester.getRect(find.byType(BackButton))), false);
+                expect(
+                  mode.overlaps(tester.getRect(find.byType(BackButton))),
+                  false,
+                );
                 expect(
                   tester.getRect(find.text('Taşı')).top,
                   greaterThanOrEqualTo(

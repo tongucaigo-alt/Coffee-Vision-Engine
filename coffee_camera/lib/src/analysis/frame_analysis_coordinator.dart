@@ -29,11 +29,13 @@ class FrameAnalysisCoordinator {
   final DeviceMotionService motionService;
   final int Function() rotationDegrees;
   final bool Function() isMirrored;
-  final void Function(FrameAnalysisResult result) onResult;
+  final void Function(FrameAnalysisResult result, bool currentCoffeeValid)
+  onResult;
   final FrameMetricsAnalyzer metricsAnalyzer;
   final CoffeeRegionAnalyzer coffeeRegionAnalyzer;
   final CoffeeDetectionStabilizer _coffeeStabilizer;
 
+  int _generation = 0;
   bool _busy = false;
   bool _paused = false;
   DateTime? _lastStartedAt;
@@ -53,10 +55,14 @@ class FrameAnalysisCoordinator {
     }
     _lastStartedAt = now;
     _busy = true;
-    unawaited(_process(image, now));
+    unawaited(_process(image, now, _generation));
   }
 
-  Future<void> _process(CameraImage image, DateTime timestamp) async {
+  Future<void> _process(
+    CameraImage image,
+    DateTime timestamp,
+    int generation,
+  ) async {
     try {
       final frame = metricsAnalyzer.copyFrame(
         image,
@@ -80,7 +86,7 @@ class FrameAnalysisCoordinator {
         config: config,
       );
       final motion = motionService.snapshot;
-      if (_paused) return;
+      if (_paused || generation != _generation) return;
       final rawResult = FrameAnalysisResult(
         cupAnalysisAvailable: detector.isAvailable,
         cup: cup,
@@ -93,7 +99,10 @@ class FrameAnalysisCoordinator {
         isStable: motion.isAvailable && motion.isStable,
         timestamp: timestamp,
       );
-      onResult(_coffeeStabilizer.update(rawResult));
+      onResult(
+        _coffeeStabilizer.update(rawResult),
+        _coffeeStabilizer.isCurrentValid(rawResult),
+      );
     } on Object {
       // A bad frame is skipped; the live camera and next frame keep running.
     } finally {
@@ -102,6 +111,7 @@ class FrameAnalysisCoordinator {
   }
 
   void pause() {
+    _generation++;
     _paused = true;
     _coffeeStabilizer.reset();
   }

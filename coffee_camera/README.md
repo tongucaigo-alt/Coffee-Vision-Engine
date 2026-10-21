@@ -85,7 +85,11 @@ ekran yönünü portre olarak sınırlandırmalıdır.
 Debug derlemede üst çubuktaki hata ayıklama simgesi analiz panelini açar. “Test
 analizini kullan” etkinleştirildikten sonra fincan, merkez, boyut, ışık, netlik,
 sabitlik ve açı durumları elle değiştirilebilir. Bütün koşullar uygunsa otomatik
-çekim 1,2 saniyelik kesintisiz sabitlikten sonra çalışır.
+çekim yeni analiz karelerinde biriken 1,2 saniyelik uygunluk süresinden sonra çalışır.
+Tek bir kısa kadraj/açı uygunsuzluğu süreyi duraklatır; ikinci uygunsuzluk
+sıfırlar. Netlik, ışık, hareket veya güncel fincan/telve kaybı hemen sıfırlar.
+750 ms üzerindeki analiz boşluğundan veya yalnız arayüz güncellemesinden
+otomatik çekim üretilmez.
 
 Yerel açık renk fincan algılayıcısı varsayılan olarak kullanılır. Release
 derlemesinde otomatik çekim ayrıca etkinleştirilmedikçe kapalıdır; manuel çekim
@@ -127,11 +131,35 @@ Tabak adiminda ayri `SaucerDetector` ve ayri kalite esikleri kullanilir. Telve
 maskesi, isik noktalari ve tarama cizgisi yalniz fincan adiminda calisir. Tabakta
 otomatik fotograf cekimi yoktur; dusuk kalitede manuel cekim kullanilabilir.
 
-`coffeePresenceScore` 0 ile 1 arasindadir ve `coffeeDetected` sonucu uc ardisik
-basarili kareden sonra true olur. Iki basarisiz kare algilamayi kapatir. Bu ilk
+`coffeePresenceScore` 0 ile 1 arasindadir ve `coffeeDetected` sonucu varsayilan olarak uc ardisik
+basarili kareden sonra true olur. Iki basarisiz kare algilamayi kapatir.
+Atlas V84 uygulama ayari iki olumlu / uc olumsuz karedir. Son gecerli
+maske en fazla 750 ms tutulur; tutulan maske otomatik cekim izni degildir. Bu ilk
 surum beyaz/acik renk fincan ve koyu Turk kahvesi telvesi icin tasarlanmistir;
 koyu, seffaf veya yogun desenli fincanlar destek kapsami disindadir.
 
 Yerel fincan algilayici release derlemesinde de kalite ve efekt icin calisir,
 ancak otomatik cekim varsayilan olarak gizlidir. Uretimde otomatik cekim ancak
 `enableReleaseAutoCapture: true` ile acikca etkinlestirilir.
+
+## Atlas V84 kamera kontrolleri
+
+On kamera gecis dugmesi kaldirildi; mevcut arka kamera secimi korunur.
+Flas tek dokunusla kapali/surekli isik arasinda gecer; yeniden acilista
+kapalidir. Desteklenmeyen isik istegi kapaliya doner ve arayuz bilgi verir.
+Atlas uygulamasi sayisal kalite puanini gizler; olcumler ve manuel cekim
+korunur. Kadraj/crop/EXIF ve dosya sahipligi sozlesmeleri degismemistir.
+
+## İsteğe bağlı kamera sunumu
+
+`CoffeeCameraConfig.presentation` ile `CoffeeCameraPresentation` verilebilir.
+Görüntü sağlayıcısı, başlık, kısa adım etiketi ve açı açıklaması ana uygulamadan
+gelir; kamera paketi uygulamaya ait asset yollarını bilmez. Sunum verilmezse
+mevcut görünüm korunur. Sunum yalnız canlı kamera katmanıdır; sonuç modeli,
+fotoğraf, crop ve kayıt biçimini değiştirmez.
+
+Bu görünümde filigran hedef/kulp açıklıkları dışında statik olarak gösterilir,
+otomatik kontrol mevcut controller durumuna bağlıdır ve ışık ipucu yalnız
+iki saniye tarama görünmediğinde, ışık kapalıyken açılır. Debug kontrolü genel
+pakette kalır; markalı kullanıcı görünümünde gösterilmez. Dar ekran/büyük yazıda
+kontroller yeniden yerleşir ve açıklama alanı hedefi örtmeden kaydırılabilir.

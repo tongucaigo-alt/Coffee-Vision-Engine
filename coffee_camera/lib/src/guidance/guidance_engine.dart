@@ -32,6 +32,10 @@ class GuidanceEngine {
     if (!assessment.contained || !assessment.notClipped) {
       return strings.holdOverCup;
     }
-    return strings.readyHoldStill;
+    if (!assessment.stable) return strings.holdCameraStill;
+    if (!result.coffeeDetected) return 'Telve alanı inceleniyor';
+    return assessment.autoCaptureReady
+        ? strings.readyHoldStill
+        : strings.bringCupToTarget;
   }
 }

@@ -47,18 +47,45 @@ Map<String, Object> preparePhoto(Uint8List bytes) {
   };
 }
 
+enum ReceiptReadState { normal, recovered, missing, unreadable }
+
+class LocalStoreRecovery implements Exception {
+  const LocalStoreRecovery(this.message);
+  final String message;
+  @override
+  String toString() => message;
+}
+
+class ReceiptSnapshot {
+  const ReceiptSnapshot(this.rows, this.state, {this.existingData = false});
+  final List<Map<String, dynamic>> rows;
+  final ReceiptReadState state;
+  final bool existingData;
+  bool get writable =>
+      (state == ReceiptReadState.normal && !existingData) ||
+      (state == ReceiptReadState.missing && !existingData);
+  String get warning => state == ReceiptReadState.recovered
+      ? 'Kayıt listesi eski yedekten okunabildi ve eksik olabilir. Asıl dosya ve yedek korundu; kayıt değiştirme ve temizlik durduruldu.'
+      : 'Kayıt listesi güvenle okunamadı. Mevcut dosyalar korundu; kayıt değiştirme ve temizlik durduruldu.';
+}
+
 class DraftStore {
-  DraftStore(this.directory, {this.manualRetention = false});
+  DraftStore(this.directory, {this.manualRetention = false})
+    : _protectAiLinks = manualRetention;
+  bool _protectAiLinks;
+  void protectLinkedAiData() => _protectAiLinks = true;
   final bool manualRetention;
   final Directory directory;
+  String? readOnlyReason;
   Future<void> Function(String rootId)? onDeleteRoot;
   static final Map<String, Future<void>> _writes = {};
   Future<T> _mutate<T>(Future<T> Function() operation) {
     final normalized = path.normalize(directory.absolute.path);
     final key = Platform.isWindows ? normalized.toLowerCase() : normalized;
-    final next = (_writes[key] ?? Future<void>.value()).then(
-      (_) => operation(),
-    );
+    final next = (_writes[key] ?? Future<void>.value()).then((_) async {
+      await ensureWritable();
+      return operation();
+    });
     late final Future<void> tail;
     void clear() {
       if (identical(_writes[key], tail)) _writes.remove(key);
@@ -72,10 +99,6 @@ class DraftStore {
     return next;
   }
 
-  /// Export commits use the same queue as withdrawal and receipt changes.
-  Future<T> withExportRead<T>(Future<T> Function() operation) =>
-      _mutate(operation);
-
   File file(String name) {
     if (!RegExp(r'^[a-zA-Z0-9_-]+\.(jpg|json|bak|pending)$').hasMatch(name)) {
       throw ArgumentError('Invalid private filename');
@@ -85,6 +108,7 @@ class DraftStore {
 
   Future<void> initialize() => directory.create(recursive: true);
   Future<void> _atomic(String name, Object data) async {
+    if (name == 'receipts.json') await ensureWritable();
     final target = file(name);
     final temporary = file(name.replaceAll('.json', '.pending'));
     final backup = file(name.replaceAll('.json', '.bak'));
@@ -160,6 +184,7 @@ class DraftStore {
       _mutate(() => _atomic('gallery.json', operation ?? {'draft': null}));
 
   Future<ContributionPhoto> importGallery(Uint8List input) async {
+    await ensureWritable();
     final data = await compute(preparePhoto, input);
     final name = '${const Uuid().v4()}.jpg';
     final bytes = data['bytes']! as Uint8List;
@@ -197,9 +222,12 @@ class DraftStore {
   });
 
   Future<List<Map<String, dynamic>>> receipts() async {
-    final data = await _read('receipts.json');
-    return (data?['rows'] as List? ?? [])
-        .map((r) => Map<String, dynamic>.from(r as Map))
+    final snapshot = await receiptSnapshot();
+    if (snapshot.state == ReceiptReadState.unreadable ||
+        (snapshot.state == ReceiptReadState.missing && snapshot.existingData)) {
+      throw LocalStoreRecovery(snapshot.warning);
+    }
+    return snapshot.rows
         .where(
           (r) =>
               (r['local_only'] == true) ||
@@ -211,6 +239,101 @@ class DraftStore {
         .toList();
   }
 
+  /// Recovery is visible to callers; a backup is never an authoritative deletion list.
+  Future<ReceiptSnapshot> receiptSnapshot() async {
+    var found = false;
+    for (final name in ['receipts.json', 'receipts.bak']) {
+      final target = file(name);
+      if (!await target.exists()) continue;
+      found = true;
+      try {
+        final value = jsonDecode(await target.readAsString());
+        if (value is! Map ||
+            value['rows'] is! List ||
+            !(value['rows'] as List).every((r) => r is Map)) {
+          throw const FormatException('Invalid receipts');
+        }
+        final rows = List<Map<String, dynamic>>.unmodifiable(
+          (value['rows'] as List).map(
+            (r) => Map<String, dynamic>.from(r as Map),
+          ),
+        );
+        return ReceiptSnapshot(
+          rows,
+          name == 'receipts.json'
+              ? ReceiptReadState.normal
+              : ReceiptReadState.recovered,
+          existingData:
+              name == 'receipts.json' && await _hasMissingLinkedRows(rows),
+        );
+      } on FormatException {
+        continue;
+      } on FileSystemException {
+        continue;
+      }
+    }
+    return ReceiptSnapshot(
+      const [],
+      found ? ReceiptReadState.unreadable : ReceiptReadState.missing,
+      existingData: await _hasReceiptEvidence(),
+    );
+  }
+
+  Future<bool> _hasReceiptEvidence() async {
+    if (await file('receipts.pending').exists()) return true;
+    if (!_protectAiLinks) return false;
+    final reviews = Directory(path.join(directory.parent.path, 'mvp-reviews'));
+    if (await reviews.exists()) {
+      await for (final entry in reviews.list(followLinks: false)) {
+        if (path.basename(entry.path).startsWith('review-linked-')) return true;
+      }
+    }
+    final state = File(
+      path.join(directory.parent.path, 'ai-local', 'state.json'),
+    );
+    if (!await state.exists()) return false;
+    try {
+      final value = jsonDecode(await state.readAsString());
+      return value is! Map ||
+          value['links'] is! Map ||
+          (value['links'] as Map).isNotEmpty;
+    } on FormatException {
+      return true;
+    } on FileSystemException {
+      return true;
+    }
+  }
+
+  Future<bool> _hasMissingLinkedRows(List<Map<String, dynamic>> rows) async {
+    if (!_protectAiLinks) return false;
+    final state = File(
+      path.join(directory.parent.path, 'ai-local', 'state.json'),
+    );
+    if (!await state.exists()) return false;
+    try {
+      final data = jsonDecode(await state.readAsString()) as Map;
+      final links = data['links'] as Map;
+      final deleted = data['deleted'] as List;
+      final pending = await pendingDeletes();
+      final roots = rows.map((r) => r['root_id']).toSet();
+      return links.keys.any(
+        (root) =>
+            !roots.contains(root) &&
+            !pending.contains(root) &&
+            !deleted.contains('linked-$root'),
+      );
+    } catch (_) {
+      // An unverifiable AI registry cannot authorize media cleanup either.
+      return true;
+    }
+  }
+
+  Future<void> ensureWritable() async {
+    if (readOnlyReason != null) throw LocalStoreRecovery(readOnlyReason!);
+    final snapshot = await receiptSnapshot();
+    if (!snapshot.writable) throw LocalStoreRecovery(snapshot.warning);
+  }
+
   Future<List<String>> pendingDeletes() async =>
       ((await _read('deletions.json'))?['ids'] as List? ?? []).cast<String>();
   Future<void> queueDelete(String rootId) => _mutate(() async {
@@ -219,6 +342,11 @@ class DraftStore {
   });
 
   Future<void> acknowledgeDelete(String rootId) => _mutate(() async {
+    if (!(await pendingDeletes()).contains(rootId)) {
+      throw const LocalStoreRecovery(
+        'Açık silme isteği bulunamadı. Kayıt korundu.',
+      );
+    }
     await onDeleteRoot?.call(rootId);
     final rows = (await receipts())
         .where((r) => r['root_id'] != rootId)
@@ -234,6 +362,7 @@ class DraftStore {
     CameraCaptureResult capture, {
     bool preserveDisplayCrop = false,
   }) async {
+    await ensureWritable();
     final source = await File(capture.filePath).readAsBytes();
     final data = await compute(preparePhoto, source);
     final crop = preserveDisplayCrop
@@ -263,6 +392,7 @@ class DraftStore {
   Future<void> removeUnreferencedPhotos(
     Iterable<ContributionDraft> live,
   ) async {
+    await ensureWritable();
     final keep = live.expand((d) => d.photos).map((p) => p.localName).toSet();
     await for (final entity in directory.list(followLinks: false)) {
       if (entity is File &&
@@ -274,6 +404,7 @@ class DraftStore {
   }
 
   Future<void> collectOrphans() async {
+    await ensureWritable();
     final live = <ContributionDraft>[];
     for (final name in ['draft.json', 'draft.bak']) {
       final f = file(name);

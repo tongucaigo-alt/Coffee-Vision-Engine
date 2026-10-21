@@ -130,17 +130,19 @@ class PluginCameraService implements CameraService {
 
   @override
   Future<void> cycleFlashMode() async {
-    final next = switch (_flashMode) {
-      FlashMode.off => FlashMode.auto,
-      FlashMode.auto => FlashMode.torch,
-      _ => FlashMode.off,
-    };
+    final next = _flashMode == FlashMode.torch
+        ? FlashMode.off
+        : FlashMode.torch;
     try {
       await _controller?.setFlashMode(next);
       _flashMode = next;
     } on CameraException {
-      await _controller?.setFlashMode(FlashMode.off);
       _flashMode = FlashMode.off;
+      try {
+        await _controller?.setFlashMode(FlashMode.off);
+      } on CameraException {
+        // The controller may have closed during the torch request.
+      }
     }
   }
 

@@ -11,21 +11,34 @@ class CoffeeDetectionStabilizer {
   bool _active = false;
   CoffeeRegionMask? _lastMask;
 
-  FrameAnalysisResult update(FrameAnalysisResult result) {
+  DateTime? _lastValidAt;
+  static const maskLifetime = Duration(milliseconds: 750);
+
+  bool isCurrentValid(FrameAnalysisResult result) {
     final mask = result.coffeeMask;
-    final valid =
-        result.cup != null &&
+    return result.cup != null &&
         result.cup!.confidence >= config.minimumCupConfidence &&
         result.coffeePresenceScore >= config.minimumCoffeePresence &&
         mask != null &&
         mask.coverage >= config.minimumGroundCoverage &&
         mask.coverage <= config.maximumGroundCoverage &&
         mask.activeCellCount >= 24;
+  }
+
+  FrameAnalysisResult update(FrameAnalysisResult result) {
+    final lastValid = _lastValidAt;
+    if (lastValid != null &&
+        result.timestamp.difference(lastValid) >= maskLifetime) {
+      reset();
+    }
+    final mask = result.coffeeMask;
+    final valid = isCurrentValid(result);
 
     if (valid) {
       _failureCount = 0;
       _successCount++;
       _lastMask = mask;
+      _lastValidAt = result.timestamp;
       if (_successCount >= config.coffeeActivationFrames) _active = true;
     } else {
       _successCount = 0;
@@ -47,5 +60,6 @@ class CoffeeDetectionStabilizer {
     _failureCount = 0;
     _active = false;
     _lastMask = null;
+    _lastValidAt = null;
   }
 }

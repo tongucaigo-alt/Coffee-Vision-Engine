@@ -43,12 +43,7 @@ void main() {
         expect(service.pauseCalls, 0);
         expect(service.disposals, 0);
         gate.complete();
-        await Future.wait([
-          opening,
-          pausing,
-          resuming,
-          ?closing,
-        ]);
+        await Future.wait([opening, pausing, resuming, ?closing]);
         if (closeDuringInitialization) {
           expect(service.disposals, 1);
           expect(service.isInitialized, isFalse);
@@ -210,7 +205,8 @@ void main() {
     final controller = CoffeeCameraController(
       config: const CoffeeCameraConfig(
         requireSaucerCapture: true,
-        autoCaptureStableDuration: Duration(milliseconds: 1),
+        autoCaptureStableDuration: Duration(milliseconds: 10),
+        analysisInterval: Duration.zero,
       ),
       cameraService: service,
       motionService: _FakeMotionService(),
@@ -231,8 +227,17 @@ void main() {
     controller.setDebugSettings(ready);
     expect(controller.assessment.autoCaptureReady, isTrue);
     expect(controller.coffeeDetected, isTrue);
-    await Future<void>.delayed(const Duration(milliseconds: 5));
+    await Future<void>.delayed(const Duration(milliseconds: 20));
     controller.setDebugSettings(ready);
+    expect(
+      service.takePictureCalls,
+      0,
+      reason: 'UI/debug changes are not fresh camera frames',
+    );
+    service.emitFrame(_cameraImage());
+    await _waitForCondition(() => controller.captureReady);
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+    service.emitFrame(_cameraImage());
     await _waitForPhase(controller, CameraExperiencePhase.reviewing);
 
     expect(service.takePictureCalls, 1);
@@ -246,6 +251,111 @@ void main() {
     await Future<void>.delayed(const Duration(milliseconds: 5));
     expect(service.takePictureCalls, 1);
     await controller.close();
+  });
+
+  for (final failure in ['motion', 'blur', 'dark', 'no cup']) {
+    test('fresh $failure frame resets automatic accumulation', () async {
+      final service = _FakeCameraService(capturePath: 'unused');
+      final controller = CoffeeCameraController(
+        config: const CoffeeCameraConfig(analysisInterval: Duration.zero),
+        cameraService: service,
+        motionService: _FakeMotionService(),
+      );
+      await controller.initialize();
+      controller.setViewportSize(const Size(360, 800));
+      const ready = DebugAnalysisSettings(
+        enabled: true,
+        cupDetected: true,
+        centered: true,
+        rightSize: true,
+        lightEnough: true,
+        sharp: true,
+        stable: true,
+        angleOk: true,
+      );
+      controller.setDebugSettings(ready);
+      service.emitFrame(_cameraImage());
+      await _waitForCondition(() => controller.captureReady);
+      await Future<void>.delayed(const Duration(milliseconds: 30));
+      service.emitFrame(_cameraImage());
+      await _waitForCondition(() => controller.autoUpdate.progress > 0);
+      controller.setDebugSettings(
+        ready.copyWith(
+          stable: failure != 'motion',
+          sharp: failure != 'blur',
+          lightEnough: failure != 'dark',
+          cupDetected: failure != 'no cup',
+        ),
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 5));
+      service.emitFrame(_cameraImage());
+      await _waitForCondition(() => controller.autoUpdate.progress == 0);
+      expect(controller.captureReady, false);
+      expect(service.takePictureCalls, 0);
+      await controller.close();
+    });
+  }
+
+  test(
+    'freshness expiry clears mask and readiness without another frame',
+    () async {
+      final service = _FakeCameraService(capturePath: 'unused');
+      final controller = CoffeeCameraController(
+        config: const CoffeeCameraConfig(
+          initialAutoCaptureEnabled: false,
+          analysisInterval: Duration.zero,
+        ),
+        cameraService: service,
+        motionService: _FakeMotionService(),
+      );
+      await controller.initialize();
+      controller.setViewportSize(const Size(360, 800));
+      controller.setDebugSettings(
+        const DebugAnalysisSettings(
+          enabled: true,
+          cupDetected: true,
+          centered: true,
+          rightSize: true,
+          lightEnough: true,
+          sharp: true,
+          stable: true,
+          angleOk: true,
+        ),
+      );
+      service.emitFrame(_cameraImage());
+      await _waitForCondition(() => controller.captureReady);
+      expect(controller.coffeeMask, isNotNull);
+      await Future<void>.delayed(const Duration(milliseconds: 800));
+      expect(controller.coffeeMask, isNull);
+      expect(controller.coffeeDetected, false);
+      expect(controller.captureReady, false);
+      expect(service.takePictureCalls, 0);
+      await controller.capture(CameraCaptureMode.automatic);
+      expect(service.takePictureCalls, 0);
+      await controller.close();
+    },
+  );
+
+  test('pause and close remove transient debug mask and readiness', () async {
+    final service = _FakeCameraService(capturePath: 'unused');
+    final controller = CoffeeCameraController(
+      config: const CoffeeCameraConfig(initialAutoCaptureEnabled: false),
+      cameraService: service,
+      motionService: _FakeMotionService(),
+    );
+    await controller.initialize();
+    controller.setViewportSize(const Size(360, 800));
+    controller.setDebugSettings(
+      const DebugAnalysisSettings(enabled: true, cupDetected: true),
+    );
+    await controller.pause();
+    expect(controller.coffeeMask, isNull);
+    expect(controller.coffeeDetected, false);
+    expect(controller.captureReady, false);
+    await controller.resume();
+    expect(controller.coffeeMask, isNull);
+    await controller.close();
+    expect(controller.coffeeMask, isNull);
   });
 
   test('saucer residue state stays independent and retake clears it', () async {

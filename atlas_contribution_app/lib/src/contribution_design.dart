@@ -313,24 +313,6 @@ extension _AtlasHomePresentation on _ContributionHomeState {
     }
   }
 
-  Future<void> _atlasExport() async {
-    if (_atlasBusy) return;
-    _change(() => _busy = true);
-    try {
-      await widget.onExport?.call();
-    } catch (error) {
-      if (mounted) {
-        await showResearchExportFailure(
-          context,
-          error,
-          openPermissions: widget.onReview,
-        );
-      }
-    } finally {
-      _change(() => _busy = false);
-    }
-  }
-
   Future<void> _atlasEdit(Map<String, dynamic> row) async {
     if (_draft != null) return;
     final old = ContributionDraft.fromJson(
@@ -420,7 +402,7 @@ extension _AtlasHomePresentation on _ContributionHomeState {
             automaticallyImplyLeading: false,
             toolbarHeight: inFlow
                 ? CoffeePhotoLayout.toolbarHeight
-                : _tab == 0
+                : _tab == 0 || (_hasTarot && _tab == 1)
                 ? 72
                 : null,
             flexibleSpace: inFlow ? _coffeeAngleHeader() : null,
@@ -438,7 +420,7 @@ extension _AtlasHomePresentation on _ContributionHomeState {
                     'Fotoğraflarına Bak',
                     style: TextStyle(fontFamily: 'Literata', fontSize: 18),
                   )
-                : _tab == 0
+                : _tab == 0 || (_hasTarot && _tab == 1)
                 ? Row(
                     children: [
                       const AtlasBrand(size: 32, showName: false),
@@ -457,7 +439,7 @@ extension _AtlasHomePresentation on _ContributionHomeState {
                                   ),
                             ),
                             Text(
-                              'Kahve Ritüeli',
+                              _tab == 0 ? 'Kahve Ritüeli' : 'Tarot',
                               style: Theme.of(context).textTheme.bodySmall
                                   ?.copyWith(
                                     fontSize: 10,
@@ -476,7 +458,7 @@ extension _AtlasHomePresentation on _ContributionHomeState {
                         ? 'Kayıtlarım'
                         : 'Ayarlar',
                   ),
-            actions: !inFlow && _tab == 0
+            actions: !inFlow && (_tab == 0 || (_hasTarot && _tab == 1))
                 ? [
                     Padding(
                       padding: const EdgeInsets.only(right: 16),
@@ -562,7 +544,6 @@ extension _AtlasHomePresentation on _ContributionHomeState {
                             ),
                           ],
                         ),
-                        if (_tab == 0) _atlasLandingFooter(),
                       ],
                     ),
                   ),
@@ -574,26 +555,7 @@ extension _AtlasHomePresentation on _ContributionHomeState {
               : _hasTarot && _tab == 1
               ? widget.tarotPage!
               : _tab == _historyTab
-              ? ContributionHistory(
-                  key: ValueKey(_draft?.id),
-                  store: widget.store,
-                  service: widget.service,
-                  canStart: _draft == null,
-                  modern: true,
-                  embedded: true,
-                  currentDraft: _draft,
-                  recordState: widget.recordState,
-                  recordStarred: widget.recordStarred,
-                  onContinue: _startAtlas,
-                  onReadFortune: widget.onReadFortune,
-                  onEdit: _atlasEdit,
-                  onRepeat: (group) async {
-                    Navigator.popUntil(context, (route) => route.isFirst);
-                    await _new(groupId: group);
-                    if (mounted) _change(() => _tab = 0);
-                    await _startAtlas();
-                  },
-                )
+              ? _atlasRecords()
               : _tab == _settingsTab
               ? _atlasSettings()
               : _atlasLanding(),
@@ -602,111 +564,106 @@ extension _AtlasHomePresentation on _ContributionHomeState {
     );
   }
 
-  Widget _atlasLanding() => SafeArea(
-    bottom: false,
-    child: LayoutBuilder(
-      builder: (context, constraints) {
-        final short = constraints.maxHeight < 390;
-        final compact =
-            short || MediaQuery.textScalerOf(context).scale(16) > 22;
-        return Padding(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 460),
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  const IgnorePointer(
-                    child: CustomPaint(
-                      key: ValueKey('atlas-home-frame'),
-                      painter: _AtlasOrnamentalFramePainter(),
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
-                    child: Column(
-                      children: [
-                        if (_error != null) AtlasNotice(_error!),
-                        const Spacer(),
-                        if (short)
-                          const AtlasBrand(size: 40, showName: false)
-                        else
-                          _atlasLandingHero(compact),
-                        const SizedBox(height: 8),
-                        const Text(
-                          'Fincanını Keşfet',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontFamily: 'Literata',
-                            fontSize: 20,
-                            height: 1.2,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        if (!short)
-                          Text(
-                            widget.onReadFortune == null
-                                ? 'Fincanının fotoğrafını çek, gözlemlerini keşfet.'
-                                : constraints.maxHeight < 500
-                                ? 'Fotoğrafını çek, birlikte okuyalım.'
-                                : 'Fincanının fotoğrafını çek, kahvenin hikâyesini birlikte okuyalım.',
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(
-                              fontSize: 13,
-                              height: 1.4,
-                              color: atlasMuted,
-                            ),
-                          ),
-                        const Spacer(),
-                        if (short)
-                          Row(
-                            children: [
-                              Expanded(child: _atlasLandingGalleryButton()),
-                              const SizedBox(width: 8),
-                              Expanded(child: _atlasLandingScanButton(true)),
-                            ],
-                          )
-                        else ...[
-                          _atlasLandingGalleryButton(),
-                          const SizedBox(height: 8),
-                          _atlasLandingScanButton(compact),
-                        ],
-                      ],
-                    ),
-                  ),
-                  if (_draft != null && !_draft!.queued)
-                    Positioned(
-                      top: 8,
-                      right: 8,
-                      child: IconButton(
-                        key: const ValueKey('coffee-resume'),
-                        tooltip: 'Kaldığın Yerden Devam Et',
-                        onPressed: _atlasBusy ? null : _startAtlas,
-                        style: IconButton.styleFrom(
-                          backgroundColor: Colors.transparent,
-                          foregroundColor: atlasCoffee,
-                          minimumSize: const Size(48, 48),
-                        ),
-                        icon: Container(
-                          width: 32,
-                          height: 32,
-                          decoration: const BoxDecoration(
-                            color: atlasCard,
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(Icons.play_arrow_rounded, size: 22),
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ),
-        );
+  Widget _atlasRecords() {
+    final coffee = ContributionHistory(
+      key: ValueKey(_draft?.id),
+      store: widget.store,
+      service: widget.service,
+      canStart: _draft == null,
+      modern: true,
+      embedded: true,
+      currentDraft: _draft,
+      recordState: widget.recordState,
+      recordStarred: widget.recordStarred,
+      onContinue: _startAtlas,
+      onReadFortune: widget.onReadFortune,
+      onGenerateFortune: widget.onGenerateFortune,
+      onEdit: _atlasEdit,
+      onRepeat: (group) async {
+        Navigator.popUntil(context, (route) => route.isFirst);
+        await _new(groupId: group);
+        if (mounted) _change(() => _tab = 0);
+        await _startAtlas();
       },
+    );
+    if (widget.tarotHistoryPage == null) return coffee;
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+          child: SegmentedButton<int>(
+            segments: const [
+              ButtonSegment(value: 0, label: Text('Kahve')),
+              ButtonSegment(value: 1, label: Text('Tarot')),
+            ],
+            selected: {_recordsSection},
+            onSelectionChanged: (value) =>
+                _change(() => _recordsSection = value.single),
+          ),
+        ),
+        Expanded(
+          child: IndexedStack(
+            index: _recordsSection,
+            children: [coffee, widget.tarotHistoryPage!],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _atlasLanding() => AtlasLandingLayout(
+    frame: const CustomPaint(
+      key: ValueKey('atlas-home-frame'),
+      painter: _AtlasOrnamentalFramePainter(),
     ),
+    content: Column(
+      children: [
+        if (_error != null) AtlasNotice(_error!),
+        _atlasLandingHero(false),
+        const SizedBox(height: 8),
+        const Text(
+          'Fincanını Keşfet',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontFamily: 'Literata',
+            fontSize: 20,
+            height: 1.2,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          widget.onReadFortune == null
+              ? 'Fincanının fotoğrafını çek, gözlemlerini keşfet.'
+              : 'Fincanının fotoğrafını çek, kahvenin hikâyesini birlikte okuyalım.',
+          textAlign: TextAlign.center,
+          style: const TextStyle(fontSize: 13, height: 1.4, color: atlasMuted),
+        ),
+      ],
+    ),
+    secondary: _atlasLandingGalleryButton(),
+    primary: _atlasLandingScanButton(false),
+    resume: _draft != null && !_draft!.queued
+        ? IconButton(
+            key: const ValueKey('coffee-resume'),
+            tooltip: 'Kaldığın Yerden Devam Et',
+            onPressed: _atlasBusy ? null : _startAtlas,
+            style: IconButton.styleFrom(
+              backgroundColor: Colors.transparent,
+              foregroundColor: atlasCoffee,
+              minimumSize: const Size(48, 48),
+            ),
+            icon: Container(
+              width: 32,
+              height: 32,
+              decoration: const BoxDecoration(
+                color: atlasCard,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.play_arrow_rounded, size: 22),
+            ),
+          )
+        : null,
   );
 
   Future<void> _atlasPlaceholderInfo(String label) => showDialog<void>(
@@ -731,22 +688,6 @@ extension _AtlasHomePresentation on _ContributionHomeState {
     ),
   );
 
-  Widget _atlasLandingFooter() => SafeArea(
-    top: false,
-    bottom: false,
-    child: Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      // Explain unavailable destinations without inventing pages or services.
-      child: Row(
-        key: const ValueKey('atlas-home-footer'),
-        children: [
-          Expanded(child: _atlasLandingPlaceholder('Gizlilik Politikası')),
-          Expanded(child: _atlasLandingPlaceholder('İçerik Bildir')),
-          Expanded(child: _atlasLandingPlaceholder('Destek')),
-        ],
-      ),
-    ),
-  );
   Widget _atlasLandingHero(bool compact) {
     final emblem = SizedBox(
       width: compact ? 56 : 136,
@@ -805,41 +746,12 @@ extension _AtlasHomePresentation on _ContributionHomeState {
     width: double.infinity,
     child: AtlasPrimaryButton.icon(
       onPressed: _atlasBusy || _error != null ? null : _startNewCamera,
-      style: FilledButton.styleFrom(
-        textStyle: const TextStyle(
-          fontFamily: 'Plus Jakarta Sans',
-          fontSize: 14,
-          fontWeight: FontWeight.w700,
-        ),
-        minimumSize: Size(48, compact ? 48 : 56),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        backgroundColor: atlasCoffee,
-        foregroundColor: atlasCard,
-        elevation: 2,
-        shadowColor: atlasCoffee.withValues(alpha: .2),
-        side: BorderSide.none,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      ),
+      style: AtlasLandingLayout.primaryStyle(),
       icon: const Icon(Icons.camera_alt, size: 20, color: atlasCard),
       label: const Text('Fincanını Tara', textAlign: TextAlign.center),
     ),
   );
 
-  Widget _atlasLandingPlaceholder(String label) => TextButton(
-    onPressed: () => _atlasPlaceholderInfo(label),
-    style: TextButton.styleFrom(
-      minimumSize: const Size(48, 48),
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-      foregroundColor: atlasMuted,
-      disabledForegroundColor: atlasMuted,
-      shape: const StadiumBorder(),
-      textStyle: const TextStyle(
-        fontFamily: 'Plus Jakarta Sans',
-        fontSize: 10.5,
-      ),
-    ),
-    child: Text(label, textAlign: TextAlign.center),
-  );
   Widget _atlasSettings() => PageBody(
     children: [
       const Text(
@@ -848,7 +760,7 @@ extension _AtlasHomePresentation on _ContributionHomeState {
       ),
       const SizedBox(height: 20),
       const AtlasNotice(
-        'Fotoğrafların ve gözlemlerin bu telefonda saklanır. Fal hizmetine yalnız metinsel özet gönderilir. Araştırma paylaşımını kayıt bazında sen yönetirsin. Yıldızsız kayıtlar da otomatik silinmez.',
+        'Fotoğrafların ve gözlemlerin bu telefonda saklanır. Fal hizmetine yalnız metinsel özet gönderilir. Yıldızsız kayıtlar da otomatik silinmez.',
       ),
       const SizedBox(height: 20),
       if (widget.onOpenGuide != null) ...[
@@ -877,15 +789,22 @@ extension _AtlasHomePresentation on _ContributionHomeState {
         ),
         const SizedBox(height: 8),
       ],
-      if (widget.onExport != null) ...[
+      const SizedBox(height: 20),
+      const Text(
+        'Gizlilik ve Destek',
+        style: TextStyle(fontFamily: 'Literata', fontSize: 18),
+      ),
+      const SizedBox(height: 8),
+      for (final item in [
+        (Icons.privacy_tip_outlined, 'Gizlilik Politikası'),
+        (Icons.flag_outlined, 'İçerik Bildir'),
+        (Icons.help_outline, 'Destek'),
+      ])
         _atlasSettingsItem(
-          onPressed: _atlasBusy ? null : _atlasExport,
-          icon: Icons.file_download_outlined,
-          label: 'Araştırma Paketini Dışa Aktar',
-          description:
-              'Çekim ve galeri kayıtlarının izinli fotoğrafları ile işaretlerini ZIP olarak kaydeder.',
+          icon: item.$1,
+          label: item.$2,
+          onPressed: () => _atlasPlaceholderInfo(item.$2),
         ),
-      ],
       if (_busy) const LinearProgressIndicator(),
     ],
   );
@@ -1188,6 +1107,7 @@ extension _AtlasHistoryPresentation on _ContributionHistoryState {
                       onEdit: widget.onEdit,
                       onRepeat: widget.onRepeat,
                       onReadFortune: widget.onReadFortune,
+                      onGenerateFortune: widget.onGenerateFortune,
                       modern: true,
                       onlyRoot: row['root_id'] as String,
                       recordState: widget.recordState,

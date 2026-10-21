@@ -57,7 +57,8 @@ extension _PhotoSetFlow on _ContributionHomeState {
     _change(() => _busy = true);
     try {
       final capture =
-          await (widget.saucerLauncher ?? (ctx) => showSaucerCamera(ctx))(
+          await (widget.saucerLauncher ??
+              (ctx) => showSaucerCamera(ctx, config: cameraConfigForSaucer()))(
             context,
           );
       if (capture == null) return;
@@ -522,6 +523,8 @@ extension _PhotoSetFlow on _ContributionHomeState {
             'Tabak ekle',
             disabled ? null : _chooseSaucer,
             icon: Icons.add_circle_outline,
+            iconWidget: const CoffeeSaucerAddIcon(),
+            emphasized: true,
             tooltip: 'Tabak fotoğrafı ekle',
           ),
         CoffeeAction(

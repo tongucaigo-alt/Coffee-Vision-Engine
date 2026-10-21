@@ -513,7 +513,15 @@ void main() {
             );
             if (entry.key == 'home') {
               final action = find.byKey(const ValueKey('tarot-start-three'));
-              expect(tester.getSize(action).width, closeTo(size.width - 64, 1));
+              expect(
+                tester.getSize(action).width,
+                closeTo(
+                  scale == 1
+                      ? (size.width - 64).clamp(0, 280)
+                      : size.width - 64,
+                  1,
+                ),
+              );
               expect(tester.getSize(action).height, greaterThanOrEqualTo(48));
             }
             if (entry.key == 'reading') {

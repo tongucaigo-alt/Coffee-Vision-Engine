@@ -2,10 +2,8 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:ui' as ui;
 
-import 'package:archive/archive.dart';
 import 'package:atlas_contribution_app/src/local_store.dart';
 import 'package:atlas_contribution_app/src/models.dart';
-import 'package:atlas_contribution_app/src/mvp/review_store.dart';
 import 'package:atlas_contribution_app/src/offline_contribution.dart';
 import 'package:atlas_contribution_app/src/photo_crop.dart';
 import 'package:coffee_camera/coffee_camera.dart';
@@ -269,7 +267,7 @@ void main() {
     );
 
     test(
-      'offline free triple survives cleanup and exports canonical images',
+      'offline free triple survives cleanup with canonical images and crops',
       () async {
         final photos = <ContributionPhoto>[];
         for (final role in freeCaptureRoles) {
@@ -296,57 +294,13 @@ void main() {
           ).kind,
           ContributionKind.freeThreeAngle,
         );
-        const channel = MethodChannel('test.atlas/free-crop-export');
-        Uint8List? exported;
-        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-            .setMockMethodCallHandler(channel, (call) async {
-              exported = await File(
-                (call.arguments as Map)['sourcePath'] as String,
-              ).readAsBytes();
-              return 'content://downloads/free-crop-export';
-            });
-        addTearDown(
-          () => TestDefaultBinaryMessengerBinding
-              .instance
-              .defaultBinaryMessenger
-              .setMockMethodCallHandler(channel, null),
-        );
-        final result = await OfflineContributionExporter(
-          store,
-          channel: channel,
-          temporaryDirectory: () async => directory,
-          reviewStore: ReviewStore(
-            Directory('${directory.path}/export-reviews'),
-          ),
-        ).exportToDownloads();
-        expect(result.recordCount, 1);
-        final archive = ZipDecoder().decodeBytes(exported!);
-        final record =
-            jsonDecode(
-                  utf8.decode(
-                    archive.files
-                            .singleWhere(
-                              (f) =>
-                                  f.name == 'records/${draft.id}/record.json',
-                            )
-                            .content
-                        as List<int>,
-                  ),
-                )
-                as Map;
+        final record = (await DraftStore(directory).receipts()).single;
         expect(record['document']['kind'], 'freeThreeAngle');
         expect(record['document']['recordVersion'], 3);
         for (final p in photos) {
-          final bytes =
-              archive.files
-                      .singleWhere(
-                        (f) =>
-                            f.name == 'records/${draft.id}/${p.role!.name}.jpg',
-                      )
-                      .content
-                  as List<int>;
+          final bytes = await store.file(p.localName).readAsBytes();
           expect('sha256:${sha256.convert(bytes)}', p.checksum);
-          expect(await store.file(p.localName).exists(), true);
+          expect(bytes.length, p.byteLength);
         }
         expect(
           (record['document']['photos'] as List).every(

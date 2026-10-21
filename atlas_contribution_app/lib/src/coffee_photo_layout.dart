@@ -192,13 +192,20 @@ class CoffeeActionStrip extends StatelessWidget {
             minimumSize: const Size(48, 48),
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             foregroundColor: atlasSageInk,
+            backgroundColor: a.emphasized ? atlasCard : null,
+            side: a.emphasized ? const BorderSide(color: atlasSage) : null,
+            shape: a.emphasized
+                ? RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  )
+                : null,
             textStyle: textStyle,
           ),
           child: above && a.icon != null
               ? Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(a.icon, size: 16),
+                    a.iconWidget ?? Icon(a.icon, size: 16),
                     const SizedBox(height: 4),
                     Text(a.label, softWrap: false),
                   ],
@@ -207,7 +214,7 @@ class CoffeeActionStrip extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     if (a.icon != null) ...[
-                      Icon(a.icon, size: 16),
+                      a.iconWidget ?? Icon(a.icon, size: 16),
                       const SizedBox(width: 4),
                     ],
                     Text(a.label, softWrap: false),

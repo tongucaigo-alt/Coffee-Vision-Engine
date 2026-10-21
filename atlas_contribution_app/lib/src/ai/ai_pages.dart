@@ -19,6 +19,7 @@ import 'play_access_page.dart';
 import 'narrative.dart';
 import 'fortune_personalization.dart';
 import 'fortune_memory.dart';
+import 'reading_identity.dart';
 import '../fortune_progress.dart';
 import '../opencv_traces.dart';
 import '../trace_overlay.dart';
@@ -338,6 +339,7 @@ class _AiFortunePageState extends State<AiFortunePage> {
   List<Map<String, dynamic>> _results = [];
   String? _first, _second, _message;
   Set<String> _stars = {};
+  String _focus = 'general';
   bool _busy = false, _compare = false, _showScan = false;
   AiCancellation? _cancel;
   final _resultScroll = ScrollController();
@@ -348,6 +350,13 @@ class _AiFortunePageState extends State<AiFortunePage> {
   bool _traceLoadComplete = false;
   int _traceRun = 0;
   ReviewSession get session => _controller.session;
+  bool _matchesRequest(Map result) =>
+      resultReadingRequestKey(result) ==
+      readingRequestKey(
+        session.id,
+        preparationSourceFingerprint(session),
+        _focus,
+      );
   ContributionPhoto _tracePhoto(ReviewPhoto review) =>
       ContributionPhoto.fromJson({
         ...review.photo.toJson(),
@@ -379,9 +388,7 @@ class _AiFortunePageState extends State<AiFortunePage> {
           widget.autoGenerate &&
           _profiles.isNotEmpty &&
           !_results.any(
-            (r) =>
-                r['state'] == 'completed' &&
-                r['sourceFingerprint'] == preparationSourceFingerprint(session),
+            (r) => r['state'] == 'completed' && _matchesRequest(r),
           )) {
         _act(_generate);
       } else if (mounted) {
@@ -420,6 +427,7 @@ class _AiFortunePageState extends State<AiFortunePage> {
   Future<void> _load() async {
     try {
       final profiles = await widget.runtime.store.profiles();
+      final focus = await widget.runtime.store.readingFocus(session.id);
       final stars = await widget.runtime.store.starredIds();
       final results = await widget.runtime.store.results(session.id);
       for (final result in results) {
@@ -429,6 +437,7 @@ class _AiFortunePageState extends State<AiFortunePage> {
       }
       if (mounted) {
         setState(() {
+          _focus = focus;
           _profiles = profiles;
           _stars = stars;
           _first ??= profiles.firstOrNull?.id;
@@ -612,6 +621,14 @@ class _AiFortunePageState extends State<AiFortunePage> {
   }
 
   Future<void> _generate() async {
+    await _load();
+    // Simple reading actions reuse the saved answer. Explicit laboratory A/B
+    // comparisons remain available and do not count the same request twice.
+    if (widget.simple &&
+        _results.any((r) => r['state'] == 'completed' && _matchesRequest(r))) {
+      widget.runtime.preparation.finish();
+      return;
+    }
     _generationCancelled = false;
     final presentation = widget.runtime.preparation;
     if (presentation.cancelled && presentation.active) {
@@ -691,7 +708,11 @@ class _AiFortunePageState extends State<AiFortunePage> {
     );
     final recent = await widget.runtime.store.recentSuccessfulResults();
     final focus = await widget.runtime.store.readingFocus(session.id);
-    final readingKey = '${session.id}|${preparationSourceFingerprint(session)}';
+    final readingKey = readingRequestKey(
+      session.id,
+      preparationSourceFingerprint(session),
+      focus,
+    );
     final retry = _results
         .where(
           (r) =>
@@ -722,8 +743,7 @@ class _AiFortunePageState extends State<AiFortunePage> {
     var contextData = validateAiContext(
       personalizeFortuneContext(
         baseContext,
-        readingIdentity:
-            '${session.id}|${preparationSourceFingerprint(session)}',
+        readingIdentity: readingKey,
         profile: profile,
         readingFocus: focus,
         previousContext: retry == null
@@ -760,6 +780,7 @@ class _AiFortunePageState extends State<AiFortunePage> {
       'sessionId': session.id,
       'groupId': session.groupId,
       'sourceFingerprint': preparationSourceFingerprint(session),
+      'readingRequestKey': readingKey,
       'context': storedFortuneContext(contextData),
       'createdAtUtc': DateTime.now().toUtc().toIso8601String(),
       'comparison': _compare,
@@ -786,6 +807,12 @@ class _AiFortunePageState extends State<AiFortunePage> {
           maxAttempts: selected.length == 2 ? 1 : 2,
           beforeRequest: () async {
             checkCancelled();
+            if (await widget.runtime.store.readingFocus(session.id) != focus ||
+                !await widget.runtime.bridge.isCurrent(snapshot)) {
+              throw const AiFailure(
+                'Fal konusu veya kayıt değişti; işlem durduruldu.',
+              );
+            }
             final candidate = memoryCandidate;
             if (candidate != null &&
                 !await widget.runtime.store.memoryStillCurrent(
@@ -806,7 +833,11 @@ class _AiFortunePageState extends State<AiFortunePage> {
             if (mounted) setState(() => _message = s);
           },
         );
-        if (!mounted || !await widget.runtime.bridge.isCurrent(snapshot)) {
+        _cancel!.check();
+        checkCancelled();
+        if (!mounted ||
+            !await widget.runtime.bridge.isCurrent(snapshot) ||
+            await widget.runtime.store.readingFocus(session.id) != focus) {
           throw const AiFailure(
             'Kayıt değişti; bu yanıt güncel fal olarak gösterilmedi.',
           );
@@ -874,9 +905,7 @@ class _AiFortunePageState extends State<AiFortunePage> {
         'Plus Jakarta Sans';
     final hasAnswers = _results.any((r) => (r['answers'] as List).isNotEmpty);
     final currentComplete = _results.any(
-      (r) =>
-          r['state'] == 'completed' &&
-          r['sourceFingerprint'] == preparationSourceFingerprint(session),
+      (r) => r['state'] == 'completed' && _matchesRequest(r),
     );
     final prepared = session.preparedInput;
     final eligible =
@@ -1243,19 +1272,6 @@ class _AiFortunePageState extends State<AiFortunePage> {
                                     _ => 'Analiz bekliyor',
                                   },
                           ),
-                          CheckboxListTile(
-                            value: session.researchConsentAtUtc != null,
-                            title: const Text(
-                              'İsteğe bağlı: bu incelemeyi ve bağlı çekim kaydını araştırma ZIP’ine eklemeye izin veriyorum.',
-                            ),
-                            onChanged: _busy
-                                ? null
-                                : (v) => _act(
-                                    () => _controller.save(
-                                      session.next(researchAllowed: v),
-                                    ),
-                                  ),
-                          ),
                           const Divider(),
                           if (_profiles.isEmpty)
                             const Text(
@@ -1453,9 +1469,7 @@ class _AiFortunePageState extends State<AiFortunePage> {
     )) ...[
       const Divider(height: 32, color: atlasBorder),
       Text(
-        result['sourceFingerprint'] == preparationSourceFingerprint(session)
-            ? 'Kayıtlı fal'
-            : 'Önceki kayda ait fal',
+        _matchesRequest(result) ? 'Kayıtlı fal' : 'Önceki kayda ait fal',
         style: const TextStyle(
           fontFamily: 'Literata',
           fontSize: 22,

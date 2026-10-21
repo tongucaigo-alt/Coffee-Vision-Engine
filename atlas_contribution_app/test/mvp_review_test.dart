@@ -4,7 +4,6 @@ import 'dart:io';
 
 import 'package:atlas_contribution_app/src/gallery_import.dart';
 import 'package:atlas_contribution_app/src/models.dart';
-import 'package:atlas_contribution_app/src/research_export.dart';
 import 'package:atlas_contribution_app/src/mvp/review_controller.dart';
 import 'package:atlas_contribution_app/src/mvp/review_engine.dart';
 import 'package:atlas_contribution_app/src/mvp/review_gallery.dart';
@@ -19,7 +18,6 @@ import 'package:coffee_symbol/coffee_symbol.dart';
 import 'package:coffee_vision/coffee_vision.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:archive/archive.dart';
 
 import 'fixtures.dart';
 
@@ -890,7 +888,7 @@ void main() {
     expect((await store.sessions()).single.revision, 2);
   });
   test(
-    'ZIP includes only consented records, verified bytes and context',
+    'saved review retains observations, preparation and verified photos',
     () async {
       final p = await photo();
       var s = review(photos: [p], consent: true);
@@ -901,57 +899,15 @@ void main() {
         preparedInput: prepareReviewInput(s, preparedAtUtc: timestamp),
       );
       await store.save(s);
-      const channel = MethodChannel('test.mvp.export');
-      Uint8List? archiveBytes;
-      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-          .setMockMethodCallHandler(channel, (call) async {
-            archiveBytes = await File(
-              (call.arguments as Map)['sourcePath'] as String,
-            ).readAsBytes();
-            return 'test-download';
-          });
-      addTearDown(
-        () => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-            .setMockMethodCallHandler(channel, null),
-      );
-      final result = await store.exportToDownloads(
-        channel: channel,
-        temporaryDirectory: () async => temp,
-      );
-      expect(result.count, 1);
-      final archive = ZipDecoder().decodeBytes(archiveBytes!);
+      final reopened = (await ReviewStore(temp).sessions()).single;
+      expect(reopened.initialObservations, s.initialObservations);
+      expect(reopened.preparedInput, s.preparedInput);
       expect(
-        archive.files.map((f) => f.name),
-        contains('reviews/test-review/interpretation-input.json'),
+        await store.readPhoto(reopened.photos.single),
+        await store.readPhoto(p),
       );
-      expect(
-        archive.files.map((f) => f.name),
-        containsAll([
-          'reviews/test-review/initial-observations.json',
-          'reviews/test-review/prepared-input.json',
-        ]),
-      );
-      final snapshotFile = archive.files.singleWhere(
-        (f) => f.name == 'reviews/test-review/initial-observations.json',
-      );
-      final exported = jsonDecode(
-        utf8.decode(snapshotFile.content as List<int>),
-      );
-      expect(exported['snapshots'], s.initialObservations);
       await store.save(s.next(researchAllowed: false));
-      await expectLater(
-        store.exportToDownloads(
-          channel: channel,
-          temporaryDirectory: () async => temp,
-        ),
-        throwsA(
-          isA<ExportFailure>().having(
-            (e) => e.code,
-            'code',
-            ExportFailureCode.noPermission,
-          ),
-        ),
-      );
+      expect((await store.sessions()).single.researchConsentAtUtc, isNull);
     },
   );
   test('missing media cannot block withdrawal and deletion', () async {
@@ -965,7 +921,7 @@ void main() {
     expect((await store.sessions()).single.deleted, true);
   });
   test(
-    'replaced first-observation photos export with exact verified media',
+    'replaced first-observation photos remain verified and explicitly deletable',
     () async {
       final original = await photo();
       var s = review(photos: [original], consent: true);
@@ -981,78 +937,17 @@ void main() {
       s = captureInitialObservations(s, capturedAtUtc: timestamp);
       await store.save(s);
       expect(jsonEncode(s.initialObservations.take(1).toList()), first);
-      const channel = MethodChannel('test.part1.history.export');
-      Uint8List? archiveBytes;
-      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-          .setMockMethodCallHandler(channel, (call) async {
-            archiveBytes = await File(
-              (call.arguments as Map)['sourcePath'] as String,
-            ).readAsBytes();
-            return 'test-download';
-          });
-      addTearDown(
-        () => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-            .setMockMethodCallHandler(channel, null),
-      );
-      await store.exportToDownloads(
-        channel: channel,
-        temporaryDirectory: () async => temp,
-      );
-      final archive = ZipDecoder().decodeBytes(archiveBytes!);
-      final snapshots =
-          jsonDecode(
-                utf8.decode(
-                  archive.files
-                          .singleWhere(
-                            (f) =>
-                                f.name.endsWith('/initial-observations.json'),
-                          )
-                          .content
-                      as List<int>,
-                ),
-              )
-              as Map;
-      final media = snapshots['media'] as List;
-      expect(media, hasLength(2));
-      for (final reference in media) {
-        final exported = archive.files.singleWhere(
-          (f) => f.name == reference['path'],
-        );
-        expect(
-          'sha256:${sha256.convert(exported.content as List<int>)}',
-          reference['photoChecksum'],
-        );
+      final reopened = (await ReviewStore(temp).sessions()).single;
+      expect(reopened.initialObservations, s.initialObservations);
+      for (final p in [original, replacement]) {
+        final bytes = await store.readPhoto(p);
+        expect('sha256:${sha256.convert(bytes)}', p.photo.checksum);
       }
       await store.file(original.photo.localName).writeAsBytes([1, 2, 3]);
-      await expectLater(
-        store.exportToDownloads(
-          channel: channel,
-          temporaryDirectory: () async => temp,
-        ),
-        throwsA(
-          isA<ExportFailure>().having(
-            (e) => e.code,
-            'code',
-            ExportFailureCode.integrity,
-          ),
-        ),
-      );
+      await expectLater(store.readPhoto(original), throwsFormatException);
       await store.delete(s);
       expect(await store.file(original.photo.localName).exists(), false);
       expect(await store.file(replacement.photo.localName).exists(), false);
-      await expectLater(
-        store.exportToDownloads(
-          channel: channel,
-          temporaryDirectory: () async => temp,
-        ),
-        throwsA(
-          isA<ExportFailure>().having(
-            (e) => e.code,
-            'code',
-            ExportFailureCode.noRecords,
-          ),
-        ),
-      );
     },
   );
   test(

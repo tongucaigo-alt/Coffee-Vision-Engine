@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:io';
-import 'package:archive/archive.dart';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -8,7 +7,6 @@ import 'package:image/image.dart' as img;
 import 'package:atlas_contribution_app/src/gallery_import.dart';
 import 'package:atlas_contribution_app/src/local_store.dart';
 import 'package:atlas_contribution_app/src/models.dart';
-import 'package:atlas_contribution_app/src/mvp/review_store.dart';
 import 'package:atlas_contribution_app/src/offline_contribution.dart';
 import 'fixtures.dart';
 
@@ -179,7 +177,8 @@ void main() {
             }),
           );
       final extra = await service.submit(draft, (p) async {
-        reads++; return store.file(p.localName).readAsBytes();
+        reads++;
+        return store.file(p.localName).readAsBytes();
       }, (_) {});
       expect(extra['local_only'], true);
       expect(reads, 1);
@@ -209,7 +208,7 @@ void main() {
   });
 
   test(
-    'gallery completion and export v2 preserve exact checksum inventory',
+    'gallery completion preserves exact photo checksum and record metadata',
     () async {
       picker.selection = testImage();
       final imported = (await importer.select(galleryDraft()))!;
@@ -221,36 +220,15 @@ void main() {
       ).submit(draft, (p) => store.file(p.localName).readAsBytes(), (_) {});
       await store.saveReceipt(row);
       await store.clear();
-      const channel = MethodChannel('test.gallery/export');
-      Uint8List? zipped;
-      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-          .setMockMethodCallHandler(channel, (call) async {
-            zipped = await File(
-              (call.arguments as Map)['sourcePath'],
-            ).readAsBytes();
-            return 'content://downloads/test';
-          });
-      addTearDown(
-        () => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-            .setMockMethodCallHandler(channel, null),
+      final document = Map<String, dynamic>.from(
+        (await DraftStore(directory).receipts()).single['document'] as Map,
       );
-      await OfflineContributionExporter(
-        store,
-        channel: channel,
-        temporaryDirectory: () async => directory,
-        reviewStore: ReviewStore(Directory('${directory.path}/export-reviews')),
-      ).exportToDownloads();
-      final zip = ZipDecoder().decodeBytes(zipped!);
-      final manifest = jsonDecode(
-        utf8.decode(zip.findFile('manifest.json')!.content),
-      );
-      expect(manifest['version'], 2);
-      expect(zip.findFile('records/${draft.id}/gallery.jpg'), isNotNull);
-      for (final item in manifest['files']) {
-        final content = zip.findFile(item['path'])!.content;
-        expect(item['sha256'], 'sha256:${sha256.convert(content)}');
-        expect(item['bytes'], content.length);
-      }
+      expect(ContributionDraft.fromJson(document).toJson(), draft.toJson());
+      final photo = draft.photos.single;
+      final content = await store.file(photo.localName).readAsBytes();
+      expect(photo.fileKey, 'gallery');
+      expect(photo.checksum, 'sha256:${sha256.convert(content)}');
+      expect(photo.byteLength, content.length);
       expect(await store.receipts(), hasLength(1));
     },
   );

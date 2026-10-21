@@ -8,7 +8,9 @@ import 'ai_contract.dart';
 import 'ai_store.dart';
 
 class AiBridge {
-  AiBridge(this.source, this.reviews, this.ai);
+  AiBridge(this.source, this.reviews, this.ai) {
+    source.protectLinkedAiData();
+  }
   final DraftStore source;
   final ReviewStore reviews;
   final AiStore ai;
@@ -27,6 +29,7 @@ class AiBridge {
     Map<String, dynamic> row, {
     required bool fresh,
   }) async {
+    await source.ensureWritable();
     final root = row['root_id'] as String;
     if ((await source.pendingDeletes()).contains(root)) {
       throw const AiFailure('Kayıt silinmeyi bekliyor.');
@@ -131,7 +134,12 @@ class AiBridge {
   }
 
   Future<void> deleteRoot(String root) async {
+    await source.ensureWritable();
     final id = sessionId(root);
+    if (!(await source.pendingDeletes()).contains(root) &&
+        !await ai.isDeleted(id)) {
+      throw const AiFailure('Açık silme isteği bulunamadı. Kayıt korundu.');
+    }
     await ai.deleteSession(id);
     await reviews.initialize();
     final s = (await reviews.sessions()).where((s) => s.id == id).firstOrNull;
@@ -140,13 +148,10 @@ class AiBridge {
 
   Future<void> reconcile() async {
     await reviews.initialize();
-    final roots = (await source.receipts()).map((r) => r['root_id']).toSet();
     final pending = (await source.pendingDeletes()).toSet();
-    final links = (await ai.read())['links'] as Map;
-    for (final root in links.keys.cast<String>().toList()) {
-      if (!roots.contains(root) || pending.contains(root)) {
-        await deleteRoot(root);
-      }
+    // List absence is not proof of deletion, including after backup recovery.
+    for (final root in pending) {
+      await deleteRoot(root);
     }
   }
 

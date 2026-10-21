@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:camera/camera.dart';
 import 'package:coffee_camera/src/analysis/device_motion_service.dart';
@@ -13,92 +14,240 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  testWidgets('finish save failure keeps camera open and can be retried', (
-    tester,
-  ) async {
-    var calls = 0;
-    var cancelled = 0;
-    await tester.pumpWidget(
-      MaterialApp(
-        home: CoffeeCameraScreen(
-          cameraService: _FakeCameraService([]),
-          motionService: _FakeMotionService(),
-          imageProcessor: const _FakeImageProcessor(),
-          onApproved: (_) => fail('Must not add an unapproved capture'),
-          onCancelled: () => cancelled++,
-          onFinishSequence: () async {
-            if (++calls == 1)
-              throw const FileSystemException('Synthetic save failure');
-          },
-        ),
-      ),
-    );
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 50));
-    await tester.tap(find.byKey(const Key('coffee-finish-sequence')));
-    await tester.pump();
-    expect(cancelled, 0);
-    expect(find.textContaining('Çekim bitirilemedi.'), findsOneWidget);
-    expect(
-      tester
-          .widget<TextButton>(find.byKey(const Key('coffee-finish-sequence')))
-          .onPressed,
-      isNotNull,
-    );
-    await tester.tap(find.byKey(const Key('coffee-finish-sequence')));
-    await tester.pump();
-    await tester.runAsync(
-      () => Future<void>.delayed(const Duration(milliseconds: 50)),
-    );
-    await tester.pump();
-    expect(calls, 2);
-    expect(cancelled, 1);
-    await tester.pumpWidget(const SizedBox());
-  });
-
-  testWidgets(
-    'finish sequence is optional, single flight, and closes after durable success',
-    (tester) async {
-      final pending = Completer<void>();
-      var calls = 0;
-      var cancelled = 0;
+  for (final saucerOnly in [false, true]) {
+    testWidgets('V84 toolbar and manual capture (saucer=$saucerOnly)', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         MaterialApp(
           home: CoffeeCameraScreen(
+            config: const CoffeeCameraConfig(showQualityScore: false),
+            saucerOnly: saucerOnly,
             cameraService: _FakeCameraService([]),
             motionService: _FakeMotionService(),
             imageProcessor: const _FakeImageProcessor(),
-            onApproved: (_) {
-              fail('Must not approve a new capture');
-            },
-            onCancelled: () => cancelled++,
-            onFinishSequence: () {
-              calls++;
-              return pending.future;
-            },
+            onApproved: (_) {},
+            onCancelled: () {},
           ),
         ),
       );
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 50));
-      final action = tester
-          .widget<TextButton>(find.byKey(const Key('coffee-finish-sequence')))
-          .onPressed!;
-      action();
-      action();
-      await tester.pump(const Duration(milliseconds: 50));
-      expect(calls, 1);
-      expect(cancelled, 0);
-      pending.complete();
-      await tester.pump();
-      await tester.runAsync(
-        () => Future<void>.delayed(const Duration(milliseconds: 50)),
+      expect(find.byTooltip('Kamerayı değiştir'), findsNothing);
+      expect(find.byTooltip('Flaş'), findsOneWidget);
+      expect(find.byKey(const Key('coffee-camera-light-hint')), findsOneWidget);
+      expect(
+        find.byKey(const Key('coffee-camera-quality-score')),
+        findsNothing,
       );
+      expect(
+        tester
+            .widget<IconButton>(find.byKey(const Key('coffee-camera-shutter')))
+            .onPressed,
+        isNotNull,
+      );
+      await tester.tap(find.byTooltip('Flaş'));
       await tester.pump();
-      expect(cancelled, 1);
+      expect(find.text('Bu kamerada ışık açılamadı.'), findsOneWidget);
+      expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox());
-    },
-  );
+    });
+  }
+
+  for (final saucer in [false, true]) {
+    testWidgets(
+      'branded camera keeps real controls and excludes logo from review: $saucer',
+      (tester) async {
+        final file = await tester.runAsync(_createCaptureFile);
+        final service = _FakeCameraService([file!.path]);
+        CameraCaptureResult? approved;
+        final presentation = CoffeeCameraPresentation(
+          backgroundImage: MemoryImage(Uint8List.fromList(_onePixelPng)),
+          title: saucer ? 'Tabak Fotoğrafı' : 'Fincanını Tara',
+          stepLabel: saucer ? 'İsteğe bağlı' : 'Serbest açı · 1/3',
+          instruction: 'Fincanı sabit tut, kamerayı hareket ettir.',
+        );
+        await tester.pumpWidget(
+          MaterialApp(
+            home: CoffeeCameraScreen(
+              config: CoffeeCameraConfig(
+                presentation: presentation,
+                showQualityScore: false,
+                strings: const CoffeeCameraStrings(
+                  approve: 'Bu fotoğrafı kullan',
+                ),
+              ),
+              saucerOnly: saucer,
+              captureTitle: 'App step',
+              cameraService: service,
+              motionService: _FakeMotionService(),
+              imageProcessor: const _FakeImageProcessor(),
+              onApproved: (result) => approved = result,
+              onCancelled: () {},
+            ),
+          ),
+        );
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 50));
+        expect(
+          find.byKey(const Key('coffee-camera-brand-watermark')),
+          findsOneWidget,
+        );
+        expect(find.byTooltip('Analiz testi'), findsNothing);
+        expect(
+          find.byKey(const Key('coffee-camera-quality-score')),
+          findsNothing,
+        );
+        expect(find.byKey(const Key('coffee-camera-light-hint')), findsNothing);
+        await tester.pump(const Duration(seconds: 2));
+        expect(
+          find.byKey(const Key('coffee-camera-light-hint')),
+          findsOneWidget,
+        );
+        if (!saucer) {
+          expect(find.text('Otomatik · Açık'), findsOneWidget);
+          await tester.tap(find.byKey(const Key('coffee-camera-auto-switch')));
+          await tester.pump();
+          expect(find.text('Otomatik · Kapalı'), findsOneWidget);
+        } else {
+          expect(
+            find.byKey(const Key('coffee-camera-auto-switch')),
+            findsNothing,
+          );
+        }
+        await tester.tap(find.byKey(const Key('coffee-camera-shutter')));
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 50)),
+        );
+        await tester.pump();
+        await _pumpUntilFound(tester, find.text('Bu fotoğrafı kullan'));
+        expect(
+          find.byKey(const Key('coffee-camera-brand-watermark')),
+          findsNothing,
+        );
+        expect(find.byKey(const Key('coffee-camera-light-hint')), findsNothing);
+        await tester.tap(find.text('Bu fotoğrafı kullan'));
+        await tester.pump();
+        expect(approved, isNotNull);
+        expect(approved!.mode, CameraCaptureMode.manual);
+        await tester.pumpWidget(const SizedBox());
+        await tester.runAsync(() => _deleteIfExists(file.path));
+      },
+    );
+  }
+
+  for (final branded in [false, true]) {
+    testWidgets(
+      'finish save failure keeps camera open and can be retried (branded=$branded)',
+      (tester) async {
+        var calls = 0;
+        var cancelled = 0;
+        await tester.pumpWidget(
+          MaterialApp(
+            home: CoffeeCameraScreen(
+              config: CoffeeCameraConfig(
+                presentation: branded
+                    ? CoffeeCameraPresentation(
+                        backgroundImage: MemoryImage(
+                          Uint8List.fromList(_onePixelPng),
+                        ),
+                        title: 'Fincanını Tara',
+                      )
+                    : null,
+              ),
+              cameraService: _FakeCameraService([]),
+              motionService: _FakeMotionService(),
+              imageProcessor: const _FakeImageProcessor(),
+              onApproved: (_) => fail('Must not add an unapproved capture'),
+              onCancelled: () => cancelled++,
+              onFinishSequence: () async {
+                if (++calls == 1) {
+                  throw const FileSystemException('Synthetic save failure');
+                }
+              },
+            ),
+          ),
+        );
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 50));
+        await tester.tap(find.byKey(const Key('coffee-finish-sequence')));
+        await tester.pump();
+        expect(cancelled, 0);
+        expect(find.textContaining('Çekim bitirilemedi.'), findsOneWidget);
+        expect(
+          tester
+              .widget<TextButton>(
+                find.byKey(const Key('coffee-finish-sequence')),
+              )
+              .onPressed,
+          isNotNull,
+        );
+        await tester.tap(find.byKey(const Key('coffee-finish-sequence')));
+        await tester.pump();
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 50)),
+        );
+        await tester.pump();
+        expect(calls, 2);
+        expect(cancelled, 1);
+        await tester.pumpWidget(const SizedBox());
+      },
+    );
+
+    testWidgets(
+      'finish sequence is single flight and durably saved (branded=$branded)',
+      (tester) async {
+        final pending = Completer<void>();
+        var calls = 0;
+        var cancelled = 0;
+        await tester.pumpWidget(
+          MaterialApp(
+            home: CoffeeCameraScreen(
+              config: CoffeeCameraConfig(
+                presentation: branded
+                    ? CoffeeCameraPresentation(
+                        backgroundImage: MemoryImage(
+                          Uint8List.fromList(_onePixelPng),
+                        ),
+                        title: 'Fincanını Tara',
+                      )
+                    : null,
+              ),
+              cameraService: _FakeCameraService([]),
+              motionService: _FakeMotionService(),
+              imageProcessor: const _FakeImageProcessor(),
+              onApproved: (_) {
+                fail('Must not approve a new capture');
+              },
+              onCancelled: () => cancelled++,
+              onFinishSequence: () {
+                calls++;
+                return pending.future;
+              },
+            ),
+          ),
+        );
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 50));
+        final action = tester
+            .widget<TextButton>(find.byKey(const Key('coffee-finish-sequence')))
+            .onPressed!;
+        action();
+        action();
+        await tester.pump(const Duration(milliseconds: 50));
+        expect(calls, 1);
+        expect(cancelled, 0);
+        pending.complete();
+        await tester.pump();
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 50)),
+        );
+        await tester.pump();
+        expect(cancelled, 1);
+        await tester.pumpWidget(const SizedBox());
+      },
+    );
+  }
 
   testWidgets(
     'standalone saucer approves without a cup and retains saucer crop',

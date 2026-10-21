@@ -5,7 +5,6 @@ import 'package:atlas_contribution_app/src/local_store.dart';
 import 'package:atlas_contribution_app/src/ai/ai_store.dart';
 import 'package:atlas_contribution_app/src/ai/ai_contract.dart';
 import 'package:atlas_contribution_app/src/photo_suitability.dart';
-import 'package:atlas_contribution_app/src/mvp/review_store.dart';
 import 'fixtures.dart';
 import 'package:atlas_contribution_app/src/models.dart';
 
@@ -81,11 +80,6 @@ void main() {
       expect(await store.hasLocalAcceptance(), isFalse);
       await store.acceptLocalUse();
       expect(await DraftStore(root).hasLocalAcceptance(), isTrue);
-      final reviews = ReviewStore(
-        Directory('${root.path}/reviews'),
-        contributionStore: store,
-      );
-      await reviews.initialize();
       await store.saveReceipt({
         'id': 'new',
         'root_id': 'new',
@@ -93,10 +87,11 @@ void main() {
         'localUseVersion': DraftStore.localAcceptanceVersion,
         'document': d,
       });
-      expect(await reviews.blockedContributionRoots(), contains('new'));
+      final rows = await DraftStore(root, manualRetention: true).receipts();
+      expect(rows.map((r) => r['id']), containsAll(['new', 'local']));
       expect(
-        await reviews.blockedContributionRoots(),
-        isNot(contains('local')),
+        rows.singleWhere((r) => r['id'] == 'new')['localUseVersion'],
+        DraftStore.localAcceptanceVersion,
       );
     },
   );

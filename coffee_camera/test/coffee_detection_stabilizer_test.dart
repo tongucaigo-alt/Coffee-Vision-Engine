@@ -29,6 +29,43 @@ void main() {
     },
   );
 
+  test('V84 activation and held mask are independent of current validity', () {
+    final c = CoffeeDetectionStabilizer(
+      const CoffeeCameraConfig(
+        coffeeActivationFrames: 2,
+        coffeeReleaseFrames: 3,
+      ),
+    );
+    final good = _result(valid: true);
+    expect(c.update(good).coffeeDetected, false);
+    expect(c.update(good).coffeeDetected, true);
+    final bad = _result(valid: false);
+    expect(c.isCurrentValid(bad), false);
+    expect(c.update(bad).coffeeDetected, true);
+    expect(c.update(bad).coffeeDetected, true);
+    expect(c.update(bad).coffeeDetected, false);
+  });
+
+  test('a frame after mask lifetime cannot reuse the old mask', () {
+    final c = CoffeeDetectionStabilizer(
+      const CoffeeCameraConfig(
+        coffeeActivationFrames: 2,
+        coffeeReleaseFrames: 3,
+      ),
+    );
+    final good = _result(valid: true);
+    c.update(good);
+    c.update(good);
+    final late = _result(valid: false).copyWith(
+      timestamp: good.timestamp.add(const Duration(milliseconds: 750)),
+    );
+    expect(c.update(late).coffeeMask, isNull);
+    expect(
+      c.update(good.copyWith(timestamp: late.timestamp)).coffeeDetected,
+      false,
+    );
+  });
+
   test('a failed frame resets activation progress', () {
     final stabilizer = CoffeeDetectionStabilizer(const CoffeeCameraConfig());
     expect(stabilizer.update(_result(valid: true)).coffeeDetected, isFalse);

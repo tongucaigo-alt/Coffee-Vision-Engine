@@ -8,14 +8,12 @@ import 'package:atlas_contribution_app/src/photo_suitability.dart';
 import '../test/simple_flow_test.dart' as storage;
 import '../test/photo_set_widget_test.dart' as gallery;
 import '../test/contribution_capture_flow_test.dart' as capture;
-import 'export_device_test.dart' as exports;
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
   storage.main();
   gallery.main();
   capture.main();
-  exports.main();
   testWidgets('real bundled classifier evaluates local reference photos', (
     tester,
   ) async {

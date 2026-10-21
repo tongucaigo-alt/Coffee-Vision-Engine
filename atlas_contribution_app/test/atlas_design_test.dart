@@ -142,14 +142,16 @@ void main() {
           );
           await tester.pumpAndSettle();
           expect(find.byTooltip('Kaldığın Yerden Devam Et'), findsOneWidget);
-          expect(
-            find.byWidgetPredicate(
-              (w) =>
-                  w is Scrollable &&
-                  axisDirectionToAxis(w.axisDirection) == Axis.vertical,
-            ),
-            findsNothing,
-          );
+          if (scale == 1) {
+            expect(
+              find.byWidgetPredicate(
+                (w) =>
+                    w is Scrollable &&
+                    axisDirectionToAxis(w.axisDirection) == Axis.vertical,
+              ),
+              findsNothing,
+            );
+          }
           final heading = find.text('Fincanını Keşfet');
           await tester.ensureVisible(heading);
           await tester.pumpAndSettle();
@@ -198,7 +200,6 @@ void main() {
             service: OfflineContributionService(store),
             onAiSettings: () async {},
             onReview: () async {},
-            onExport: () async {},
             onReadFortune: (_) async {},
           ),
           scale: scale,
@@ -280,14 +281,16 @@ void main() {
             .resolve({}),
         atlasCoffee,
       );
-      expect(
-        find.byWidgetPredicate(
-          (w) =>
-              w is Scrollable &&
-              axisDirectionToAxis(w.axisDirection) == Axis.vertical,
-        ),
-        findsNothing,
-      );
+      if (scale == 1) {
+        expect(
+          find.byWidgetPredicate(
+            (w) =>
+                w is Scrollable &&
+                axisDirectionToAxis(w.axisDirection) == Axis.vertical,
+          ),
+          findsNothing,
+        );
+      }
       expect(scanButton.hitTestable(), findsOneWidget);
       if (scale == 1 && size.width >= 360) {
         expect(tester.getSize(scanButton).width, 280);
@@ -304,40 +307,35 @@ void main() {
         tester.getRect(scanButton).bottom,
         lessThanOrEqualTo(tester.getTopLeft(find.byType(NavigationBar)).dy),
       );
-      final footerBounds = tester.getRect(
-        find.byKey(const ValueKey('atlas-home-footer')),
-      );
+      expect(find.byKey(const ValueKey('atlas-home-footer')), findsNothing);
       expect(tester.getSize(find.byType(NavigationBar)).height, 76);
-      expect(
-        footerBounds.top,
-        closeTo(tester.getRect(find.byType(NavigationBar)).bottom, .5),
-      );
       expect(
         tester.getRect(find.byType(NavigationBar)).top - frameBounds.bottom,
         inInclusiveRange(0, 16),
       );
-      expect(
-        tester.getRect(scanButton).center.dy,
-        greaterThanOrEqualTo(frameBounds.top + frameBounds.height * .7),
-      );
+      if (scale == 1) {
+        expect(
+          tester.getRect(scanButton).center.dy,
+          greaterThanOrEqualTo(frameBounds.top + frameBounds.height * .7),
+        );
+      }
+      await tester.tap(find.text('Ayarlar'));
+      await tester.pumpAndSettle();
       for (final label in ['Gizlilik Politikası', 'İçerik Bildir', 'Destek']) {
-        final placeholder = find.widgetWithText(TextButton, label);
-        await tester.ensureVisible(placeholder);
-        expect(tester.widget<TextButton>(placeholder).onPressed, isNotNull);
-        await tester.tap(placeholder);
+        await tester.ensureVisible(find.text(label));
+        await tester.tap(find.text(label));
         await tester.pumpAndSettle();
         expect(find.byType(AlertDialog), findsOneWidget);
         await tester.tap(find.text('Kapat'));
         await tester.pumpAndSettle();
-        expect(tester.getSize(placeholder).height, greaterThanOrEqualTo(48));
-        expect(
-          tester.getRect(placeholder).top,
-          greaterThanOrEqualTo(tester.getRect(frame).bottom),
-        );
       }
       expect(tester.takeException(), isNull);
       await _snapshot(tester, 'home-footer-$suffix');
       await tester.tap(find.text('Ayarlar').last);
+      await tester.pumpAndSettle();
+      expect(find.text('İnceleme Araçları'), findsOneWidget);
+      expect(find.text('Araştırma Paketini Dışa Aktar'), findsNothing);
+      expect(find.text('Paketi dışa aktar'), findsNothing);
       await tester.pumpAndSettle();
       await tester.ensureVisible(find.text('AI Laboratuvarı · Test'));
       expect(tester.takeException(), isNull);

@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:math';
 
 import 'package:crypto/crypto.dart';
+import 'reading_identity.dart';
 
 const memoryOpening = 'Eski fallarından birinde';
 
@@ -174,6 +175,36 @@ class FortuneMemoryEngine {
   final Random _random;
   int _interval() => 2 + _random.nextInt(4);
 
+  bool _alreadyCompleted(
+    Map<String, dynamic> data,
+    Map<String, dynamic> state,
+    String key,
+  ) {
+    final keys = state['completedKeys'] as List;
+    if (keys.contains(key)) return true;
+    final legacy = physicalReadingKey(key);
+    if (legacy == key || !keys.contains(legacy)) return false;
+    // Keep the old ledger and its indices. Attribute its one counted slot to
+    // the earliest legacy completion; never reset intervals or used excerpts.
+    final rows =
+        (data['results'] as List? ?? [])
+            .where(
+              (r) =>
+                  r['state'] == 'completed' &&
+                  r['readingRequestKey'] == null &&
+                  legacyReadingKey(r as Map) == legacy &&
+                  (r['context'] as Map?)?['version'] ==
+                      'atlas-fortune-context-v4',
+            )
+            .toList()
+          ..sort(
+            (a, b) => '${a['createdAtUtc'] ?? ''}|${a['id']}'.compareTo(
+              '${b['createdAtUtc'] ?? ''}|${b['id']}',
+            ),
+          );
+    return rows.isNotEmpty && resultReadingRequestKey(rows.first as Map) == key;
+  }
+
   Map<String, dynamic> _state(Map<String, dynamic> data) =>
       Map<String, dynamic>.from(
         data.putIfAbsent(
@@ -203,7 +234,7 @@ class FortuneMemoryEngine {
     final result = <FortuneMemoryCandidate>[];
     for (final row in data['results'] as List? ?? const []) {
       if (row['state'] != 'completed' || !stars.contains(row['id'])) continue;
-      if ('${row['sessionId']}|${row['sourceFingerprint']}' == readingKey) {
+      if (legacyReadingKey(row as Map) == physicalReadingKey(readingKey)) {
         continue;
       }
       if (used.any(
@@ -274,20 +305,33 @@ class FortuneMemoryEngine {
   }) {
     final state = _state(data);
     data['fortuneMemoryV1'] = state;
-    if ((state['completedKeys'] as List).contains(readingKey) ||
-        (state['completedKeys'] as List).length + 1 < (state['nextAt'] as int)) {
+    if (_alreadyCompleted(data, state, readingKey) ||
+        (state['completedKeys'] as List).length + 1 <
+            (state['nextAt'] as int)) {
       return null;
     }
     final candidates = _candidates(data, readingKey, focus, context, state);
     final pending = Map<String, dynamic>.from(state['pending'] as Map);
-    final previous = pending[readingKey] as Map?;
-    final same = previous == null
+    Map? previous = pending[readingKey] as Map?;
+    if (previous == null && physicalReadingKey(readingKey) != readingKey) {
+      final retries = (data['results'] as List? ?? []).where(
+        (r) =>
+            const ['failed', 'cancelled', 'interrupted'].contains(r['state']) &&
+            r['readingRequestKey'] == null &&
+            resultReadingRequestKey(r as Map) == readingKey,
+      );
+      if (retries.isNotEmpty) {
+        previous = pending[physicalReadingKey(readingKey)] as Map?;
+      }
+    }
+    final previousReceipt = previous;
+    final same = previousReceipt == null
         ? null
         : candidates
               .where(
                 (c) =>
-                    c.sourceId == previous['sourceId'] &&
-                    c.partHash == previous['partHash'],
+                    c.sourceId == previousReceipt['sourceId'] &&
+                    c.partHash == previousReceipt['partHash'],
               )
               .firstOrNull;
     final candidate = same ?? candidates.firstOrNull;
@@ -328,11 +372,12 @@ class FortuneMemoryEngine {
         (result['context'] as Map?)?['version'] != 'atlas-fortune-context-v4') {
       return;
     }
-    final key = '${result['sessionId']}|${result['sourceFingerprint']}';
+    final key =
+        result['readingRequestKey'] as String? ?? legacyReadingKey(result);
     final state = _state(data);
     data['fortuneMemoryV1'] = state;
     final keys = List<String>.from(state['completedKeys'] as List);
-    if (keys.contains(key)) return;
+    if (_alreadyCompleted(data, state, key)) return;
     keys.add(key);
     state['completedKeys'] = keys;
     final actual = (result['answers'] as List? ?? []).any(

@@ -122,15 +122,36 @@ class AiClient {
     Map<String, dynamic>? body,
     Map<String, String>? headers,
     Duration timeout = const Duration(seconds: 10),
-  }) => _transport.request(
-    profile,
-    method,
-    suffix,
-    key,
-    body: body,
-    headers: headers ?? const {},
-    timeout: timeout,
-  );
+    AiCancellation? cancellation,
+  }) async {
+    cancellation?.check();
+    Future<void> Function()? close;
+    try {
+      return await _transport.request(
+        profile,
+        method,
+        suffix,
+        key,
+        body: body,
+        headers: headers ?? const {},
+        timeout: timeout,
+        onClient: cancellation == null
+            ? null
+            : (client) {
+                close = () async => client.close(force: true);
+                cancellation.remoteCancel = close;
+                if (cancellation.cancelled) client.close(force: true);
+              },
+      );
+    } catch (_) {
+      cancellation?.check();
+      rethrow;
+    } finally {
+      if (cancellation != null && identical(cancellation.remoteCancel, close)) {
+        cancellation.remoteCancel = null;
+      }
+    }
+  }
 
   Future<void> sendReport(
     AiProfile profile,
@@ -384,6 +405,7 @@ class AiClient {
           '/chat/completions',
           key,
           timeout: Duration(milliseconds: sharedBudget.remainingMilliseconds),
+          cancellation: cancellation,
           body: {
             'model': p.model,
             'messages': prompt.messages(

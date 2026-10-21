@@ -17,7 +17,7 @@ local analysis. Saving observations does not submit an AI request.
 
 Records retain separate clean photos and normalized annotations. The existing
 single-photo gallery review remains available with its three-photo fortune
-requirement explained. AI settings, research tools and export are under Settings.
+requirement explained. AI settings and local review tools remain under Settings; research ZIP export is removed.
 Fortune presentation does not rewrite saved answers or change the AI prompt.
 Credits, accounts, rituals and audio playback are not implemented by this refresh.
 
@@ -32,7 +32,7 @@ See [UI validation](UI_VALIDATION.md) for the tested scope and outstanding devic
 ## Entrypoints
 
 - `lib/main.dart`: Android participant app. Missing configuration shows a non-uploading setup screen.
-- `lib/offline_main.dart`: dedicated-phone collection and verified ZIP export. Without the AI test define it uses no network. With `ATLAS_AI_LAB=true`, explicit fortune actions send only the validated text context to the selected AI endpoint; photographs remain local.
+- `lib/offline_main.dart`: dedicated-phone local records and fortune flow. Without the AI test define it uses no network. With `ATLAS_AI_LAB=true`, explicit fortune actions send only the validated text context to the selected AI endpoint; photographs remain local.
 - `lib/admin_main.dart`: Flutter Web admin, e-mail OTP and server allowlist.
 - `tool/preview_main.dart`: synthetic local UI preview without auth/backend/upload. Never distribute as the beta.
 
@@ -42,11 +42,7 @@ Only `../coffee_camera` is imported from Atlas. The application ID is `com.coffe
 
 This mode is for one Founder-controlled Android phone. Completed sessions and
 their metadata-stripped JPEG derivatives stay in private application storage
-until they are deleted. `Paketi dışa aktar` writes a research-only ZIP to Android
-Downloads containing each revision, its three exact photos, a file checksum
-inventory and a package checksum shown on screen. Copy the ZIP and displayed
-checksum together. The ZIP is not encrypted; protect it after export and remove
-old copies from Downloads when they are no longer needed.
+until they are deleted. Research ZIP export and its permission controls have been removed. Existing photos, annotations, fortunes and previously saved ZIP files are retained.
 
 ```powershell
 flutter build apk --release --target lib/offline_main.dart
@@ -139,22 +135,16 @@ dosyasına yazar. Anahtar veya istek başlıkları kaydedilmez. Üretim başarı
 görünmesi yeterli değildir.
 
 
-## Yerel araştırma ZIP'i ve kayıt durumu — 22 Eylül 2026
+## Yerel kayıtlar — araştırma ZIP akışı kaldırıldı
 
-Ayarlar → Araştırma Paketini Dışa Aktar, tamamlanmış yerel katkı/galeri
-kayıtlarını `atlas-katki-…zip` olarak kaydeder. İnceleme Araçları → İzinli
-incelemeleri dışa aktar, Review kayıtlarını `atlas-reviews-…zip` olarak kaydeder.
-Android 10 ve üstünde dosyalar telefonun **İndirilenler** klasöründedir;
-eski Android sürümlerinde uygulamaya ait İndirilenler konumu kullanılır.
-Fotoğraflar temizdir; işaretler JSON içindeki normalize kutular ve etiketlerdir.
+[Kaldırma ve doğrulama raporu](RESEARCH_ZIP_REMOVAL_VALIDATION.md).
+[Sonraki D1/D2/D3/D5 düzeltmeleri ve testleri](D1_D2_D3_D5_VALIDATION.md).
 
-Her iki yol app cache altında ZIP oluşturur ve Android'e aynı mevcut kanal
-üzerinden verir. Bağlı katkının tüm revizyonları, bağlı Review'un güncel araştırma
-iznine tabidir. İzin geri çekilmiş veya kayıt silinmişse dışa aktarılmaz.
-Bu kontrol AI kapalıyken de çalışır. Hazırlık sırasında izin/silme/kayıt değişirse
-paket yayımlanmadan durdurulur. İzin eksikliği ile bozuk dosya veya kaydetme
-hatası ayrı mesajlarla gösterilir; hata mesajı özel dosya yolu içermez.
-Araştırma izni fal almanın koşulu değildir.
+Katkı/galeri ve inceleme ZIP dışa aktarma düğmeleri, bunlara özel izin kutuları,
+paketleme işlemleri ve Android indirme kanalı kaldırıldı. İnceleme Araçları,
+yeni yerel inceleme, kamera/galeri, manuel işaretleme ve fal akışları korunur.
+Eski izin alanları ve ilk gözlem kayıtları veri uyumluluğu için korunur;
+mevcut fotoğraf, işaret, fal veya önceki ZIP dosyalarına temizlik uygulanmaz.
 
 Kayıt ekranı kaydetme ile yerel analiz aşamasını ayırır. Analiz hatasında
 kaydedilmiş kayıt korunur; aynı kayıttan incelemeye devam edilir. `queued`
@@ -168,15 +158,6 @@ Geçersiz yanıt için en çok bir düzeltme istenir; ikinci yanıt da geçersiz
 hikâye olarak gösterilmez. Bu kontroller tüm model ifadelerini yakalama garantisi
 vermez; eski kayıtlı fallar değiştirilmez.
 
-Gerçek Android dışa aktarma testi (yalnız yapay kayıtlarla, `.diagnostic`):
-`../atlas_ai_gateway/tool/test-device.ps1 -Device <adb-serial> -Export`
-
-Betik önce APK kimliğini doğrular ve beta verisini kaldırmadan tanı testini
-çalıştırır. Test iki gerçek Android indirmesini geri okuyup doğrular; tanı
-uygulamasının oluşturduğu indirmeleri temizler. Yapay ZIP kanıt kopyaları yalnız
-tanı uygulamasının `files/export-validation` dizininde kalır. Kullanıcı beta
-kayıtları, izinleri ve indirmeleri bu test tarafından değiştirilmez.
-
 ## Galeri ve isteğe bağlı tabak — 26 Eylül 2026
 
 Galeri 1–3 fincan fotoğrafını tek kayıtta toplar. Açı varsayılan olarak
@@ -186,7 +167,7 @@ galeriden eklenebilir veya bu adım atlanabilir. Tercih taslakta saklanır.
 Tek fotoğrafta yalnız kullanılabilirlik, çoklu sette ayrıca aynı fincan/tabak
 teyidi istenir. İşaretleme isteğe bağlıdır; kayıt ve fal isteği ayrı eylemlerdir.
 
-Yeni `photoSet` kayıtları ve bunları içeren katkı ZIP'leri sürüm 4 kullanır.
+Yeni `photoSet` kayıtları sürüm 4 kullanır.
 Fotoğrafların kalıcı kimlikleri, kaynakları, fincan/tabak türleri ve açıları
 ayrıdır. Eski kayıtlar yeniden yazılmaz; düzenleme yeni revizyon üretir.
 Fotoğraf ekleme/değiştirme önceki falın güncelliğini kaldırır; ilk gözlemi değiştirmez.

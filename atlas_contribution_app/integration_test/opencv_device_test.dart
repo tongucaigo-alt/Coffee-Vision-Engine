@@ -12,12 +12,10 @@ import 'package:atlas_contribution_app/src/trace_overlay.dart';
 import 'package:atlas_contribution_app/src/fortune_preparation.dart';
 import 'package:atlas_contribution_app/src/fortune_progress.dart';
 import '../test/fortune_flow_presentation_test.dart' as presentation;
-import 'export_device_test.dart' as exports;
 
 void main() {
   final binding = IntegrationTestWidgetsFlutterBinding.ensureInitialized();
   presentation.main();
-  exports.main();
   testWidgets(
     'real OpenCV on twelve cups, continuous preparation and compact closeup',
     (tester) async {

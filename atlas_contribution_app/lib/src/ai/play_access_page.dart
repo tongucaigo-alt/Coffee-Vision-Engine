@@ -147,7 +147,7 @@ class _PlayAccessPageState extends State<PlayAccessPage> {
           ),
         const Divider(),
         const Text(
-          'Atlas eğlence amaçlı AI yorumları üretir; kesin öngörü veya uzman tavsiyesi sunmaz. Fotoğraflar telefonda işlenir. Fal hizmetine yalnız semboller ve fiziksel dağılımın metinsel özeti gönderilir. Araştırma ZIP paylaşımı ayrı ve isteğe bağlıdır.',
+          'Atlas eğlence amaçlı AI yorumları üretir; kesin öngörü veya uzman tavsiyesi sunmaz. Fotoğraflar telefonda işlenir. Fal hizmetine yalnız semboller ve fiziksel dağılımın metinsel özeti gönderilir.',
         ),
       ],
     ),

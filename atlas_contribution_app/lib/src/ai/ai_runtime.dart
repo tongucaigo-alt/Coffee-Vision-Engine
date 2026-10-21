@@ -50,6 +50,8 @@ class AiRuntime {
     AiClient? client,
     Future<String> Function(AiProfile)? readKey,
   }) async {
+    source.protectLinkedAiData();
+    await source.ensureWritable();
     final store = AiStore(
       Directory('${source.directory.parent.path}/ai-local'),
     );
@@ -66,7 +68,6 @@ class AiRuntime {
       contributionStore: source,
     );
     reviews.additionalExposures = store.exposures;
-    reviews.aiExposureAudit = store.researchAudit;
     final traces = TraceService(
       Directory('${source.directory.parent.path}/opencv-traces'),
     );
@@ -75,12 +76,8 @@ class AiRuntime {
       await traces.deleteOwner(id);
     };
     final bridge = AiBridge(source, reviews, store);
-    source.onDeleteRoot = (root) async {
-      await traces.deleteOwner(bridge.sessionId(root));
-      await bridge.deleteRoot(root);
-    };
     await bridge.reconcile();
-    return AiRuntime._(
+    final runtime = AiRuntime._(
       store,
       reviews,
       bridge,
@@ -93,6 +90,12 @@ class AiRuntime {
       readKey,
       traces,
     );
+    // Publish the cross-store callback only after all initialization succeeded.
+    source.onDeleteRoot = (root) async {
+      await traces.deleteOwner(bridge.sessionId(root));
+      await bridge.deleteRoot(root);
+    };
+    return runtime;
   }
 
   Future<int> sendPendingReports() async {

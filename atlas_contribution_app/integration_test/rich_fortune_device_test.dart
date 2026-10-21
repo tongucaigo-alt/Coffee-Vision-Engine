@@ -6,13 +6,11 @@ import 'package:atlas_contribution_app/src/models.dart';
 import '../test/fixtures.dart';
 import '../test/photo_set_widget_test.dart' as flow;
 import '../test/contribution_capture_flow_test.dart' as capture;
-import 'export_device_test.dart' as exports;
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
   flow.main();
   capture.main();
-  exports.main();
   testWidgets('real device scan shows stored markings and can stop', (
     tester,
   ) async {

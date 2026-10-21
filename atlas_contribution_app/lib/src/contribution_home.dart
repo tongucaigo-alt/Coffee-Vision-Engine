@@ -19,8 +19,8 @@ import 'gallery_import.dart';
 import 'capture_settings.dart';
 import 'cropped_photo.dart';
 import 'atlas_design.dart';
+import 'atlas_landing_layout.dart';
 import 'annotation_sequence.dart';
-import 'research_export_notice.dart';
 import 'fortune_progress.dart';
 import 'fortune_preparation.dart';
 import 'opencv_traces.dart';
@@ -68,7 +68,6 @@ class ContributionHome extends StatefulWidget {
   const ContributionHome({
     required this.store,
     required this.service,
-    this.onExport,
     this.onReview,
     this.onAiSettings,
     this.onOpenGuide,
@@ -86,6 +85,7 @@ class ContributionHome extends StatefulWidget {
     this.saucerLauncher,
     this.modern = false,
     this.tarotPage,
+    this.tarotHistoryPage,
     this.onConfirmedRecorded,
     this.recordState,
     this.recordStarred,
@@ -98,7 +98,6 @@ class ContributionHome extends StatefulWidget {
   onAnnotationTraceShown;
   final DraftStore store;
   final ContributionBackend service;
-  final Future<void> Function()? onExport;
   final Future<void> Function()? onReview;
   final Future<void> Function()? onAiSettings;
   final Future<void> Function()? onOpenGuide;
@@ -117,6 +116,7 @@ class ContributionHome extends StatefulWidget {
   final Future<CameraCaptureResult?> Function(BuildContext)? saucerLauncher;
   final bool modern;
   final Widget? tarotPage;
+  final Widget? tarotHistoryPage;
   final Future<RecordPreparationStatus> Function(
     Map<String, dynamic>,
     Set<String>,
@@ -130,6 +130,7 @@ class ContributionHome extends StatefulWidget {
 
 class _ContributionHomeState extends State<ContributionHome>
     with WidgetsBindingObserver {
+  int _recordsSection = 0;
   ContributionDraft? _draft;
   bool _loading = true, _busy = false, _resumePrompt = false;
   bool _fortuneWorkflow = false, _startChoiceOpen = false;
@@ -289,6 +290,8 @@ class _ContributionHomeState extends State<ContributionHome>
       }
       _resumePrompt = _draft != null && !_draft!.queued;
       await widget.store.pruneExpiredReceipts();
+    } on LocalStoreRecovery catch (error) {
+      _error = error.message;
     } catch (_) {
       _error =
           'Taslak okunamadı. Dosyaların korundu; destek için davet eden kişiye ulaş.';
@@ -372,7 +375,7 @@ class _ContributionHomeState extends State<ContributionHome>
                       widget.service.isOffline && widget.onReadFortune != null
                           ? 'Fotoğrafların ve ilk gözlemlerin bu telefonda saklanır. Fal oluşturmayı seçersen yalnız metinsel özet fal hizmetine iletilir.'
                           : widget.service.isOffline
-                          ? 'Fotoğrafların ve işaretlerin yalnız bu telefonda saklanacak. Paketi dışa aktardığında inceleme ve gelecekteki şekil tanıma çalışmaları için kullanılabilecek. Dışa aktarılan paketleri sen yönetirsin.'
+                          ? 'Fotoğrafların ve işaretlerin yalnız bu telefonda saklanacak.'
                           : 'Fincan fotoğrafların ve işaretlerin Atlas ekibi tarafından incelenecek; ileride şekil tanıma sistemini geliştirmekte kullanılabilecek. Katkın herkese açık paylaşılmayacak. En fazla 180 gün saklanacak. Gönderdiklerim ekranından silebilirsin.',
                     ),
                     CheckboxListTile(
@@ -813,6 +816,7 @@ class _ContributionHomeState extends State<ContributionHome>
       MaterialPageRoute<void>(
         builder: (_) => ContributionHistory(
           onReadFortune: widget.onReadFortune,
+          onGenerateFortune: widget.onGenerateFortune,
           recordStarred: widget.recordStarred,
           store: widget.store,
           service: widget.service,
@@ -911,31 +915,6 @@ class _ContributionHomeState extends State<ContributionHome>
                     onPressed: _busy ? null : widget.onReview,
                     icon: const Icon(LucideIcons.scanSearch),
                     label: const Text('Fincanı incele'),
-                  ),
-                  const SizedBox(height: 12),
-                ],
-                if (widget.onExport != null) ...[
-                  OutlinedButton.icon(
-                    onPressed: _busy
-                        ? null
-                        : () async {
-                            setState(() => _busy = true);
-                            try {
-                              await widget.onExport!();
-                            } catch (error) {
-                              if (context.mounted) {
-                                await showResearchExportFailure(
-                                  context,
-                                  error,
-                                  openPermissions: widget.onReview,
-                                );
-                              }
-                            } finally {
-                              if (mounted) setState(() => _busy = false);
-                            }
-                          },
-                    icon: const Icon(LucideIcons.download),
-                    label: const Text('Paketi dışa aktar'),
                   ),
                   const SizedBox(height: 12),
                 ],
@@ -1221,6 +1200,7 @@ class ContributionHistory extends StatefulWidget {
     required this.onRepeat,
     required this.onEdit,
     this.onReadFortune,
+    this.onGenerateFortune,
     this.modern = false,
     this.embedded = false,
     this.onlyRoot,
@@ -1236,6 +1216,7 @@ class ContributionHistory extends StatefulWidget {
   final Future<void> Function(String) onRepeat;
   final Future<void> Function(Map<String, dynamic>) onEdit;
   final Future<void> Function(Map<String, dynamic>)? onReadFortune;
+  final Future<void> Function(Map<String, dynamic>)? onGenerateFortune;
   final bool modern, embedded;
   final String? onlyRoot;
   final ContributionDraft? currentDraft;
@@ -1259,6 +1240,24 @@ class _ContributionHistoryState extends State<ContributionHistory> {
     _refresh();
   }
 
+  Future<void> _openFortune(Map<String, dynamic> row) async {
+    final read = _recordStates[row['root_id']] == 'Fal hazır';
+    final action = read
+        ? widget.onReadFortune
+        : widget.onGenerateFortune ?? widget.onReadFortune;
+    await action?.call(row);
+  }
+
+  Widget _readPrevious(Map<String, dynamic> row) =>
+      _recordStates[row['root_id']] == 'Önceki kayda ait fal' &&
+          widget.onReadFortune != null
+      ? TextButton(
+          onPressed: _busy
+              ? null
+              : () => _act(() => widget.onReadFortune!(row)),
+          child: const Text('Kayıtlı Falları Oku'),
+        )
+      : const SizedBox.shrink();
   final Set<String> _starredRoots = {};
   Future<void> _refresh() async {
     setState(() => _busy = true);
@@ -1389,13 +1388,14 @@ class _ContributionHistoryState extends State<ContributionHistory> {
                     AtlasPrimaryButton(
                       onPressed: _busy
                           ? null
-                          : () => _act(() => widget.onReadFortune!(_rows[i])),
+                          : () => _act(() => _openFortune(_rows[i])),
                       child: Text(
                         _recordStates[_rows[i]['root_id']] == 'Fal hazır'
                             ? 'Falını Oku'
                             : 'Fal Oluştur',
                       ),
                     ),
+                  _readPrevious(_rows[i]),
                   const SizedBox(height: 12),
                   for (final p in ContributionDraft.fromJson(
                     Map<String, dynamic>.from(_rows[i]['document'] as Map),
@@ -1490,15 +1490,14 @@ class _ContributionHistoryState extends State<ContributionHistory> {
                           AtlasPrimaryButton(
                             onPressed: _busy
                                 ? null
-                                : () => _act(
-                                    () => widget.onReadFortune!(_rows[i]),
-                                  ),
+                                : () => _act(() => _openFortune(_rows[i])),
                             child: Text(
                               _recordStates[_rows[i]['root_id']] == 'Fal hazır'
                                   ? 'Falını Oku'
                                   : 'Fal Oluştur',
                             ),
                           ),
+                        _readPrevious(_rows[i]),
                         if (widget.canStart) ...[
                           OutlinedButton(
                             onPressed: _busy

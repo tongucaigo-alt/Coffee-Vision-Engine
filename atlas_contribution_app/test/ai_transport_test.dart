@@ -1,10 +1,12 @@
 import 'dart:convert';
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:atlas_contribution_app/src/ai/ai_contract.dart';
 import 'package:atlas_contribution_app/src/ai/ai_client.dart';
 import 'ai_test.dart' show contextData;
 
+// Keep strict transport/quality expectations independent of laboratory defaults.
 void main() {
   test(
     'quota rejection is actionable and does not expose remote details',
@@ -28,6 +30,7 @@ void main() {
           await File('assets/fortune-prompt-v1.json').readAsString(),
         ),
         allowLan: true,
+        bestEffort: false,
         createHttpClient: () =>
             HttpClient()
               ..connectionFactory = (uri, proxyHost, proxyPort) =>
@@ -98,6 +101,7 @@ void main() {
       final client = AiClient(
         prompt,
         allowLan: true,
+        bestEffort: false,
         createHttpClient: () =>
             HttpClient()
               ..connectionFactory = (uri, proxyHost, proxyPort) =>
@@ -175,6 +179,7 @@ void main() {
           await File('assets/fortune-prompt-v1.json').readAsString(),
         ),
         allowLan: true,
+        bestEffort: false,
         createHttpClient: () =>
             HttpClient()
               ..connectionFactory = (uri, _, _) =>
@@ -208,6 +213,131 @@ void main() {
       expect(calls, 3);
     },
   );
+  test(
+    'cancellation racing with client creation cannot start a request',
+    () async {
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() => server.close(force: true));
+      var calls = 0;
+      server.listen((request) async {
+        calls++;
+        await request.response.close();
+      });
+      final cancellation = AiCancellation();
+      final client = AiClient(
+        FortunePrompt(
+          await File('assets/fortune-prompt-v1.json').readAsString(),
+        ),
+        allowLan: true,
+        bestEffort: false,
+        createHttpClient: () {
+          unawaited(cancellation.cancel());
+          return HttpClient()
+            ..connectionFactory = (uri, _, _) =>
+                Socket.startConnect(InternetAddress.loopbackIPv4, uri.port);
+        },
+      );
+      await expectLater(
+        client.generate(
+          AiProfile(
+            id: 'race',
+            name: 'test',
+            url: 'http://192.168.10.1:${server.port}/v1',
+            model: 'test',
+            provider: AiProvider.direct,
+          ),
+          '',
+          contextData(),
+          cancellation: cancellation,
+          onStatus: (_) {},
+        ),
+        throwsA(
+          isA<AiFailure>().having(
+            (e) => e.message,
+            'message',
+            contains('iptal'),
+          ),
+        ),
+      );
+      expect(calls, 0);
+      expect(cancellation.remoteCancel, isNull);
+    },
+  );
+  for (final phase in ['headers', 'body']) {
+    test(
+      'direct cancellation closes a stalled $phase request without repair',
+      () async {
+        final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+        addTearDown(() => server.close(force: true));
+        final started = Completer<void>();
+        final release = Completer<void>();
+        addTearDown(() {
+          if (!release.isCompleted) release.complete();
+        });
+        var calls = 0;
+        server.listen((request) async {
+          calls++;
+          await request.drain<void>();
+          if (phase == 'body') {
+            request.response.write('{"choices":[');
+            await request.response.flush();
+          }
+          if (!started.isCompleted) started.complete();
+          await release.future;
+          try {
+            request.response.write('late invalid response');
+            await request.response.close();
+          } catch (_) {
+            /* The client has already cancelled the connection. */
+          }
+        });
+        final client = AiClient(
+          FortunePrompt(
+            await File('assets/fortune-prompt-v1.json').readAsString(),
+          ),
+          allowLan: true,
+          bestEffort: false,
+          createHttpClient: () =>
+              HttpClient()
+                ..connectionFactory = (uri, _, _) =>
+                    Socket.startConnect(InternetAddress.loopbackIPv4, uri.port),
+        );
+        final cancellation = AiCancellation();
+        final pending = client.generate(
+          AiProfile(
+            id: 'stall',
+            name: 'test',
+            url: 'http://192.168.10.1:${server.port}/v1',
+            model: 'test',
+            provider: AiProvider.direct,
+          ),
+          '',
+          contextData(),
+          cancellation: cancellation,
+          onStatus: (_) {},
+        );
+        final expectation = expectLater(
+          pending.timeout(const Duration(seconds: 2)),
+          throwsA(
+            isA<AiFailure>().having(
+              (e) => e.message,
+              'message',
+              contains('iptal'),
+            ),
+          ),
+        );
+        await started.future.timeout(const Duration(seconds: 1));
+        final watch = Stopwatch()..start();
+        await cancellation.cancel();
+        await expectation;
+        expect(watch.elapsed, lessThan(const Duration(seconds: 2)));
+        expect(cancellation.remoteCancel, isNull);
+        release.complete();
+        await Future<void>.delayed(const Duration(milliseconds: 40));
+        expect(calls, 1);
+      },
+    );
+  }
   for (final id in [
     'unreported-bird-symbol',
     'no-symbols-in-cup',
@@ -260,6 +390,7 @@ void main() {
       final client = AiClient(
         prompt,
         allowLan: true,
+        bestEffort: false,
         createHttpClient: () =>
             HttpClient()
               ..connectionFactory = (uri, _, _) =>
@@ -319,6 +450,7 @@ void main() {
       final client = AiClient(
         prompt,
         allowLan: true,
+        bestEffort: false,
         createHttpClient: () =>
             HttpClient()
               ..connectionFactory = (uri, _, _) =>
@@ -407,6 +539,7 @@ void main() {
       final client = AiClient(
         prompt,
         allowLan: true,
+        bestEffort: false,
         createHttpClient: () =>
             HttpClient()
               ..connectionFactory = (uri, _, _) =>

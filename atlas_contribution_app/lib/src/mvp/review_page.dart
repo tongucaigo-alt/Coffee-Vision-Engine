@@ -18,8 +18,6 @@ import 'review_capture_settings.dart';
 import 'review_gallery.dart';
 import 'review_models.dart';
 import 'review_store.dart';
-import '../research_export.dart';
-import '../research_export_notice.dart';
 import '../ai/ai_runtime.dart';
 import '../ai/ai_pages.dart';
 
@@ -97,7 +95,7 @@ class _ReviewHubState extends State<ReviewHub> {
   }
 
   Future<void> _new({String? groupId}) async {
-    var local = false, research = false;
+    var local = false;
     final accepted = await showDialog<bool>(
       context: context,
       builder: (context) => StatefulBuilder(
@@ -114,14 +112,6 @@ class _ReviewHubState extends State<ReviewHub> {
                     'Fotoğraflarımın bu telefonda analiz edilmesini ve saklanmasını kabul ediyorum.',
                   ),
                   onChanged: (v) => setLocal(() => local = v ?? false),
-                ),
-                CheckboxListTile(
-                  value: research,
-                  controlAffinity: ListTileControlAffinity.leading,
-                  title: const Text(
-                    'İsteğe bağlı: araştırma ve gelecekteki model geliştirme için dışa aktarmaya izin veriyorum.',
-                  ),
-                  onChanged: (v) => setLocal(() => research = v ?? false),
                 ),
               ],
             ),
@@ -146,7 +136,6 @@ class _ReviewHubState extends State<ReviewHub> {
       groupId: groupId ?? const Uuid().v4(),
       createdAtUtc: now,
       localConsentAtUtc: now,
-      researchConsentAtUtc: research ? now : null,
     );
     try {
       await widget.store.save(s);
@@ -166,9 +155,7 @@ class _ReviewHubState extends State<ReviewHub> {
       context: context,
       builder: (_) => AlertDialog(
         title: const Text('İnceleme silinsin mi?'),
-        content: const Text(
-          'Fotoğraflar bu telefondan silinecek. Önceden dışa aktardığın paketleri ayrıca silmelisin.',
-        ),
+        content: const Text('Fotoğraflar bu telefondan silinecek.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -232,59 +219,6 @@ class _ReviewHubState extends State<ReviewHub> {
           ),
           const Divider(),
         ],
-        const Text(
-          'İzin verdiğin incelemelerin fotoğraflarını, ilk gözlemlerini ve fiziksel analizini ZIP olarak kaydeder.',
-        ),
-        OutlinedButton.icon(
-          onPressed: _busy
-              ? null
-              : () async {
-                  setState(() => _busy = true);
-                  try {
-                    final result = await widget.store.exportToDownloads();
-                    if (context.mounted) {
-                      showNotice(
-                        context,
-                        '${result.count} izinli inceleme ${exportDestinationLabel(result.location)} kaydedildi: ${result.name}',
-                      );
-                    }
-                  } catch (error) {
-                    if (context.mounted) {
-                      await showResearchExportFailure(
-                        context,
-                        error,
-                        openPermissions: () async {
-                          final candidates = _sessions
-                              .where((s) => !s.deleted)
-                              .toList();
-                          final selected = await showDialog<ReviewSession>(
-                            context: context,
-                            builder: (ctx) => SimpleDialog(
-                              title: const Text('İzin verilecek inceleme'),
-                              children: [
-                                for (final s in candidates)
-                                  SimpleDialogOption(
-                                    onPressed: () => Navigator.pop(ctx, s),
-                                    child: Text(
-                                      'İnceleme · ${s.createdAtUtc.split('T').first} · ${s.photos.length} fotoğraf',
-                                    ),
-                                  ),
-                              ],
-                            ),
-                          );
-                          if (selected != null && mounted) {
-                            await _open(selected);
-                          }
-                        },
-                      );
-                    }
-                  } finally {
-                    if (mounted) setState(() => _busy = false);
-                  }
-                },
-          icon: const Icon(LucideIcons.download),
-          label: const Text('İzinli incelemeleri dışa aktar'),
-        ),
       ],
     ),
   );
@@ -933,17 +867,6 @@ class _ReviewPageState extends State<ReviewPage> {
                       }),
                 child: const Text('Fal oluştur'),
               ),
-            CheckboxListTile(
-              contentPadding: EdgeInsets.zero,
-              controlAffinity: ListTileControlAffinity.leading,
-              value: session.researchConsentAtUtc != null,
-              title: const Text(
-                'Bu inceleme ve bağlı çekim kaydı için araştırma amaçlı dışa aktarmaya izin veriyorum.',
-              ),
-              onChanged: busy
-                  ? null
-                  : (v) => _act(() => _save(session.next(researchAllowed: v))),
-            ),
           ],
         ),
       ),

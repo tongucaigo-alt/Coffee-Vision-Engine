@@ -16,6 +16,8 @@ import '../models/coffee_camera_capture_result.dart';
 import '../models/residue_analysis_result.dart';
 import '../models/target_geometry.dart';
 import 'camera_focus_region.dart';
+import 'camera_light_hint.dart';
+import 'camera_presentation.dart';
 import 'camera_target_overlay.dart';
 import 'debug_analysis_panel.dart';
 import 'photo_preview.dart';
@@ -96,6 +98,7 @@ class _CoffeeCameraScreenState extends State<CoffeeCameraScreen>
   bool _approvalInFlight = false;
   bool _appIsActive = true;
   ResidueAnalysisResult? _lastReportedResidueAnalysis;
+  late final CameraLightHint _lightHint;
 
   @override
   void initState() {
@@ -107,6 +110,7 @@ class _CoffeeCameraScreenState extends State<CoffeeCameraScreen>
         'Use CoffeeCameraScreen.flow for two-step capture.',
       );
     }
+    _lightHint = CameraLightHint()..addListener(_onHintChanged);
     WidgetsBinding.instance.addObserver(this);
     final lifecycleState = WidgetsBinding.instance.lifecycleState;
     _appIsActive =
@@ -137,7 +141,40 @@ class _CoffeeCameraScreenState extends State<CoffeeCameraScreen>
       widget.onSaucerResidueAnalysis?.call(residue);
     }
     _syncScanAnimation();
+    _syncLightHint();
     setState(() {});
+  }
+
+  void _onHintChanged() {
+    if (mounted) setState(() {});
+  }
+
+  void _syncLightHint() {
+    final residue = _controller.saucerResidueAnalysis;
+    _lightHint.update(
+      live:
+          widget.config.presentation != null &&
+          _appIsActive &&
+          _controller.phase == CameraExperiencePhase.live,
+      scanVisible: _controller.isCupStep
+          ? _controller.scanActive
+          : residue.residueDetected && residue.mask != null,
+      torch: _controller.flashMode == FlashMode.torch,
+    );
+  }
+
+  Future<void> _toggleLight() async {
+    final wasOn = _controller.flashMode == FlashMode.torch;
+    await _controller.cycleFlashMode();
+    if (!mounted ||
+        wasOn ||
+        _controller.phase != CameraExperiencePhase.live ||
+        _controller.flashMode == FlashMode.torch) {
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Bu kamerada ışık açılamadı.')),
+    );
   }
 
   bool get _cameraAnimationsActive =>
@@ -163,6 +200,7 @@ class _CoffeeCameraScreenState extends State<CoffeeCameraScreen>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     _appIsActive = state == AppLifecycleState.resumed;
     _syncScanAnimation();
+    _syncLightHint();
     if (state == AppLifecycleState.inactive ||
         state == AppLifecycleState.paused ||
         state == AppLifecycleState.detached) {
@@ -259,6 +297,9 @@ class _CoffeeCameraScreenState extends State<CoffeeCameraScreen>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _lightHint
+      ..removeListener(_onHintChanged)
+      ..dispose();
     _scanAnimation.dispose();
     _controller
       ..removeListener(_onChanged)
@@ -414,6 +455,18 @@ class _CoffeeCameraScreenState extends State<CoffeeCameraScreen>
                 ),
                 sigma: widget.config.backgroundBlurSigma,
               ),
+            if (widget.config.presentation case final presentation?)
+              if (_controller.phase == CameraExperiencePhase.live)
+                CameraBrandWatermark(
+                  key: const Key('coffee-camera-brand-watermark'),
+                  image: presentation.backgroundImage,
+                  region: CameraFocusRegion(
+                    target: targetGeometry,
+                    handleGuide: isCupStep
+                        ? widget.config.handleGuide
+                        : CameraHandleGuide.none,
+                  ),
+                ),
             IgnorePointer(
               child: TickerMode(
                 key: const Key('coffee-camera-effects-ticker'),
@@ -464,8 +517,33 @@ class _CoffeeCameraScreenState extends State<CoffeeCameraScreen>
                 ),
               ),
             ),
-            _topBar(showCameraActions: true),
-            _guidanceAndControls(),
+            if (widget.config.presentation case final presentation?)
+              CameraPresentationChrome(
+                presentation: presentation,
+                theme: widget.config.theme,
+                target: targetGeometry,
+                guidance: _controller.guidance,
+                instruction: presentation.instruction,
+                shutter: _buildShutter(),
+                onBack: _back,
+                onFlash: _toggleLight,
+                torch: _controller.flashMode == FlashMode.torch,
+                showLightHint: _lightHint.visible,
+                autoVisible: _controller.autoCaptureVisible,
+                autoEnabled: _controller.autoCaptureEnabled,
+                onAutoChanged: _controller.setAutoCaptureEnabled,
+                onFinish: widget.onFinishSequence == null
+                    ? null
+                    : _finishSequence,
+                finishEnabled:
+                    !_finishingSequence &&
+                    !_approvalInFlight &&
+                    _controller.phase != CameraExperiencePhase.capturing,
+              )
+            else ...[
+              _topBar(showCameraActions: true),
+              _guidanceAndControls(),
+            ],
           ],
         );
       },
@@ -539,14 +617,7 @@ class _CoffeeCameraScreenState extends State<CoffeeCameraScreen>
                       FlashMode.torch => Icons.flash_on,
                       _ => Icons.flash_off,
                     },
-                    onPressed: _controller.cycleFlashMode,
-                  ),
-                  _cameraIconButton(
-                    tooltip: 'Kamerayı değiştir',
-                    icon: Icons.cameraswitch_outlined,
-                    onPressed: _controller.hasMultipleCameras
-                        ? _controller.switchCamera
-                        : null,
+                    onPressed: _toggleLight,
                   ),
                 ],
                 if (widget.onFinishSequence != null)
@@ -573,6 +644,19 @@ class _CoffeeCameraScreenState extends State<CoffeeCameraScreen>
                   ),
               ],
             ),
+            if (showCameraActions) ...[
+              const SizedBox(height: 4),
+              Text(
+                'Yeşil tarama görünmüyorsa ortamı aydınlatın veya flaşı açmayı deneyin.',
+                key: const Key('coffee-camera-light-hint'),
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: widget.config.theme.mutedForeground,
+                  fontSize: 12,
+                  shadows: const [Shadow(blurRadius: 8, color: Colors.black)],
+                ),
+              ),
+            ],
             if (_stepLabel case final label?) ...[
               const SizedBox(height: 6),
               Text(
@@ -687,24 +771,26 @@ class _CoffeeCameraScreenState extends State<CoffeeCameraScreen>
               ),
             ],
             const SizedBox(height: 10),
-            IconButton.filled(
-              key: const Key('coffee-camera-shutter'),
-              tooltip: 'Fotoğraf çek',
-              onPressed: _controller.canCapture
-                  ? () => _controller.capture(CameraCaptureMode.manual)
-                  : null,
-              style: IconButton.styleFrom(
-                fixedSize: const Size.square(76),
-                backgroundColor: Colors.white,
-                foregroundColor: const Color(0xFF111417),
-                disabledBackgroundColor: const Color(0x88FFFFFF),
-              ),
-              iconSize: 34,
-              icon: const Icon(Icons.camera_alt),
-            ),
+            _buildShutter(),
           ],
         ),
       ),
     );
   }
+
+  Widget _buildShutter() => IconButton.filled(
+    key: const Key('coffee-camera-shutter'),
+    tooltip: 'Fotoğraf çek',
+    onPressed: _controller.canCapture
+        ? () => _controller.capture(CameraCaptureMode.manual)
+        : null,
+    style: IconButton.styleFrom(
+      fixedSize: const Size.square(76),
+      backgroundColor: Colors.white,
+      foregroundColor: const Color(0xFF111417),
+      disabledBackgroundColor: const Color(0x88FFFFFF),
+    ),
+    iconSize: 34,
+    icon: const Icon(Icons.camera_alt),
+  );
 }

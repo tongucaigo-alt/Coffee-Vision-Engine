@@ -1,14 +1,13 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:archive/archive.dart';
 import 'package:atlas_contribution_app/src/models.dart';
+import 'package:atlas_contribution_app/src/capture_settings.dart';
 import 'package:atlas_contribution_app/src/mvp/review_capture_settings.dart';
 import 'package:atlas_contribution_app/src/mvp/review_controller.dart';
 import 'package:atlas_contribution_app/src/mvp/review_models.dart';
 import 'package:atlas_contribution_app/src/mvp/review_store.dart';
 import 'package:atlas_contribution_app/src/photo_crop.dart';
-import 'package:atlas_contribution_app/src/research_export.dart';
 import 'package:coffee_camera/coffee_camera.dart';
 import 'package:coffee_camera/src/quality/quality_checker.dart';
 import 'package:flutter/services.dart';
@@ -48,6 +47,26 @@ void main() {
     expect(right.handleGuide, CameraHandleGuide.right);
     expect(left.handleGuide, CameraHandleGuide.left);
     expect(free.backgroundBlurSigma, greaterThan(0));
+    expect(free.showQualityScore, false);
+    expect(free.presentation!.title, 'Fincanını Tara');
+    expect(free.presentation!.stepLabel, 'Serbest açı · 1/3');
+    expect(right.presentation!.stepLabel, 'Kulp sağda · 2/3');
+    expect(left.presentation!.stepLabel, 'Kulp solda · 3/3');
+    expect(free.strings.approve, 'Bu fotoğrafı kullan');
+    final saucer = cameraConfigForSaucer();
+    expect(saucer.presentation!.title, 'Tabak Fotoğrafı');
+    expect(saucer.presentation!.stepLabel, 'İsteğe bağlı');
+    expect(saucer.showQualityScore, false);
+    expect(saucer.saucerConfig, same(const CoffeeCameraConfig().saucerConfig));
+    expect(saucer.strings.approve, 'Bu fotoğrafı kullan');
+    expect(free.coffeeActivationFrames, 2);
+    expect(free.coffeeReleaseFrames, 3);
+    expect(free.thresholds.maximumCenterDistanceRatio, .26);
+    expect(free.thresholds.minimumCupDiameterRatio, .64);
+    expect(free.thresholds.maximumCupDiameterRatio, .96);
+    expect(free.thresholds.maximumAngleDegrees, 90);
+    expect(right.thresholds.maximumAngleDegrees, 18);
+    expect(left.thresholds.maximumAngleDegrees, 18);
     expect(
       free.thresholds.minimumBrightness,
       right.thresholds.minimumBrightness,
@@ -107,7 +126,7 @@ void main() {
   });
 
   test(
-    'real crop import survives analysis edits reopen and consented ZIP',
+    'real crop import preserves full photo, marks and snapshots through analysis edits and reopening',
     () async {
       final temp = await Directory.systemTemp.createTemp('atlas-focus-review-');
       addTearDown(() => temp.delete(recursive: true));
@@ -200,48 +219,14 @@ void main() {
       session = controller.session;
       expect(jsonEncode(session.initialObservations), snapshot);
 
-      const channel = MethodChannel('test.focus.export');
-      Uint8List? zipBytes;
-      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-          .setMockMethodCallHandler(channel, (call) async {
-            zipBytes = await File(
-              (call.arguments as Map)['sourcePath'] as String,
-            ).readAsBytes();
-            return 'test-download';
-          });
-      addTearDown(
-        () => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-            .setMockMethodCallHandler(channel, null),
-      );
-      await store.exportToDownloads(
-        channel: channel,
-        temporaryDirectory: () async => temp,
-      );
-      final archive = ZipDecoder().decodeBytes(zipBytes!);
-      final record = jsonDecode(
-        utf8.decode(
-          archive.findFile('reviews/${session.id}/record.json')!.content,
-        ),
-      );
+      final reloaded = (await ReviewStore(temp).sessions()).single;
       expect(
-        record['photos'][0]['displayCrop'],
+        reloaded.photos.single.displayCrop!.toJson(),
         imported.displayCrop!.toJson(),
       );
-      expect(
-        archive.findFile('reviews/${session.id}/${p.id}.jpg')!.content,
-        originalBytes,
-      );
+      expect(await store.readPhoto(reloaded.photos.single), originalBytes);
+      expect(reloaded.photos.single.photo.regions.single.label, 'tree');
       await controller.save(session.next(researchAllowed: false));
-      await expectLater(
-        store.exportToDownloads(channel: channel),
-        throwsA(
-          isA<ExportFailure>().having(
-            (e) => e.code,
-            'code',
-            ExportFailureCode.noPermission,
-          ),
-        ),
-      );
       expect(
         jsonEncode((await store.sessions()).single.initialObservations),
         snapshot,

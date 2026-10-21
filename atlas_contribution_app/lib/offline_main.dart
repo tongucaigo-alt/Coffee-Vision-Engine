@@ -6,7 +6,6 @@ import 'package:path_provider/path_provider.dart';
 import 'src/contribution_home.dart';
 import 'src/local_store.dart';
 import 'src/offline_contribution.dart';
-import 'src/research_export.dart';
 import 'src/atlas_design.dart';
 import 'src/coffee_guide_gate.dart';
 import 'src/coffee_guide_page.dart';
@@ -23,6 +22,8 @@ import 'src/mvp/review_store.dart';
 import 'src/ai/ai_contract.dart';
 import 'src/ai/ai_runtime.dart';
 import 'src/ai/ai_pages.dart';
+import 'src/ai/ai_recovery_page.dart';
+import 'src/ai/reading_identity.dart';
 import 'src/tarot/tarot_runtime.dart';
 import 'src/tarot/tarot_pages.dart';
 
@@ -35,28 +36,109 @@ Future<void> main() async {
     manualRetention: true,
   );
   await store.initialize();
-  final ai = (aiLabEnabled || playTestEnabled)
-      ? await AiRuntime.create(store)
-      : null;
-  TarotRuntime? tarot;
-  String? tarotError;
-  try {
-    tarot = await TarotRuntime.create(
-      Directory('${store.directory.parent.path}/tarot-local'),
-      ai,
-    );
-  } catch (_) {
-    tarotError =
-        'Tarot kayıtları veya kartları okunamadı. Kayıtlar silinmedi. Uygulamayı yeniden açarak deneyebilirsin.';
+  runApp(OfflineStartupApp(store: store));
+}
+
+class OfflineStartupApp extends StatefulWidget {
+  const OfflineStartupApp({
+    required this.store,
+    this.aiEnabled = aiLabEnabled || playTestEnabled,
+    this.createAi = AiRuntime.create,
+    this.createTarot = TarotRuntime.create,
+    this.guideStore,
+    super.key,
+  });
+  final DraftStore store;
+  final bool aiEnabled;
+  final Future<AiRuntime> Function(DraftStore) createAi;
+  final Future<TarotRuntime> Function(Directory, AiRuntime?) createTarot;
+  final CoffeeGuideStore? guideStore;
+  @override
+  State<OfflineStartupApp> createState() => _OfflineStartupAppState();
+}
+
+class _OfflineStartupAppState extends State<OfflineStartupApp> {
+  bool _loading = false;
+  AiRuntime? _ai;
+  TarotRuntime? _tarot;
+  String? _aiError, _tarotError;
+  @override
+  void initState() {
+    super.initState();
+    _load();
   }
-  runApp(
-    OfflineContributionApp(
-      store: store,
-      ai: ai,
-      tarot: tarot,
-      tarotError: tarotError,
-    ),
-  );
+
+  Future<void> _load() async {
+    if (_loading) return;
+    setState(() {
+      _loading = true;
+      _aiError = null;
+      _tarotError = null;
+    });
+    widget.store.readOnlyReason = null;
+    _ai = null;
+    if (widget.aiEnabled) {
+      try {
+        _ai = await widget.createAi(widget.store);
+      } catch (error) {
+        _aiError = error is LocalStoreRecovery
+            ? error.message
+            : 'AI kayıtları açılamadı. Fotoğrafların ve falların sıfırlanmadı. Güvenlik için kahve kayıtları salt okunur durumda.';
+        widget.store.readOnlyReason = _aiError;
+      }
+    }
+    _tarot?.dispose();
+    _tarot = null;
+    try {
+      _tarot = await widget.createTarot(
+        Directory('${widget.store.directory.parent.path}/tarot-local'),
+        _ai,
+      );
+    } catch (_) {
+      _tarotError =
+          'Tarot kayıtları veya kartları okunamadı. Kayıtlar silinmedi. Uygulamayı yeniden açarak deneyebilirsin.';
+    }
+    if (mounted) setState(() => _loading = false);
+  }
+
+  @override
+  void dispose() {
+    _tarot?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) {
+      return MaterialApp(
+        theme: atlasTheme(),
+        home: const Scaffold(body: Center(child: CircularProgressIndicator())),
+      );
+    }
+    if (_aiError != null) {
+      return MaterialApp(
+        title: 'Atlas',
+        debugShowCheckedModeBanner: false,
+        theme: atlasTheme(),
+        home: AiRecoveryPage(
+          store: widget.store,
+          message: _aiError!,
+          onRetry: _load,
+          tarotPage: _tarot == null ? null : TarotHomePage(runtime: _tarot!),
+          tarotHistoryPage: _tarot == null
+              ? null
+              : TarotHistoryPage(runtime: _tarot!),
+        ),
+      );
+    }
+    return OfflineContributionApp(
+      store: widget.store,
+      ai: _ai,
+      tarot: _tarot,
+      tarotError: _tarotError,
+      guideStore: widget.guideStore,
+    );
+  }
 }
 
 class OfflineContributionApp extends StatelessWidget {
@@ -102,6 +184,9 @@ class OfflineContributionApp extends StatelessWidget {
               ),
             ),
           ),
+          tarotHistoryPage: tarot != null
+              ? TarotHistoryPage(runtime: tarot!, embedded: true)
+              : null,
           tarotPage: tarot != null
               ? TarotHomePage(runtime: tarot!)
               : tarotError != null
@@ -289,10 +374,15 @@ class OfflineContributionApp extends StatelessWidget {
                       link?['receiptId'] != (row['document'] as Map)['id']) {
                     return 'Önceki kayda ait fal';
                   }
+                  final focus = await ai!.store.readingFocus(id);
                   final current = results.where(
                     (r) =>
-                        r['sourceFingerprint'] ==
-                        preparationSourceFingerprint(session),
+                        resultReadingRequestKey(r as Map) ==
+                        readingRequestKey(
+                          id,
+                          preparationSourceFingerprint(session),
+                          focus,
+                        ),
                   );
                   if (current.isEmpty) return 'Önceki kayda ait fal';
                   return current.any((r) => r['state'] == 'completed')
@@ -311,7 +401,6 @@ class OfflineContributionApp extends StatelessWidget {
                         runtime: ai!,
                         session: session,
                         simple: true,
-                        autoGenerate: true,
                       ),
                     ),
                   );
@@ -330,30 +419,6 @@ class OfflineContributionApp extends StatelessWidget {
                       ),
                   captureStore: store,
                 ),
-              ),
-            );
-          },
-          onExport: () async {
-            final result = await OfflineContributionExporter(
-              store,
-              reviewStore: ai?.reviews,
-              exposureAudit: ai?.store.researchAudit,
-            ).exportToDownloads();
-            if (!context.mounted) return;
-            await showDialog<void>(
-              context: context,
-              builder: (context) => AlertDialog(
-                title: const Text('Paket hazır'),
-                content: SelectableText(
-                  '${result.recordCount} kayıt ${exportDestinationLabel(result.location)} kaydedildi.\n\n'
-                  '${result.fileName}\n\nKontrol kodu:\n${result.checksum}',
-                ),
-                actions: [
-                  FilledButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text('Tamam'),
-                  ),
-                ],
               ),
             );
           },

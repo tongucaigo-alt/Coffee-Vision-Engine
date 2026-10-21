@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:io';
-import 'package:archive/archive.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:image/image.dart' as img;
@@ -69,7 +68,7 @@ void main() {
   for (var cups = 1; cups <= 3; cups++) {
     for (final saucer in [false, true]) {
       test(
-        '$cups gallery cups with saucer=$saucer roundtrip, analyze and export',
+        '$cups gallery cups with saucer=$saucer roundtrip, analyze and reopen',
         () async {
           var draft = setDraft();
           await source.save(draft);
@@ -147,40 +146,15 @@ void main() {
           expect(jsonEncode(payload), isNot(contains('localName')));
           await controller.close();
           controller.dispose();
-          const channel = MethodChannel('test.photo-set-export');
-          late Uint8List bytes;
-          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-              .setMockMethodCallHandler(channel, (call) async {
-                bytes = await File(
-                  (call.arguments as Map)['sourcePath'] as String,
-                ).readAsBytes();
-                return 'content://fixture';
-              });
-          addTearDown(
-            () => TestDefaultBinaryMessengerBinding
-                .instance
-                .defaultBinaryMessenger
-                .setMockMethodCallHandler(channel, null),
-          );
-          await OfflineContributionExporter(
-            source,
-            reviewStore: reviews,
-            channel: channel,
-            temporaryDirectory: () async => root,
-          ).exportToDownloads();
-          final zip = ZipDecoder().decodeBytes(bytes);
-          final manifest = jsonDecode(
-            utf8.decode(zip.findFile('manifest.json')!.content),
-          );
-          expect(manifest['version'], 4);
-          expect(
-            zip.files
-                .where((f) => f.name.endsWith('.jpg'))
-                .map((f) => f.name)
-                .toSet()
-                .length,
-            draft.photos.length,
-          );
+          final reopened = (await ReviewStore(
+            reviews.directory,
+          ).sessions()).single;
+          expect(reopened.toJson(), controller.session.toJson());
+          final saved = (await source.receipts()).single;
+          expect(saved['document'], draft.toJson());
+          for (final photo in reopened.photos) {
+            expect(await reviews.readPhoto(photo), isNotEmpty);
+          }
         },
       );
     }

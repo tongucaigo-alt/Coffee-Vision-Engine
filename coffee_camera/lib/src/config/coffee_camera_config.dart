@@ -366,6 +366,22 @@ class CoffeeCameraEffectStyle {
 
 enum CameraHandleGuide { none, right, left }
 
+/// Optional host branding. It affects camera chrome only, never capture data.
+@immutable
+class CoffeeCameraPresentation {
+  const CoffeeCameraPresentation({
+    required this.backgroundImage,
+    required this.title,
+    this.stepLabel,
+    this.instruction,
+  });
+
+  final ImageProvider<Object> backgroundImage;
+  final String title;
+  final String? stepLabel;
+  final String? instruction;
+}
+
 @immutable
 class CoffeeCameraConfig {
   const CoffeeCameraConfig({
@@ -392,6 +408,7 @@ class CoffeeCameraConfig {
     this.strings = const CoffeeCameraStrings(),
     this.theme = const CoffeeCameraTheme(),
     this.effectStyle = const CoffeeCameraEffectStyle(),
+    this.presentation,
   }) : assert(
          backgroundBlurSigma >= 0 && backgroundBlurSigma < double.infinity,
        );
@@ -424,4 +441,5 @@ class CoffeeCameraConfig {
   final CoffeeCameraStrings strings;
   final CoffeeCameraTheme theme;
   final CoffeeCameraEffectStyle effectStyle;
+  final CoffeeCameraPresentation? presentation;
 }

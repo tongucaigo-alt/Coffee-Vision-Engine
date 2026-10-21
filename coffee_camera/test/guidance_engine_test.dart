@@ -31,6 +31,8 @@ void main() {
     double brightness = 0.7,
     double sharpness = 0.7,
     double angle = 0,
+    bool stable = true,
+    bool coffee = true,
   }) {
     return FrameAnalysisResult(
       cupAnalysisAvailable: true,
@@ -40,7 +42,8 @@ void main() {
       darkPixelRatio: 0.24,
       coffeePresenceScore: 0.36,
       angleDegrees: angle,
-      isStable: true,
+      isStable: stable,
+      coffeeDetected: coffee,
       timestamp: DateTime(2026),
     );
   }
@@ -75,6 +78,17 @@ void main() {
 
   test('reports ready when all conditions pass', () {
     expect(message(frame(cup: goodCup)), config.strings.readyHoldStill);
+  });
+
+  test('does not claim ready without stability or current coffee', () {
+    expect(
+      message(frame(cup: goodCup, stable: false)),
+      config.strings.holdCameraStill,
+    );
+    expect(
+      message(frame(cup: goodCup, coffee: false)),
+      'Telve alanı inceleniyor',
+    );
   });
 
   test('asks for more distance when a centered cup is too large', () {

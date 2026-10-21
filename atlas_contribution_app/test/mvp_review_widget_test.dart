@@ -87,7 +87,7 @@ void main() {
       );
     }
   }
-  testWidgets('empty session cannot analyze, research checkbox is opt-in', (
+  testWidgets('empty session cannot analyze without research export controls', (
     tester,
   ) async {
     final temp = (await tester.runAsync(
