@@ -7,9 +7,11 @@ class CoffeeLoadingAnimation extends StatefulWidget {
   const CoffeeLoadingAnimation({
     required this.active,
     required this.reducedMotion,
+    this.size = 72,
     super.key,
   });
   final bool active, reducedMotion;
+  final double size;
 
   @override
   State<CoffeeLoadingAnimation> createState() => _CoffeeLoadingAnimationState();
@@ -52,8 +54,8 @@ class _CoffeeLoadingAnimationState extends State<CoffeeLoadingAnimation>
     child: ExcludeSemantics(
       child: RepaintBoundary(
         child: SizedBox(
-          width: 72,
-          height: 72,
+          width: widget.size,
+          height: widget.size,
           child: Lottie.asset(
             'assets/animations/coffee-love.json',
             controller: _controller,
@@ -64,8 +66,11 @@ class _CoffeeLoadingAnimationState extends State<CoffeeLoadingAnimation>
               _controller.duration = composition.duration;
               _syncPlayback();
             },
-            errorBuilder: (_, _, _) =>
-                const Icon(Icons.coffee_outlined, size: 40, color: atlasCoffee),
+            errorBuilder: (_, _, _) => Icon(
+              Icons.coffee_outlined,
+              size: widget.size * 40 / 72,
+              color: atlasCoffee,
+            ),
           ),
         ),
       ),

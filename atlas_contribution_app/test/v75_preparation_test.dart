@@ -32,6 +32,9 @@ void main() {
       await tester.pump();
       expect(find.byType(FortuneScan), findsNothing);
       expect(find.text('selection page'), findsOneWidget);
+      expect(find.text('selection page').hitTestable(), findsNothing);
+      expect(find.text('Sıraya alınıyor…'), findsOneWidget);
+      expect(find.byType(AppBar), findsNothing);
       flow.updateTraces(TraceSet([photo], [candidate(0, 1)]), complete: true);
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 100));

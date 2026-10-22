@@ -6,6 +6,7 @@ import 'package:atlas_contribution_app/src/contribution_home.dart';
 import 'package:atlas_contribution_app/src/fortune_preparation.dart';
 import 'package:atlas_contribution_app/src/fortune_progress.dart';
 import 'package:atlas_contribution_app/src/models.dart';
+import 'package:atlas_contribution_app/src/opencv_traces.dart';
 import 'contribution_save_status_test.dart' show MemoryStore, PausedService;
 import 'fixtures.dart';
 import 'suitability_fixture.dart';
@@ -16,8 +17,16 @@ void main() {
     'cancelAnalysis',
     'saveFailure',
     'onlySave',
+    'minimalComplete',
+    'minimalCancelSaving',
+    'minimalCancelAnalysis',
+    'minimalSaveFailure',
   ]) {
     testWidgets('actual save flow shares presentation: $mode', (tester) async {
+      final minimal = mode.startsWith('minimal');
+      final scenario = minimal
+          ? mode.substring(7, 8).toLowerCase() + mode.substring(8)
+          : mode;
       tester.view.physicalSize = const Size(800, 2800);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.resetPhysicalSize);
@@ -46,7 +55,7 @@ void main() {
       });
       final service = PausedService(store)
         ..pause = Completer<void>()
-        ..fail = mode == 'saveFailure';
+        ..fail = scenario == 'saveFailure';
       final progress = ValueNotifier(
         const FortuneProgress(FortunePhase.saving),
       );
@@ -67,6 +76,15 @@ void main() {
             photoSuitability: SupportedSuitability(),
             preparation: flow,
             fortuneProgress: progress,
+            loadAnnotationTraces: minimal
+                ? (_) {
+                    // Local warmup started by send must run after the overlay's paint.
+                    if (flow.active) {
+                      expectSync(find.text('Sıraya alınıyor…'), findsOneWidget);
+                    }
+                    return Future.value(TraceSet.empty);
+                  }
+                : null,
             aiDescription: () async => 'test',
             onRecorded: (_) async {},
             onConfirmedRecorded: (_, _) {
@@ -106,11 +124,11 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byType(CheckboxListTile), findsNothing);
       final button = find.text(
-        mode == 'onlySave' ? 'Yalnız Kaydet' : 'Falımı Oluştur',
+        scenario == 'onlySave' ? 'Yalnız Kaydet' : 'Falımı Oluştur',
       );
       await tester.ensureVisible(button);
       // Two invocations before the rebuild must still submit only once.
-      final callback = mode == 'onlySave'
+      final callback = scenario == 'onlySave'
           ? tester
                 .widget<TextButton>(
                   find.widgetWithText(TextButton, 'Yalnız Kaydet'),
@@ -125,7 +143,7 @@ void main() {
       callback();
       await tester.pump();
       await tester.pump();
-      final scanState = mode == 'onlySave'
+      final scanState = scenario == 'onlySave' || minimal
           ? null
           : tester.state(find.byKey(const ValueKey('continuous-fortune-scan')));
       if (scanState != null) {
@@ -137,11 +155,26 @@ void main() {
           isTrue,
         );
       }
+      if (minimal) {
+        expect(find.text('Sıraya alınıyor…'), findsOneWidget);
+        expect(find.text('Falımı Oluştur').hitTestable(), findsNothing);
+        expect(find.byType(FortuneScan), findsNothing);
+      }
+      if (scenario == 'cancelSaving') {
+        await tester.binding.handlePopRoute();
+        await tester.binding.handlePopRoute();
+        await tester.pump();
+        expect(flow.cancelled, isTrue);
+        expect(
+          find.text(const FortuneProgress(FortunePhase.cancelled).message),
+          findsOneWidget,
+        );
+      }
       service.pause!.complete();
       for (var i = 0; i < 5; i++) {
         await tester.pump();
       }
-      if (mode == 'saveFailure') {
+      if (scenario == 'saveFailure') {
         await tester.pump(const Duration(milliseconds: 400));
         expect(find.text('Kayıt tamamlanamadı'), findsOneWidget);
         expect(store.draft, isNotNull);
@@ -151,15 +184,27 @@ void main() {
       } else {
         expect(store.rows, hasLength(1));
         expect(generations, 0);
-        if (mode == 'cancelAnalysis') flow.cancel();
+        if (minimal && scenario != 'cancelSaving') {
+          expect(find.text('Hazırlanıyor…').hitTestable(), findsOneWidget);
+        }
+        if (scenario == 'cancelAnalysis') {
+          await tester.binding.handlePopRoute();
+          await tester.binding.handlePopRoute();
+          await tester.pump();
+          expect(flow.cancelled, isTrue);
+        }
         analysis.complete(RecordPreparationStatus.ready);
         for (var i = 0; i < 5; i++) {
           await tester.pump();
         }
-        if (mode == 'complete') {
+        if (scenario == 'complete') {
           await tester.pump(const Duration(milliseconds: 500));
           expect(generations, 1);
-          expect(tester.state(find.byType(FortuneScan)), same(scanState));
+          if (scanState != null) {
+            expect(tester.state(find.byType(FortuneScan)), same(scanState));
+          } else {
+            expect(find.byType(FortuneScan), findsOneWidget);
+          }
           expect(
             tester.widget<FortuneScan>(find.byType(FortuneScan)).photos,
             hasLength(3),

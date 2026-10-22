@@ -597,7 +597,6 @@ class _ContributionHomeState extends State<ContributionHome>
     _stopRequested = false;
     final presentation = widget.preparation;
     if (generate && presentation?.attached == true) {
-      final warmup = _warmTraces(_draft!);
       presentation!.begin(
         requireMarkedPhotos: widget.loadAnnotationTraces != null,
         photos: _draft!.photos,
@@ -605,13 +604,19 @@ class _ContributionHomeState extends State<ContributionHome>
         onCancel: () => _stopRequested = true,
       );
       final traceEpoch = presentation.epoch;
-      unawaited(
-        warmup.then(
-          (set) =>
-              presentation.updateTraces(set, complete: true, epoch: traceEpoch),
-        ),
-      );
+      // Paint the blocking preparation surface before starting local work.
       await WidgetsBinding.instance.endOfFrame;
+      if (!_stopRequested) {
+        unawaited(
+          _warmTraces(_draft!).then(
+            (set) => presentation.updateTraces(
+              set,
+              complete: true,
+              epoch: traceEpoch,
+            ),
+          ),
+        );
+      }
     }
     var receiptSaved = false;
     try {
