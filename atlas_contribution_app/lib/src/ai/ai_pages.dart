@@ -813,6 +813,23 @@ class _AiFortunePageState extends State<AiFortunePage> {
                 'Fal konusu veya kayıt değişti; işlem durduruldu.',
               );
             }
+            // Revalidate the actual files immediately before every request,
+            // including retries. Preparation can outlive a photo or evidence.
+            final checker = PhotoSuitability(
+              Directory(
+                '${widget.runtime.bridge.source.directory.parent.path}/photo-suitability',
+              ),
+            );
+            for (final item in snapshot.photos) {
+              final assessment = await checker.assess(
+                widget.runtime.reviews.file(item.photo.localName),
+                item.photo,
+              );
+              if (!suitabilityAccepted(assessment, item.photo)) {
+                throw PhotoSuitabilityFailure(item.photo, assessment);
+              }
+            }
+            checkCancelled();
             final candidate = memoryCandidate;
             if (candidate != null &&
                 !await widget.runtime.store.memoryStillCurrent(

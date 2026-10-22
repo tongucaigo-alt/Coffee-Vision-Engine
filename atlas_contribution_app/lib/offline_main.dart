@@ -23,7 +23,7 @@ import 'src/ai/ai_contract.dart';
 import 'src/ai/ai_runtime.dart';
 import 'src/ai/ai_pages.dart';
 import 'src/ai/ai_recovery_page.dart';
-import 'src/ai/reading_identity.dart';
+import 'src/ai/record_summaries.dart';
 import 'src/tarot/tarot_runtime.dart';
 import 'src/tarot/tarot_pages.dart';
 
@@ -350,45 +350,13 @@ class OfflineContributionApp extends StatelessWidget {
                     controller.dispose();
                   }
                 },
-          recordStarred: ai == null
+          loadRecordSummaries: ai == null
               ? null
-              : (row) => ai!.store.hasStarredSession(
-                  ai!.bridge.sessionId(row['root_id'] as String),
+              : (rows) => readRecordSummaries(
+                  rows,
+                  readAi: ai!.store.read,
+                  readSessions: ai!.reviews.sessions,
                 ),
-          recordState: ai == null
-              ? null
-              : (row) async {
-                  final id = ai!.bridge.sessionId(row['root_id'] as String);
-                  final data = await ai!.store.read();
-                  final results = (data['results'] as List).where(
-                    (r) =>
-                        r['sessionId'] == id &&
-                        (r['answers'] as List).isNotEmpty,
-                  );
-                  if (results.isEmpty) return 'Telefona kaydedildi';
-                  final session = (await ai!.reviews.sessions())
-                      .where((s) => s.id == id)
-                      .firstOrNull;
-                  final link = (data['links'] as Map)[row['root_id']] as Map?;
-                  if (session == null ||
-                      link?['receiptId'] != (row['document'] as Map)['id']) {
-                    return 'Önceki kayda ait fal';
-                  }
-                  final focus = await ai!.store.readingFocus(id);
-                  final current = results.where(
-                    (r) =>
-                        resultReadingRequestKey(r as Map) ==
-                        readingRequestKey(
-                          id,
-                          preparationSourceFingerprint(session),
-                          focus,
-                        ),
-                  );
-                  if (current.isEmpty) return 'Önceki kayda ait fal';
-                  return current.any((r) => r['state'] == 'completed')
-                      ? 'Fal hazır'
-                      : 'Fal denemesi tamamlanmadı';
-                },
           onReadFortune: ai == null
               ? null
               : (row) async {

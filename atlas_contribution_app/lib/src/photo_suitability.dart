@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:coffee_camera/coffee_camera.dart';
 import 'package:flutter/foundation.dart';
 import 'mvp/photo_residue_check.dart';
 import 'package:crypto/crypto.dart';
@@ -7,32 +8,47 @@ import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'models.dart';
 import 'photo_crop.dart';
+import 'photo_capture_evidence.dart';
 
 // Cache identity includes both the object model and application residue rules.
-// Explicit build opt-in for the model whose independent device gate passed.
+// Explicit build opt-in. Each new model must pass its own release gate.
 const localImageScreenEnabled = bool.fromEnvironment('ATLAS_IMAGE_SCREEN');
 const diagnosticImageScreen =
     bool.fromEnvironment('ATLAS_DIAGNOSTIC') && localImageScreenEnabled;
 const suitabilityVersion = localImageScreenEnabled
-    ? 'atlas-diagnostic-mobilenet-17cb073e-expanded-v5'
-    : 'atlas-suitability-lite0-residue-v4';
-const suitabilityBlockingValidated = localImageScreenEnabled;
+    ? 'atlas-diagnostic-mobilenet-73becef6-strict-v6'
+    : 'atlas-suitability-lite0-residue-cup-strict-v5';
+// V6 is a local candidate: its 2026-10-22 independent release gate failed.
+// Tests exercise its policy, but this candidate must not be installed.
+const suitabilityBlockingValidated = false;
+const localImageScreenModelSha256 =
+    '73becef6afcea56138cff83acc8645dc6674fc3e9a7d33441002e18cb4a400f7';
+const localImageScreenRejectBelow = -0.34994039923472275;
+const localImageScreenSupportAbove = 0.30238871786915555;
 
-/// Whole-frame and preview-crop evidence must both be negative to reject.
-/// A positive model margin cannot provide definite evidence against a photo.
-String classifyLocalImageScreen(Map<dynamic, dynamic>? response) {
+/// A conflicting view cannot be rescued by capture evidence.
+String classifyLocalImageScreen(
+  Map<dynamic, dynamic>? response, {
+  bool automaticEvidence = false,
+}) {
   final scores = response?['scores'];
-  if (response?['modelSha256'] !=
-          '17cb073e902c459ebc04fe9b14a2ba10ec968a4c378c40fbd8199f7c5b0ff5d4' ||
+  if (response?['modelSha256'] != localImageScreenModelSha256 ||
       scores is! List ||
       scores.length != 2 ||
       scores.any((value) => value is! num || !value.isFinite)) {
     throw const FormatException('Invalid diagnostic screening response');
   }
-  if (scores.every((value) => (value as num) < -.4117240578933279)) {
+  final negative = scores
+      .where((value) => (value as num) < localImageScreenRejectBelow)
+      .length;
+  final positive = scores
+      .where((value) => (value as num) > localImageScreenSupportAbove)
+      .length;
+  if (negative == 2) {
     return 'unsuitable';
   }
-  if (scores.any((value) => (value as num) > .27635831503150343)) {
+  if (negative > 0) return 'uncertain';
+  if (positive == 2 || (positive == 1 && automaticEvidence)) {
     return 'supported';
   }
   return 'uncertain';
@@ -90,16 +106,17 @@ String classifySuitability(Map<dynamic, dynamic> scores) {
   return 'uncertain';
 }
 
-bool suitabilityAccepted(
-  Map<String, dynamic>? value,
-  ContributionPhoto photo,
-) =>
-    value?['version'] == suitabilityVersion &&
-    value?['checksum'] == photo.checksum &&
-    value?['surface'] == photo.surface.name &&
-    value?['cropKey'] ==
-        jsonEncode((photo.displayCrop ?? PhotoCrop.full).toJson()) &&
-    ['supported', 'uncertain'].contains(value?['status']);
+bool suitabilityAccepted(Map<String, dynamic>? value, ContributionPhoto photo) {
+  final accepted = photo.surface == PhotoSurface.cup
+      ? const ['supported']
+      : const ['supported', 'uncertain'];
+  return value?['version'] == suitabilityVersion &&
+      value?['checksum'] == photo.checksum &&
+      value?['surface'] == photo.surface.name &&
+      value?['cropKey'] ==
+          jsonEncode((photo.displayCrop ?? PhotoCrop.full).toJson()) &&
+      accepted.contains(value?['status']);
+}
 
 String suitabilityIdentity(ContributionPhoto photo) =>
     '${photo.checksum}|${photo.surface.name}|${jsonEncode((photo.displayCrop ?? PhotoCrop.full).toJson())}';
@@ -109,8 +126,13 @@ class PhotoSuitabilityFailure implements Exception {
   final ContributionPhoto photo;
   final Map<String, dynamic> assessment;
   bool get technical => assessment['status'] == 'error';
+  bool get uncertain =>
+      photo.surface == PhotoSurface.cup && assessment['status'] == 'uncertain';
+  bool get retryable => technical || uncertain;
   String get message => technical
       ? 'Fotoğraf kontrolü tamamlanamadı. Kaydın korunuyor; kontrolü yeniden deneyebilirsin.'
+      : uncertain
+      ? 'Bu fotoğrafta fincan ve telveyi doğrulayamadık. Fincanın içini ve telveyi daha net göster.'
       : 'Bu karede fincanının hikâyesine ulaşamadık. Telvenin göründüğü bir fotoğrafla yeniden deneyelim.';
 }
 
@@ -133,13 +155,10 @@ class PhotoSuitabilityNotice extends StatelessWidget {
         child: Text('Fotoğraf kontrol ediliyor…'),
       );
     }
-    final status = value!['status'];
     if (suitabilityAccepted(value, photo)) {
       return const SizedBox.shrink();
     }
     final failure = PhotoSuitabilityFailure(photo, value!);
-    final experimental =
-        value!['experimental'] == true && status == 'uncertain';
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Column(
@@ -147,12 +166,9 @@ class PhotoSuitabilityNotice extends StatelessWidget {
         children: [
           Semantics(
             liveRegion: true,
-            child: Text(
-              '${photo.title}: ${failure.message}'
-              '${experimental ? " Kontrol henüz deneme aşamasında; mevcut fotoğrafla devam edebilirsin." : ""}',
-            ),
+            child: Text('${photo.title}: ${failure.message}'),
           ),
-          if (failure.technical && onRetry != null)
+          if (failure.retryable && onRetry != null)
             OutlinedButton(
               onPressed: onRetry,
               child: const Text('Kontrolü Yeniden Dene'),
@@ -177,7 +193,7 @@ class PhotoSuitabilityRecovery extends StatelessWidget {
   final VoidCallback? onRetry;
   @override
   Widget build(BuildContext context) {
-    if (failure.technical) {
+    if (failure.retryable) {
       return PhotoSuitabilityNotice(
         photo: failure.photo,
         value: failure.assessment,
@@ -200,6 +216,14 @@ class PhotoSuitabilityRecovery extends StatelessWidget {
 class PhotoSuitability {
   PhotoSuitability(this.directory);
   final Directory directory;
+  late final _captureEvidence = PhotoCaptureEvidence(
+    Directory('${directory.path}/capture-evidence'),
+  );
+
+  Future<void> recordCaptureEvidence(
+    ContributionPhoto photo,
+    CameraCaptureResult capture,
+  ) => _captureEvidence.record(photo, capture);
   static const channel = MethodChannel('atlas.photo/suitability');
   static const imageScreenChannel = MethodChannel('atlas.photo/image_screen');
   String _key(ContributionPhoto p) => sha256
@@ -265,6 +289,26 @@ class PhotoSuitability {
           !(suitabilityBlockingValidated && p.surface == PhotoSurface.cup),
       'decisionSource': 'localSystem',
     };
+    // A cached decision must not accept different bytes at the same path.
+    try {
+      final bytes = await file.readAsBytes();
+      if ('sha256:${sha256.convert(bytes)}' != p.checksum) {
+        throw const FormatException('Photo mismatch');
+      }
+    } catch (_) {
+      final failure = {
+        ...base(),
+        'status': 'error',
+        'residueAssessment': 'unavailable',
+      };
+      try {
+        await _save(p, failure);
+      } catch (_) {
+        /* Preserve inline error. */
+      }
+      return failure;
+    }
+    final automaticEvidence = await _captureEvidence.supports(p);
     try {
       final cached = await read(p);
       if (!retry &&
@@ -273,6 +317,7 @@ class PhotoSuitability {
           cached['checksum'] == p.checksum &&
           cached['surface'] == p.surface.name &&
           cached['cropKey'] == jsonEncode(crop.toJson()) &&
+          cached['automaticEvidence'] == automaticEvidence &&
           [
             'supported',
             'uncertain',
@@ -288,6 +333,7 @@ class PhotoSuitability {
     var value = base();
     for (var attempt = 0; attempt < 2; attempt++) {
       value = base();
+      value['automaticEvidence'] = automaticEvidence;
       value['attempts'] = attempt + 1;
       try {
         final bytes = await file.readAsBytes();
@@ -303,7 +349,10 @@ class PhotoSuitability {
                 'crop': [crop.x, crop.y, crop.width, crop.height],
               })
               .timeout(const Duration(seconds: 30));
-          final status = classifyLocalImageScreen(screen);
+          final status = classifyLocalImageScreen(
+            screen,
+            automaticEvidence: automaticEvidence,
+          );
           value.addAll({
             'candidateStatus': status,
             'status': status,

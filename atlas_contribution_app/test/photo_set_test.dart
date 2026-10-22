@@ -23,12 +23,29 @@ Uint8List setImage(int i) => img.encodePng(
 
 class SetPicker implements MultiGalleryPicker {
   List<Uint8List> items = [];
+  int? requestedLimit;
+  int? recoveredLimit;
+  int singleCalls = 0;
+  int multipleCalls = 0;
   @override
-  Future<List<Uint8List>> pickMany() async => items;
+  Future<List<Uint8List>> pickMany({int limit = 3}) async {
+    multipleCalls++;
+    requestedLimit = limit;
+    return items;
+  }
+
   @override
-  Future<List<Uint8List>> recoverMany() async => items;
+  Future<List<Uint8List>> recoverMany({int limit = 3}) async {
+    recoveredLimit = limit;
+    return items;
+  }
+
   @override
-  Future<Uint8List?> pick() async => items.firstOrNull;
+  Future<Uint8List?> pick() async {
+    singleCalls++;
+    return items.firstOrNull;
+  }
+
   @override
   Future<Uint8List?> recover() async => items.firstOrNull;
 }
@@ -172,7 +189,17 @@ void main() {
       expect(await importer.select(draft), isNull);
       expect((await source.load())!.toJson(), draft.toJson());
       picker.items = [setImage(2), setImage(3)];
-      await expectLater(importer.select(draft), throwsArgumentError);
+      await source.saveSetGalleryPending({
+        'operation': 'photoSet',
+        'draft': draft.toJson(),
+        'surface': 'cup',
+        'replaceId': null,
+      });
+      // A recovered multi-selection must also respect the single remaining slot.
+      await expectLater(
+        GalleryImport(source, picker).recover(),
+        throwsA(isA<GallerySelectionLimit>()),
+      );
       expect((await source.load())!.toJson(), draft.toJson());
     },
   );

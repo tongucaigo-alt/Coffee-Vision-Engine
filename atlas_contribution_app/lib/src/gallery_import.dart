@@ -10,21 +10,54 @@ abstract interface class GalleryPicker {
 }
 
 abstract interface class MultiGalleryPicker implements GalleryPicker {
-  Future<List<Uint8List>> pickMany();
-  Future<List<Uint8List>> recoverMany();
+  Future<List<Uint8List>> pickMany({int limit = 3});
+  Future<List<Uint8List>> recoverMany({int limit = 3});
+}
+
+class GallerySelectionLimit extends FormatException {
+  const GallerySelectionLimit(super.message);
+}
+
+String _cupLimitMessage(int limit) => limit == 3
+    ? 'En fazla 3 fincan fotoğrafı seçebilirsin.'
+    : limit > 0
+    ? 'Bu çalışmaya en fazla $limit fincan fotoğrafı daha ekleyebilirsin.'
+    : 'Bu çalışmada zaten 3 fincan fotoğrafı var. Mevcut bir fotoğrafı değiştirebilirsin.';
+
+void _checkGalleryCount(int count, int limit, {bool cups = false}) {
+  if (count > limit || limit < 1) {
+    throw GallerySelectionLimit(
+      cups
+          ? _cupLimitMessage(limit)
+          : 'Bu alan için yalnız 1 fotoğraf seçebilirsin.',
+    );
+  }
 }
 
 class AndroidGalleryPicker implements MultiGalleryPicker {
-  final _picker = ImagePicker();
+  AndroidGalleryPicker({ImagePicker? imagePicker})
+    : _picker = imagePicker ?? ImagePicker();
+
+  final ImagePicker _picker;
   @override
-  Future<List<Uint8List>> pickMany() async => [
-    for (final file in await _picker.pickMultiImage(requestFullMetadata: false))
-      await file.readAsBytes(),
-  ];
+  Future<List<Uint8List>> pickMany({int limit = 3}) async {
+    RangeError.checkValueInInterval(limit, 1, 3, 'limit');
+    if (limit == 1) return [if (await pick() case final Uint8List bytes) bytes];
+    final files = await _picker.pickMultiImage(
+      requestFullMetadata: false,
+      limit: limit,
+    );
+    // Older system pickers may ignore the cap. Reject before reading any images.
+    _checkGalleryCount(files.length, limit, cups: true);
+    return [for (final file in files) await file.readAsBytes()];
+  }
+
   @override
-  Future<List<Uint8List>> recoverMany() async {
+  Future<List<Uint8List>> recoverMany({int limit = 3}) async {
+    RangeError.checkValueInInterval(limit, 1, 3, 'limit');
     final lost = await _picker.retrieveLostData();
     if (lost.exception != null) throw lost.exception!;
+    _checkGalleryCount(lost.files?.length ?? 0, limit, cups: true);
     return [for (final file in lost.files ?? []) await file.readAsBytes()];
   }
 
@@ -42,9 +75,7 @@ class AndroidGalleryPicker implements MultiGalleryPicker {
     final lost = await _picker.retrieveLostData();
     if (lost.exception != null) throw lost.exception!;
     if (lost.files == null || lost.files!.isEmpty) return null;
-    if (lost.files!.length != 1) {
-      throw const FormatException('Expected one photo');
-    }
+    _checkGalleryCount(lost.files!.length, 1);
     return lost.files!.single.readAsBytes();
   }
 }
@@ -129,6 +160,8 @@ class PhotoSetGallery {
     String? replaceId,
   }) async {
     if (!base.isSet || base.queued) throw ArgumentError('Invalid photo set');
+    final limit = _selectionLimit(base, surface, replaceId);
+    _checkGalleryCount(0, limit, cups: surface == PhotoSurface.cup);
     final operation = <String, dynamic>{
       'operation': 'photoSet',
       'draft': base.toJson(),
@@ -137,9 +170,10 @@ class PhotoSetGallery {
     };
     await store.saveSetGalleryPending(operation);
     try {
-      final many = surface == PhotoSurface.cup && replaceId == null;
+      final many =
+          surface == PhotoSurface.cup && replaceId == null && limit > 1;
       final items = many && picker is MultiGalleryPicker
-          ? await (picker as MultiGalleryPicker).pickMany()
+          ? await (picker as MultiGalleryPicker).pickMany(limit: limit)
           : [if (await picker.pick() case final Uint8List bytes) bytes];
       return await _finish(operation, items);
     } catch (_) {
@@ -157,8 +191,22 @@ class PhotoSetGallery {
       return current;
     }
     try {
-      final items = picker is MultiGalleryPicker
-          ? await (picker as MultiGalleryPicker).recoverMany()
+      final base = ContributionDraft.fromJson(
+        Map<String, dynamic>.from(operation['draft'] as Map),
+      );
+      final surface = PhotoSurface.values.byName(
+        operation['surface'] as String,
+      );
+      final limit = _selectionLimit(
+        base,
+        surface,
+        operation['replaceId'] as String?,
+      );
+      _checkGalleryCount(0, limit, cups: surface == PhotoSurface.cup);
+      final many =
+          surface == PhotoSurface.cup && operation['replaceId'] == null;
+      final items = many && picker is MultiGalleryPicker
+          ? await (picker as MultiGalleryPicker).recoverMany(limit: limit)
           : [if (await picker.recover() case final Uint8List bytes) bytes];
       return await _finish(operation, items) ?? current;
     } catch (_) {
@@ -184,10 +232,12 @@ class PhotoSetGallery {
     if (replaceId != null && old == null) {
       throw StateError('Missing replacement');
     }
-    if ((replaceId != null || surface == PhotoSurface.saucer) &&
-        items.length != 1) {
-      throw const FormatException('Bu alan için bir fotoğraf seç.');
-    }
+    // Validate the entire batch before creating a derivative or changing a draft.
+    _checkGalleryCount(
+      items.length,
+      _selectionLimit(base, surface, replaceId),
+      cups: surface == PhotoSurface.cup && replaceId == null,
+    );
     var next = base;
     for (final bytes in items) {
       final imported = await store.importGallery(bytes);
@@ -217,5 +267,21 @@ class PhotoSetGallery {
       // The committed batch remains usable even if optional cleanup fails.
     }
     return next;
+  }
+
+  int _selectionLimit(
+    ContributionDraft base,
+    PhotoSurface surface,
+    String? replaceId,
+  ) {
+    if (replaceId != null) {
+      if (!base.photos.any((p) => p.id == replaceId && p.surface == surface)) {
+        throw StateError('Missing replacement');
+      }
+      return 1;
+    }
+    return surface == PhotoSurface.cup
+        ? 3 - base.cups.length
+        : 1 - base.saucers.length;
   }
 }

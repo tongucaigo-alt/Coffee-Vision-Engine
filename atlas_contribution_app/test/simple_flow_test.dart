@@ -104,7 +104,10 @@ void main() {
     expect(suitabilityAccepted(error, p), isFalse);
     final acknowledged = await checker.continueWith(p, error);
     final reopened = await PhotoSuitability(checker.directory).assess(file, p);
-    expect(reopened['continuedAtUtc'], acknowledged['continuedAtUtc']);
+    expect(acknowledged['continuedAtUtc'], isNotNull);
+    expect(suitabilityAccepted(acknowledged, p), isFalse);
+    // Reopening rechecks the actual bytes, even when a prior error was cached.
+    expect(reopened['status'], 'error');
     expect(suitabilityAccepted(reopened, p), isFalse);
     expect(
       suitabilityAccepted({...reopened, 'version': 'old-model'}, p),

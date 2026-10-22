@@ -51,7 +51,7 @@ void main() {
     },
   );
   testWidgets(
-    'accepted uncertainty stays silent even with an experimental reject candidate',
+    'cup uncertainty is visible and cannot silently approve a photo',
     (tester) async {
       final photo = testPhoto(CaptureRole.free);
       await tester.pumpWidget(
@@ -72,7 +72,10 @@ void main() {
           ),
         ),
       );
-      expect(find.byType(Text), findsNothing);
+      expect(
+        find.textContaining('Bu fotoğrafta fincan ve telveyi doğrulayamadık.'),
+        findsOneWidget,
+      );
       expect(find.byType(OutlinedButton), findsNothing);
     },
   );
@@ -114,7 +117,7 @@ void main() {
       await tester.tap(find.text('Start'));
       await tester.pumpAndSettle();
       expect(find.byType(AlertDialog), findsNothing);
-      if (['supported', 'uncertain'].contains(status)) {
+      if (status == 'supported') {
         expect(result?['status'], status);
         expect(result?['continuedAtUtc'], isNull);
       } else {

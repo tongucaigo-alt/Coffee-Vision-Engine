@@ -17,5 +17,6 @@ class SupportedSuitability extends PhotoSuitability {
     'surface': p.surface.name,
     'cropKey': jsonEncode((p.displayCrop ?? PhotoCrop.full).toJson()),
     'status': 'supported',
+    'automaticEvidence': false,
   };
 }

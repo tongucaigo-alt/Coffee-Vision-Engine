@@ -11,6 +11,7 @@ extension _PhotoSetFlow on _ContributionHomeState {
     _change(() {
       _busy = true;
       _galleryRetry = null;
+      _galleryError = null;
     });
     try {
       final next = await PhotoSetGallery(
@@ -28,13 +29,12 @@ extension _PhotoSetFlow on _ContributionHomeState {
           );
         }
       }
-    } catch (_) {
+    } catch (error) {
       if (mounted) {
-        _change(
-          () =>
-              _galleryRetry = () =>
-                  _setGallery(surface: surface, replace: replace),
-        );
+        _change(() {
+          _galleryError = error is GallerySelectionLimit ? error.message : null;
+          _galleryRetry = () => _setGallery(surface: surface, replace: replace);
+        });
       }
     } finally {
       _change(() => _busy = false);
@@ -49,6 +49,7 @@ extension _PhotoSetFlow on _ContributionHomeState {
       _sameSample = false;
       _savePhase = _SavePhase.idle;
       _galleryRetry = null;
+      _galleryError = null;
     });
   }
 
@@ -396,12 +397,12 @@ extension _PhotoSetFlow on _ContributionHomeState {
               child: CoffeeControlSurface(
                 child: Row(
                   children: [
-                    const Expanded(
+                    Expanded(
                       child: Padding(
-                        padding: EdgeInsets.all(8),
+                        padding: const EdgeInsets.all(8),
                         child: Text(
-                          'Fotoğraf eklenemedi.',
-                          style: TextStyle(fontSize: 12),
+                          _galleryError ?? 'Fotoğraf eklenemedi.',
+                          style: const TextStyle(fontSize: 12),
                         ),
                       ),
                     ),
@@ -457,9 +458,7 @@ extension _PhotoSetFlow on _ContributionHomeState {
     }
     if (suitabilityAccepted(value, photo)) return const SizedBox.shrink();
     final failure = PhotoSuitabilityFailure(photo, value);
-    final message =
-        '${photo.title}: ${failure.message}'
-        '${value['experimental'] == true && value['status'] == 'uncertain' ? ' Kontrol henüz deneme aşamasında; mevcut fotoğrafla devam edebilirsin.' : ''}';
+    final message = '${photo.title}: ${failure.message}';
     return Row(
       children: [
         Expanded(
@@ -476,7 +475,7 @@ extension _PhotoSetFlow on _ContributionHomeState {
             ),
           ),
         ),
-        if (failure.technical)
+        if (failure.retryable)
           IconButton(
             tooltip: 'Kontrolü Yeniden Dene',
             onPressed:

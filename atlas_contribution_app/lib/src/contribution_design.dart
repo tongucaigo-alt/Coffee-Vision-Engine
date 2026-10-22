@@ -290,6 +290,7 @@ extension _AtlasHomePresentation on _ContributionHomeState {
       MaterialPageRoute<bool>(
         builder: (_) => AnnotationSequence(
           photos: draft.photos,
+          canGenerate: _fortunePhotosReady,
           initialFocus: initialFocus,
           onFocusChanged: widget.onReadingFocusChanged == null
               ? null
@@ -575,6 +576,7 @@ extension _AtlasHomePresentation on _ContributionHomeState {
       currentDraft: _draft,
       recordState: widget.recordState,
       recordStarred: widget.recordStarred,
+      loadRecordSummaries: widget.loadRecordSummaries,
       onContinue: _startAtlas,
       onReadFortune: widget.onReadFortune,
       onGenerateFortune: widget.onGenerateFortune,
@@ -1112,6 +1114,7 @@ extension _AtlasHistoryPresentation on _ContributionHistoryState {
                       onlyRoot: row['root_id'] as String,
                       recordState: widget.recordState,
                       recordStarred: widget.recordStarred,
+                      loadRecordSummaries: widget.loadRecordSummaries,
                     ),
                   ),
                 );

@@ -1,0 +1,139 @@
+{
+  "modelSha256": "73becef6afcea56138cff83acc8645dc6674fc3e9a7d33441002e18cb4a400f7",
+  "modelId": "atlas-screen-v6",
+  "suitabilityVersion": "atlas-diagnostic-mobilenet-73becef6-strict-v6",
+  "backbone": "MobileNetV3-small IMAGENET1K_V1",
+  "head": "ridge",
+  "selected": {
+    "regularization": 0.1,
+    "rejectBelow": -0.34994039923472275,
+    "supportAbove": 0.30238871786915555,
+    "calibrationPositiveRate": 0.9064748201438849,
+    "calibrationNegativeRate": 0.916030534351145,
+    "balancedRate": 0.9112526772475149,
+    "backbone": "torchvision/MobileNetV3-small/IMAGENET1K_V1",
+    "preprocessing": "EXIF RGB; whole-frame bilinear resize 224x224; ImageNet normalization",
+    "calibrationGroups": 401,
+    "calibrationPhotos": 438,
+    "calibrationSha256": "ad4a1af15ac2671f560756b8178171b7f5405833ac52a5a8ef115b74c471f52f",
+    "evaluationStatus": "Development evaluation only; previous iteration saw these validation images.",
+    "trainingPool": "all previously viewed development groups"
+  },
+  "releaseGatePassed": false,
+  "releaseStatus": "DO NOT INSTALL: direct cup acceptance and independent negative hard-rejection gates failed",
+  "evaluationSummary": {
+    "ashtray": {
+      "photos": 10,
+      "groups": 10,
+      "photoStatuses": {
+        "uncertain": 4,
+        "unsuitable": 6
+      },
+      "allViewsSupportedGroups": 0,
+      "allViewsRejectedGroups": 6,
+      "anySupportedGroups": 0,
+      "anyRejectedGroups": 6,
+      "supportedGroupRate": 0.0,
+      "rejectedGroupRate": 0.6
+    },
+    "bowl": {
+      "photos": 11,
+      "groups": 10,
+      "photoStatuses": {
+        "unsuitable": 8,
+        "uncertain": 3
+      },
+      "allViewsSupportedGroups": 0,
+      "allViewsRejectedGroups": 7,
+      "anySupportedGroups": 0,
+      "anyRejectedGroups": 7,
+      "supportedGroupRate": 0.0,
+      "rejectedGroupRate": 0.7
+    },
+    "empty": {
+      "photos": 26,
+      "groups": 23,
+      "photoStatuses": {
+        "unsuitable": 23,
+        "uncertain": 3
+      },
+      "allViewsSupportedGroups": 0,
+      "allViewsRejectedGroups": 20,
+      "anySupportedGroups": 0,
+      "anyRejectedGroups": 20,
+      "supportedGroupRate": 0.0,
+      "rejectedGroupRate": 0.8695652173913043
+    },
+    "keyboard": {
+      "photos": 19,
+      "groups": 16,
+      "photoStatuses": {
+        "unsuitable": 19
+      },
+      "allViewsSupportedGroups": 0,
+      "allViewsRejectedGroups": 16,
+      "anySupportedGroups": 0,
+      "anyRejectedGroups": 16,
+      "supportedGroupRate": 0.0,
+      "rejectedGroupRate": 1.0
+    },
+    "lighter": {
+      "photos": 19,
+      "groups": 17,
+      "photoStatuses": {
+        "unsuitable": 17,
+        "uncertain": 2
+      },
+      "allViewsSupportedGroups": 0,
+      "allViewsRejectedGroups": 15,
+      "anySupportedGroups": 0,
+      "anyRejectedGroups": 16,
+      "supportedGroupRate": 0.0,
+      "rejectedGroupRate": 0.8823529411764706
+    },
+    "portrait": {
+      "photos": 10,
+      "groups": 10,
+      "photoStatuses": {
+        "unsuitable": 10
+      },
+      "allViewsSupportedGroups": 0,
+      "allViewsRejectedGroups": 10,
+      "anySupportedGroups": 0,
+      "anyRejectedGroups": 10,
+      "supportedGroupRate": 0.0,
+      "rejectedGroupRate": 1.0
+    },
+    "residue": {
+      "photos": 33,
+      "groups": 33,
+      "photoStatuses": {
+        "supported": 29,
+        "uncertain": 4
+      },
+      "allViewsSupportedGroups": 29,
+      "allViewsRejectedGroups": 0,
+      "anySupportedGroups": 29,
+      "anyRejectedGroups": 0,
+      "supportedGroupRate": 0.8787878787878788,
+      "rejectedGroupRate": 0.0
+    }
+  },
+  "gates": {
+    "realCupGroupCount": true,
+    "noRealCupHardRejection": true,
+    "realCupDirectAcceptance": false,
+    "noTechnicalErrors": true,
+    "ashtrayGroupCount": true,
+    "ashtrayNoAcceptance": true,
+    "ashtrayHardRejection": false,
+    "bowlGroupCount": true,
+    "bowlNoAcceptance": true,
+    "bowlHardRejection": false
+  },
+  "trainingPhotos": 438,
+  "evaluationPhotos": 128,
+  "publicSourcePhotos": 42,
+  "noGroupOverlap": true,
+  "noByteDuplicateOverlap": true
+}

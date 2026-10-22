@@ -23,7 +23,7 @@ class LocalImageScreen(private val activity: Activity, messenger: BinaryMessenge
     private val channel = MethodChannel(messenger, "atlas.photo/image_screen")
     private val environment = OrtEnvironment.getEnvironment()
     private var session: OrtSession? = null
-    private val modelHash = "17cb073e902c459ebc04fe9b14a2ba10ec968a4c378c40fbd8199f7c5b0ff5d4"
+    private val modelHash = "73becef6afcea56138cff83acc8645dc6674fc3e9a7d33441002e18cb4a400f7"
     init {
 
         if (activity.packageName.endsWith(".diagnostic")) activity.window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
@@ -109,7 +109,7 @@ class LocalImageScreen(private val activity: Activity, messenger: BinaryMessenge
     }
     private fun score(bitmap: Bitmap): Pair<Double, String> {
         val engine = session ?: run {
-            val bytes = activity.assets.open("atlas_screen_v5.onnx").use { it.readBytes() }
+            val bytes = activity.assets.open("atlas_screen_v6.onnx").use { it.readBytes() }
             val hash = MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it.toInt() and 255) }
             require(hash == modelHash)
             val options = OrtSession.SessionOptions()

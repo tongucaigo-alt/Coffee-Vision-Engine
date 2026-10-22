@@ -26,6 +26,7 @@ import 'fortune_preparation.dart';
 import 'opencv_traces.dart';
 import 'user_profile_page.dart';
 import 'user_profile_store.dart';
+import 'record_summary.dart';
 
 part 'contribution_design.dart';
 part 'photo_set_flow.dart';
@@ -89,6 +90,7 @@ class ContributionHome extends StatefulWidget {
     this.onConfirmedRecorded,
     this.recordState,
     this.recordStarred,
+    this.loadRecordSummaries,
     this.loadAnnotationTraces,
     this.onAnnotationTraceShown,
     super.key,
@@ -124,6 +126,7 @@ class ContributionHome extends StatefulWidget {
   onConfirmedRecorded;
   final Future<String> Function(Map<String, dynamic>)? recordState;
   final Future<bool> Function(Map<String, dynamic>)? recordStarred;
+  final RecordSummaryLoader? loadRecordSummaries;
   @override
   State<ContributionHome> createState() => _ContributionHomeState();
 }
@@ -136,6 +139,7 @@ class _ContributionHomeState extends State<ContributionHome>
   bool _fortuneWorkflow = false, _startChoiceOpen = false;
   bool _saucerChoiceOpen = false;
   VoidCallback? _galleryRetry;
+  String? _galleryError;
   String? _error;
   int _uploaded = 0;
   bool _stopRequested = false;
@@ -157,7 +161,7 @@ class _ContributionHomeState extends State<ContributionHome>
         if (widget.onGenerateFortune != null)
           AtlasPrimaryButton.icon(
             icon: const Icon(Icons.auto_awesome),
-            onPressed: enabled && snapshot.data != null
+            onPressed: enabled && snapshot.data != null && _fortunePhotosReady
                 ? () => _send(generate: true)
                 : null,
             label: Text(
@@ -213,6 +217,13 @@ class _ContributionHomeState extends State<ContributionHome>
   final Set<String> _usable = {};
   final _photoChecks = <String, Map<String, dynamic>>{};
   final _checkingPhotos = <String>{};
+  bool get _fortunePhotosReady =>
+      !(widget.modern && widget.service.isOffline) ||
+      (_draft != null &&
+          _draft!.cups.isNotEmpty &&
+          _draft!.photos.every(
+            (p) => suitabilityAccepted(_photoChecks[suitabilityIdentity(p)], p),
+          ));
   Future<void> _checkPhoto(ContributionPhoto p, {bool retry = false}) async {
     final key = suitabilityIdentity(p);
     if (!_checkingPhotos.add(key)) return;
@@ -278,12 +289,14 @@ class _ContributionHomeState extends State<ContributionHome>
       if (widget.service.isOffline) {
         try {
           _draft = await _gallery.recover();
-        } catch (_) {
+        } catch (error) {
           // Keep the old draft if a recovered selection cannot be decoded.
           if (mounted) {
             showNotice(
               context,
-              'Galeri seçimi tamamlanamadı. Önceki kayıtların korundu.',
+              error is GallerySelectionLimit
+                  ? error.message
+                  : 'Galeri seçimi tamamlanamadı. Önceki kayıtların korundu.',
             );
           }
         }
@@ -476,6 +489,7 @@ class _ContributionHomeState extends State<ContributionHome>
       final photo = _draft!.isSet
           ? imported.asSetPhoto(photoId: _draft!.photo(role)?.id, angle: role)
           : imported;
+      await _suitability.recordCaptureEvidence(photo, result);
       await _save(_draft!.withPhoto(photo));
       if (widget.modern) {
         _usable.removeWhere(
@@ -587,6 +601,7 @@ class _ContributionHomeState extends State<ContributionHome>
 
   Future<void> _send({bool generate = false}) async {
     if (_busy || _draft?.reviewed != true) return;
+    if (generate && !_fortunePhotosReady) return;
     setState(() {
       _busy = true;
       _uploaded = 0;
@@ -823,6 +838,8 @@ class _ContributionHomeState extends State<ContributionHome>
           onReadFortune: widget.onReadFortune,
           onGenerateFortune: widget.onGenerateFortune,
           recordStarred: widget.recordStarred,
+          recordState: widget.recordState,
+          loadRecordSummaries: widget.loadRecordSummaries,
           store: widget.store,
           service: widget.service,
           canStart: _draft == null,
@@ -1213,6 +1230,7 @@ class ContributionHistory extends StatefulWidget {
     this.onContinue,
     this.recordState,
     this.recordStarred,
+    this.loadRecordSummaries,
     super.key,
   });
   final DraftStore store;
@@ -1228,6 +1246,7 @@ class ContributionHistory extends StatefulWidget {
   final Future<void> Function()? onContinue;
   final Future<String> Function(Map<String, dynamic>)? recordState;
   final Future<bool> Function(Map<String, dynamic>)? recordStarred;
+  final RecordSummaryLoader? loadRecordSummaries;
   @override
   State<ContributionHistory> createState() => _ContributionHistoryState();
 }
@@ -1239,6 +1258,7 @@ class _ContributionHistoryState extends State<ContributionHistory> {
   List<Map<String, dynamic>> _rows = [];
   bool _busy = false;
   String? _message;
+  int _refreshRun = 0;
   @override
   void initState() {
     super.initState();
@@ -1246,12 +1266,20 @@ class _ContributionHistoryState extends State<ContributionHistory> {
   }
 
   Future<void> _openFortune(Map<String, dynamic> row) async {
-    final read = _recordStates[row['root_id']] == 'Fal hazır';
+    final state = _recordStates[row['root_id']];
+    final read = state == 'Fal hazır' || state == RecordSummary.unreadable;
     final action = read
         ? widget.onReadFortune
         : widget.onGenerateFortune ?? widget.onReadFortune;
     await action?.call(row);
   }
+
+  String _fortuneActionLabel(Map<String, dynamic> row) =>
+      switch (_recordStates[row['root_id']]) {
+        'Fal hazır' => 'Falını Oku',
+        RecordSummary.unreadable => 'Kayıtlı Falları Oku',
+        _ => 'Fal Oluştur',
+      };
 
   Widget _readPrevious(Map<String, dynamic> row) =>
       _recordStates[row['root_id']] == 'Önceki kayda ait fal' &&
@@ -1265,39 +1293,65 @@ class _ContributionHistoryState extends State<ContributionHistory> {
       : const SizedBox.shrink();
   final Set<String> _starredRoots = {};
   Future<void> _refresh() async {
+    final run = ++_refreshRun;
     setState(() => _busy = true);
+    var rows = <Map<String, dynamic>>[];
+    final stars = <String>{};
+    final states = <String, String>{};
+    String? message;
     try {
-      _rows = await widget.service.list();
-      _message = null;
+      try {
+        rows = await widget.service.list();
+      } catch (_) {
+        rows = await widget.store.receipts();
+        message = 'Bağlantı yok. Telefonda kayıtlı gönderimler gösteriliyor.';
+      }
+      final deleted = (await widget.store.pendingDeletes()).toSet();
+      rows = rows.where((r) => !deleted.contains(r['root_id'])).toList();
+      if (widget.onlyRoot != null) {
+        rows = rows.where((r) => r['root_id'] == widget.onlyRoot).toList();
+      }
+      if (widget.loadRecordSummaries != null) {
+        final summaries = await widget.loadRecordSummaries!(rows);
+        for (final row in rows) {
+          final root = row['root_id'] as String;
+          final summary = summaries[root];
+          states[root] = summary?.state ?? RecordSummary.unreadable;
+          if (summary?.starred == true) stars.add(root);
+        }
+      } else {
+        for (final row in rows) {
+          final root = row['root_id'] as String;
+          if (await widget.recordStarred?.call(row) == true) stars.add(root);
+          if (widget.recordState != null) {
+            try {
+              states[root] = await widget.recordState!(row);
+            } catch (_) {
+              states[root] = RecordSummary.unreadable;
+            }
+          }
+        }
+      }
     } catch (_) {
-      _rows = await widget.store.receipts();
-      _message = 'Bağlantı yok. Telefonda kayıtlı gönderimler gösteriliyor.';
-    }
-    final deleted = await widget.store.pendingDeletes();
-    _rows = _rows.where((r) => !deleted.contains(r['root_id'])).toList();
-    if (widget.onlyRoot != null) {
-      _rows = _rows.where((r) => r['root_id'] == widget.onlyRoot).toList();
-    }
-    _starredRoots.clear();
-    if (widget.recordStarred != null) {
-      for (final row in _rows) {
-        if (await widget.recordStarred!(row)) {
-          _starredRoots.add(row['root_id'] as String);
-        }
+      message =
+          'Kayıt bilgileri tamamen okunamadı. Verilerin korundu. Yenileyerek tekrar deneyebilirsin.';
+      stars.clear();
+      for (final row in rows) {
+        states[row['root_id'] as String] = RecordSummary.unreadable;
       }
     }
-    if (widget.recordState != null) {
-      for (final row in _rows) {
-        try {
-          _recordStates[row['root_id'] as String] = await widget.recordState!(
-            row,
-          );
-        } catch (_) {
-          _recordStates[row['root_id'] as String] = 'Fal durumu okunamadı';
-        }
-      }
-    }
-    if (mounted) setState(() => _busy = false);
+    if (!mounted || run != _refreshRun) return;
+    setState(() {
+      _rows = rows;
+      _message = message;
+      _recordStates
+        ..clear()
+        ..addAll(states);
+      _starredRoots
+        ..clear()
+        ..addAll(stars);
+      _busy = false;
+    });
   }
 
   Future<void> _remove(Map<String, dynamic> row) async {
@@ -1394,11 +1448,7 @@ class _ContributionHistoryState extends State<ContributionHistory> {
                       onPressed: _busy
                           ? null
                           : () => _act(() => _openFortune(_rows[i])),
-                      child: Text(
-                        _recordStates[_rows[i]['root_id']] == 'Fal hazır'
-                            ? 'Falını Oku'
-                            : 'Fal Oluştur',
-                      ),
+                      child: Text(_fortuneActionLabel(_rows[i])),
                     ),
                   _readPrevious(_rows[i]),
                   const SizedBox(height: 12),
@@ -1496,11 +1546,7 @@ class _ContributionHistoryState extends State<ContributionHistory> {
                             onPressed: _busy
                                 ? null
                                 : () => _act(() => _openFortune(_rows[i])),
-                            child: Text(
-                              _recordStates[_rows[i]['root_id']] == 'Fal hazır'
-                                  ? 'Falını Oku'
-                                  : 'Fal Oluştur',
-                            ),
+                            child: Text(_fortuneActionLabel(_rows[i])),
                           ),
                         _readPrevious(_rows[i]),
                         if (widget.canStart) ...[

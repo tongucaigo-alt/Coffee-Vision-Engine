@@ -345,4 +345,29 @@ void main({Future<void> Function(String)? capture, bool device = false}) {
     expect(store.draft!.id, id);
     expect(store.rows.single['id'], 'retained-record');
   });
+
+  for (final scale in [1.0, 2.0]) {
+    testWidgets('selection cap explains retry without changing draft: $scale', (
+      tester,
+    ) async {
+      const message = 'En fazla 3 fincan fotoğrafı seçebilirsin.';
+      await mount(
+        tester,
+        scale: scale,
+        responses: [const GallerySelectionLimit(message), setImage(1)],
+      );
+      await tester.tap(find.text('Galeriden Seç'));
+      await _drain(tester);
+      expect(store.draft!.photos, isEmpty);
+      expect(find.text(message), findsOneWidget);
+      expect(find.text('Yeniden dene').hitTestable(), findsOneWidget);
+      expect(find.text('Fotoğraf eklenemedi.'), findsNothing);
+      await tester.tap(find.text('Yeniden dene'));
+      await _drain(tester);
+      expect(store.draft!.cups, hasLength(1));
+      expect(find.text(message), findsNothing);
+      expect(store.rows.single['id'], 'retained-record');
+      expect(tester.takeException(), isNull);
+    });
+  }
 }

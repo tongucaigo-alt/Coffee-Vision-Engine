@@ -15,6 +15,7 @@ class AnnotationSequence extends StatefulWidget {
     this.onTraceShown,
     this.initialFocus,
     this.onFocusChanged,
+    this.canGenerate = true,
     super.key,
   });
   final Future<TraceSet> Function()? loadTraces;
@@ -24,6 +25,7 @@ class AnnotationSequence extends StatefulWidget {
   final Future<void> Function(ContributionPhoto) onSave;
   final String? initialFocus;
   final Future<void> Function(String focus)? onFocusChanged;
+  final bool canGenerate;
   @override
   State<AnnotationSequence> createState() => _AnnotationSequenceState();
 }
@@ -176,7 +178,9 @@ class _AnnotationSequenceState extends State<AnnotationSequence> {
           selectedFocus: _selectedFocus,
           onFocusChanged: _changeFocus,
           focusBusy: _blocked,
-          onFinish: _blocked ? null : () => _skipRemaining(generate: true),
+          onFinish: _blocked || !widget.canGenerate
+              ? null
+              : () => _skipRemaining(generate: true),
           onSaveOnly: _blocked ? null : () => _skipRemaining(generate: false),
           onSkip: _blocked ? null : () => _skipRemaining(),
           completionLabel: _index == _photos.length - 1
