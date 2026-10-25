@@ -1,4 +1,7 @@
 import 'dart:io';
+import 'dart:convert';
+import 'package:crypto/crypto.dart';
+import 'package:uuid/uuid.dart';
 import 'package:flutter/foundation.dart';
 import '../fortune_progress.dart';
 import '../fortune_preparation.dart';
@@ -118,6 +121,47 @@ class AiRuntime {
       }
     }
     return (await store.pendingReports()).length;
+  }
+
+  /// Generation providers are never used as moderation endpoints. The target
+  /// must still be an explicitly configured, authenticated Atlas profile.
+  Future<bool> submitContentReport({
+    required AiProfile target,
+    required String sessionId,
+    required String contentId,
+    required String text,
+    required String reason,
+  }) async {
+    if (target.provider != AiProvider.atlas ||
+        !['misleading', 'harmful', 'other'].contains(reason) ||
+        text.trim().isEmpty ||
+        text.length > 12000) {
+      throw const AiFailure('Bildirim bilgisi geçersiz.');
+    }
+    final profiles = await store.profiles();
+    if (!profiles.any(
+      (p) =>
+          p.provider == AiProvider.atlas &&
+          p.id == target.id &&
+          p.url == target.url,
+    )) {
+      throw const AiFailure('Bildirim bağlantısı değişti. Yeniden seçmelisin.');
+    }
+    final id = const Uuid().v5(
+      '6ba7b811-9dad-11d1-80b4-00c04fd430c8',
+      '${target.id}|${target.url}|$sessionId|$contentId|$reason|${sha256.convert(utf8.encode(text))}',
+    );
+    await store.queueReport({
+      'id': id,
+      'sessionId': sessionId,
+      'profileId': target.id,
+      'url': target.url,
+      'reason': reason,
+      'text': text,
+      'state': 'pending',
+    });
+    await sendPendingReports();
+    return !(await store.pendingReports()).any((r) => r['id'] == id);
   }
 
   Future<String> key(AiProfile p) async => isBundledProfile(p)

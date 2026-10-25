@@ -616,30 +616,25 @@ extension _AtlasHomePresentation on _ContributionHomeState {
   Widget _atlasLanding() => AtlasLandingLayout(
     frame: const CustomPaint(
       key: ValueKey('atlas-home-frame'),
-      painter: _AtlasOrnamentalFramePainter(),
+      painter: AtlasHomeFramePainter(),
     ),
     content: Column(
       children: [
         if (_error != null) AtlasNotice(_error!),
-        _atlasLandingHero(false),
-        const SizedBox(height: 8),
-        const Text(
-          'Fincanını Keşfet',
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontFamily: 'Literata',
-            fontSize: 20,
-            height: 1.2,
-            fontWeight: FontWeight.w500,
+        AtlasLandingContent(
+          hero: _atlasLandingHero(false),
+          kicker: const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.camera_alt_outlined, size: 13, color: atlasSageInk),
+              SizedBox(width: 5),
+              Text('3 Açılı Çekim', style: AtlasLandingContent.kickerStyle),
+            ],
           ),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          widget.onReadFortune == null
+          title: 'Fincanını Keşfet',
+          description: widget.onReadFortune == null
               ? 'Fincanının fotoğrafını çek, gözlemlerini keşfet.'
               : 'Fincanının fotoğrafını çek, kahvenin hikâyesini birlikte okuyalım.',
-          textAlign: TextAlign.center,
-          style: const TextStyle(fontSize: 13, height: 1.4, color: atlasMuted),
         ),
       ],
     ),
@@ -668,27 +663,34 @@ extension _AtlasHomePresentation on _ContributionHomeState {
         : null,
   );
 
-  Future<void> _atlasPlaceholderInfo(String label) => showDialog<void>(
-    context: context,
-    builder: (ctx) => AlertDialog(
-      title: Text(label),
-      content: Text(switch (label) {
-        'Üye Girişi' => 'Üyelik bu test sürümünde henüz kullanılamıyor.',
-        'Gizlilik Politikası' =>
-          'Gizlilik politikası sayfası henüz hazırlanıyor. Bu bağlantı şu an taslak.',
-        'Destek' =>
-          'Destek sayfası henüz hazırlanıyor. Bu bağlantı şu an taslak.',
-        _ =>
-          'Bir yorumu bildirmek için kayıtlı falını açıp “Bu yorumu bildir” düğmesini kullanabilirsin.',
-      }),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(ctx),
-          child: const Text('Kapat'),
+  Future<void> _atlasPlaceholderInfo(String label) async {
+    if (label == 'Gizlilik Politikası' || label == 'Destek') {
+      await Navigator.push(
+        context,
+        MaterialPageRoute<void>(
+          builder: (_) => PrivacySupportPage(support: label == 'Destek'),
         ),
-      ],
-    ),
-  );
+      );
+      return;
+    }
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(label),
+        content: Text(switch (label) {
+          'Üye Girişi' => 'Üyelik bu test sürümünde henüz kullanılamıyor.',
+          _ =>
+            'Bir yorumu bildirmek için kayıtlı falını açıp “Bu yorumu bildir” düğmesini kullanabilirsin.',
+        }),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Kapat'),
+          ),
+        ],
+      ),
+    );
+  }
 
   Widget _atlasLandingHero(bool compact) {
     final emblem = SizedBox(
@@ -704,25 +706,7 @@ extension _AtlasHomePresentation on _ContributionHomeState {
         ),
       ),
     );
-    final caption = Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        const Icon(Icons.camera_alt_outlined, size: 13, color: atlasSageInk),
-        const SizedBox(width: 5),
-        Flexible(
-          child: Text(
-            '3 Açılı Çekim',
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: atlasSageInk,
-              letterSpacing: .2,
-            ),
-          ),
-        ),
-      ],
-    );
-    return Column(children: [emblem, const SizedBox(height: 12), caption]);
+    return AtlasHomeHalo(child: emblem);
   }
 
   Widget _atlasLandingGalleryButton() => SizedBox(
@@ -1206,123 +1190,3 @@ extension _AtlasHistoryPresentation on _ContributionHistoryState {
 }
 
 /// Static engraved border, clipped to a narrow band outside the reading area.
-class _AtlasOrnamentalFramePainter extends CustomPainter {
-  const _AtlasOrnamentalFramePainter();
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    if (size.width < 100 || size.height < 100) return;
-    final bounds = Offset.zero & size;
-    final readingArea = Rect.fromLTRB(
-      20,
-      16,
-      size.width - 20,
-      size.height - 16,
-    );
-    canvas.save();
-    canvas.clipPath(
-      Path.combine(
-        PathOperation.difference,
-        Path()..addRect(bounds),
-        Path()..addRect(readingArea),
-      ),
-    );
-    final copper = Paint()
-      ..color = const Color(0x46b0714f)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = .7
-      ..strokeCap = StrokeCap.round;
-    final sage = Paint()
-      ..color = const Color(0x507ba294)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = .55
-      ..strokeCap = StrokeCap.round;
-    final leafFill = Paint()
-      ..color = const Color(0x287ba294)
-      ..style = PaintingStyle.fill;
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(bounds.deflate(6), const Radius.circular(26)),
-      copper,
-    );
-    // Short inner corner lines echo the concentric rings of the Atlas emblem.
-    for (final right in [false, true]) {
-      for (final bottom in [false, true]) {
-        canvas.save();
-        canvas.translate(right ? size.width : 0, bottom ? size.height : 0);
-        canvas.scale(right ? -1 : 1, bottom ? -1 : 1);
-        canvas.drawPath(
-          Path()
-            ..moveTo(10, 46)
-            ..lineTo(10, 32)
-            ..quadraticBezierTo(10, 10, 32, 10)
-            ..lineTo(46, 10),
-          copper,
-        );
-        canvas.restore();
-      }
-    }
-    for (final bottom in [false, true]) {
-      canvas.save();
-      if (bottom) {
-        canvas.translate(0, size.height);
-        canvas.scale(1, -1);
-      }
-      final center = size.width / 2;
-      canvas.drawRect(
-        Rect.fromLTWH(center - 47, 0, 94, 14),
-        Paint()..color = atlasCream,
-      );
-      for (final right in [false, true]) {
-        canvas.save();
-        canvas.translate(center, 8);
-        canvas.scale(right ? 1 : -1, 1);
-        canvas.drawPath(
-          Path()
-            ..moveTo(9, 0)
-            ..quadraticBezierTo(27, 3, 43, -1),
-          sage,
-        );
-        for (var i = 0; i < 3; i++) {
-          final x = 15.0 + i * 9;
-          _leaf(canvas, Offset(x, 1), false, leafFill, sage);
-          _leaf(canvas, Offset(x + 4, 1), true, leafFill, sage);
-        }
-        canvas.restore();
-      }
-      canvas.drawPath(
-        Path()
-          ..moveTo(center, 4)
-          ..lineTo(center + 3, 8)
-          ..lineTo(center, 12)
-          ..lineTo(center - 3, 8)
-          ..close(),
-        copper,
-      );
-      canvas.restore();
-    }
-    canvas.restore();
-  }
-
-  void _leaf(Canvas canvas, Offset root, bool down, Paint fill, Paint vein) {
-    canvas.save();
-    canvas.translate(root.dx, root.dy);
-    canvas.scale(1, down ? -1 : 1);
-    final leaf = Path()
-      ..moveTo(0, 0)
-      ..cubicTo(-1, -4, 2, -6, 6, -6)
-      ..cubicTo(6, -2, 3, 0, 0, 0)
-      ..close();
-    canvas.drawPath(leaf, fill);
-    canvas.drawPath(
-      Path()
-        ..moveTo(0, 0)
-        ..lineTo(4.5, -4.5),
-      vein,
-    );
-    canvas.restore();
-  }
-
-  @override
-  bool shouldRepaint(covariant _AtlasOrnamentalFramePainter oldDelegate) =>
-      false;
-}

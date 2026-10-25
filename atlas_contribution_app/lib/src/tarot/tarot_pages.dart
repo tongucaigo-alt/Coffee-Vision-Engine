@@ -2,7 +2,9 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../atlas_design.dart';
+import '../atlas_home_atmosphere.dart';
 import '../atlas_landing_layout.dart';
+import '../ai/content_reporting.dart';
 import 'tarot_models.dart';
 import 'tarot_runtime.dart';
 
@@ -100,28 +102,18 @@ class _TarotHomePageState extends State<TarotHomePage> {
       scrollKey: const ValueKey('tarot-home-scroll'),
       frame: const CustomPaint(
         key: ValueKey('tarot-home-frame'),
-        painter: _TarotHomeFramePainter(),
+        painter: AtlasHomeFramePainter(),
       ),
       content: Column(
         children: [
-          const _TarotHomeCards(),
-          const SizedBox(height: 16),
-          const Text(
-            'Kartların hikâyesi',
-            textAlign: TextAlign.center,
-            style: TextStyle(fontFamily: 'Literata', fontSize: 24, height: 1.3),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            'Geçmiş · Şimdi · Olası Yön',
-            textAlign: TextAlign.center,
-            style: TextStyle(color: atlasSageInk, height: 1.5),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            'Kartlarını kendin seç.',
-            textAlign: TextAlign.center,
-            style: TextStyle(color: atlasMuted, height: 1.5),
+          const AtlasLandingContent(
+            hero: AtlasHomeHalo(child: _TarotHomeCards()),
+            kicker: Text(
+              'Geçmiş · Şimdi · Olası Yön',
+              style: AtlasLandingContent.kickerStyle,
+            ),
+            title: 'Kartların hikâyesi',
+            description: 'Kartlarını kendin seç.',
           ),
           if (_draws == null && _error == null)
             const SizedBox(
@@ -142,7 +134,7 @@ class _TarotHomePageState extends State<TarotHomePage> {
         onPressed: _busy || _draws == null
             ? null
             : () => _open(TarotSpread.daily),
-        icon: const Icon(Icons.wb_twilight_outlined),
+        icon: const Icon(Icons.wb_twilight_outlined, size: 20),
         label: const Text('Günün Kartı'),
       ),
       primary: AtlasActionWidth(
@@ -152,7 +144,7 @@ class _TarotHomePageState extends State<TarotHomePage> {
               ? null
               : () => _open(TarotSpread.three),
           style: AtlasLandingLayout.primaryStyle(),
-          icon: const Icon(Icons.style_outlined),
+          icon: const Icon(Icons.style_outlined, size: 20),
           label: const Text('Üç Kart · Karıştır', textAlign: TextAlign.center),
         ),
       ),
@@ -511,6 +503,13 @@ class _TarotDrawPageState extends State<TarotDrawPage>
                             ),
                             const SizedBox(height: 16),
                             _TarotReadingText(_draw.result.text!),
+                            ContentReportButton(
+                              runtime: widget.runtime.reportingRuntime,
+                              sessionId: 'tarot-${_draw.id}',
+                              contentId: _draw.result.attemptId ?? _draw.id,
+                              text: _draw.result.text!,
+                              enabled: !_locked,
+                            ),
                           ],
                         ),
                       ),

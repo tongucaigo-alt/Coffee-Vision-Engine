@@ -19,6 +19,7 @@ import 'gallery_import.dart';
 import 'capture_settings.dart';
 import 'cropped_photo.dart';
 import 'atlas_design.dart';
+import 'atlas_home_atmosphere.dart';
 import 'atlas_landing_layout.dart';
 import 'annotation_sequence.dart';
 import 'fortune_progress.dart';
@@ -27,6 +28,7 @@ import 'opencv_traces.dart';
 import 'user_profile_page.dart';
 import 'user_profile_store.dart';
 import 'record_summary.dart';
+import 'privacy_support.dart';
 
 part 'contribution_design.dart';
 part 'photo_set_flow.dart';

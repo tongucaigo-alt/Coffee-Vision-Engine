@@ -1,4 +1,22 @@
-# Yerel fotoğraf kontrolü · 3 Ekim 2026
+# Yerel fotoğraf kontrolü — güncel durum: 24 Ekim 2026
+
+Etkin opt-in yol `atlas_screen_v6.onnx` dosyasını kullanır; SHA-256
+`73becef6afcea56138cff83acc8645dc6674fc3e9a7d33441002e18cb4a400f7`.
+Android kanalının kaydı da V6 varlığına bağlıdır. V5 dosyasının bulunması
+etkin V6 kanalını başlatmak için koşul değildir. V6 modeli, karar eşikleri
+ve `suitabilityBlockingValidated=false` değiştirilmedi.
+
+V6'nın sabit değerlendirmesi yeniden üretildi: 33 telveli fincanda 29 kabul,
+4 belirsizlik; kül tablasında 6/10, kase/kapta 7/10 grup açık ret. Hedefler
+geçmedi. Belirsiz fincanlar yeni üretime geçmez. Tam kare, görünür kırpma ve
+otomatik çekim kanıtı kuralları için güncel kaynak `photo_suitability.dart`,
+kanıt ve veri ayrımı için `docs/contribution/PHOTO_FILTER_V6_CANDIDATE_2026-10-22.md`
+esas alınır. Yeni bağımsız saha/cihaz kabulü bekliyor.
+
+Aşağıdaki V5 ölçümleri ve eski sessiz belirsizlik davranışı tarihsel kayıttır;
+V6'nın güncel kabulü veya yeni fiziksel cihaz doğrulaması olarak kullanılmaz.
+
+## Tarihsel V5 belgesi · 3 Ekim 2026
 
 Model `android/app/src/imageScreen/assets/atlas_screen_v5.onnx` içindedir.
 SHA-256: `17cb073e902c459ebc04fe9b14a2ba10ec968a4c378c40fbd8199f7c5b0ff5d4`.

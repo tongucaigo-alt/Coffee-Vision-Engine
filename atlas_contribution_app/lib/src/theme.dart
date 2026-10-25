@@ -1,13 +1,29 @@
 import 'package:flutter/material.dart';
+import 'atlas_palette.dart';
 
 ThemeData contributionTheme() {
-  final colors = ColorScheme.fromSeed(seedColor: const Color(0xff186354))
-      .copyWith(
-        primary: const Color(0xff186354),
-        secondary: const Color(0xff926018),
-        surface: const Color(0xfff6f8f7),
-        error: const Color(0xffb02e3c),
-      );
+  final colors = ColorScheme.fromSeed(seedColor: atlasCoffee).copyWith(
+    primary: atlasCoffee,
+    onPrimary: atlasCard,
+    secondary: atlasSageInk,
+    onSecondary: atlasCard,
+    surface: atlasCream,
+    onSurface: atlasInk,
+    onSurfaceVariant: atlasMuted,
+    surfaceTint: Colors.transparent,
+    surfaceContainerLowest: atlasCard,
+    surfaceContainerLow: atlasCard,
+    surfaceContainer: atlasCream,
+    surfaceContainerHigh: const Color(0xffeee5d4),
+    surfaceContainerHighest: const Color(0xffe9dfcd),
+    primaryContainer: const Color(0xffeee1d2),
+    onPrimaryContainer: atlasInk,
+    secondaryContainer: atlasSageSurface,
+    onSecondaryContainer: atlasInk,
+    outline: atlasBorder,
+    outlineVariant: atlasBorder,
+    error: const Color(0xffb02e3c),
+  );
   final text = ThemeData(useMaterial3: true).textTheme;
   TextStyle? spaced(TextStyle? style) => style?.copyWith(letterSpacing: 0);
   return ThemeData(
@@ -61,15 +77,15 @@ ThemeData contributionTheme() {
     inputDecorationTheme: const InputDecorationTheme(
       border: OutlineInputBorder(),
       filled: true,
-      fillColor: Colors.white,
+      fillColor: atlasCard,
     ),
     cardTheme: CardThemeData(
       elevation: 0,
-      color: Colors.white,
+      color: atlasCard,
       margin: EdgeInsets.zero,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(8),
-        side: const BorderSide(color: Color(0xffd6e0dc)),
+        side: const BorderSide(color: atlasBorder),
       ),
     ),
   );

@@ -30,6 +30,7 @@ void main() {
     expect(coffee.coverage, inInclusiveRange(0.06, 0.70));
     expect(coffee.score, greaterThanOrEqualTo(config.minimumCoffeePresence));
     expect(coffee.mask!.activeCellCount, greaterThanOrEqualTo(24));
+    expect(coffee.mask!.requiresStrictPhotoVerification, false);
   });
 
   for (final brownLuminance in [90, 125]) {

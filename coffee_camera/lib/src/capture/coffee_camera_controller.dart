@@ -434,6 +434,9 @@ class CoffeeCameraController extends ChangeNotifier {
     final coffeeScore = step == CoffeeCaptureStep.cup
         ? _analysis.coffeePresenceScore
         : 0.0;
+    final requiresStrictPhotoVerification =
+        step == CoffeeCaptureStep.cup &&
+        (_analysis.coffeeMask?.requiresStrictPhotoVerification ?? false);
     final detectedBounds = step == CoffeeCaptureStep.cup
         ? _analysis.cup?.normalizedBounds
         : _saucerAnalysis.saucer?.normalizedBounds;
@@ -502,6 +505,7 @@ class CoffeeCameraController extends ChangeNotifier {
         qualityScore: qualityScore,
         coffeePresenceScore: coffeeScore,
         coffeeDetected: coffeeDetected,
+        requiresStrictPhotoVerification: requiresStrictPhotoVerification,
         mode: mode,
       );
       originalPath = null;

@@ -609,10 +609,18 @@ void main() {
         expect(calls, 1);
       });
     }
-    test('gateway profiles fail before sending a coffee job', () async {
+    test('older gateway fails capability check before posting Tarot', () async {
       var calls = 0;
-      server.listen((_) {
+      server.listen((request) async {
         calls++;
+        expect(request.method, 'GET');
+        request.response.write(
+          jsonEncode({
+            'available': true,
+            'contextVersions': ['atlas-fortune-context-v1'],
+          }),
+        );
+        await request.response.close();
       });
       await expectLater(
         client.generate(
@@ -620,7 +628,7 @@ void main() {
           const AiProfile(
             id: 'gateway',
             name: 'gateway',
-            url: 'https://example.invalid',
+            url: 'http://192.168.10.1:80',
             model: 'kimi',
             provider: AiProvider.atlas,
           ),
@@ -629,7 +637,7 @@ void main() {
         ),
         throwsA(isA<AiFailure>()),
       );
-      expect(calls, 0);
+      expect(calls, 1);
     });
     test('timeout sends once and preserves failure for manual retry', () async {
       var calls = 0;

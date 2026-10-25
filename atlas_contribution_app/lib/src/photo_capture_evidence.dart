@@ -24,6 +24,7 @@ class PhotoCaptureEvidence {
     if (p.surface != PhotoSurface.cup ||
         p.origin != 'camera' ||
         capture.mode != CameraCaptureMode.automatic ||
+        capture.requiresStrictPhotoVerification ||
         !capture.coffeeDetected ||
         !capture.coffeePresenceScore.isFinite ||
         capture.coffeePresenceScore <= 0 ||

@@ -49,7 +49,25 @@ Kişisel sunucu kullanıcısı **Kendi AI sunucum** seçer; `/v1` ile biten adre
 - Aynı istek kimliği aynı iş döndürür; başka içerikle kullanılırsa reddedilir. Anahtar iptali bir sonraki istekte geçerlidir. Genel proxy, araç/MCP, görsel giriş ve serbest upstream adresi bulunmaz.
 - Prompt ve kalite kuralları sürümlüdür. Belirgin kesinlik, görsel tespit iddiası, teknik ölçüm tekrarı, düşünce veya kesilme durumunda bir düzeltme denenir; uygun yanıt yoksa hata gösterilir. Kural denetimi dilin tamamına ilişkin matematiksel garanti değildir. Qwen'in dil kalitesi ve uzunluğu ayrıca insan tarafından değerlendirilmelidir.
 - A/B aynı metinsel bağlamı/prompt sürümünü kullanır. Sıra telefonda rastgeleleştirilip kalıcılaşır; tercih öncesi sonuçların model kimliği gösterilmez. Farklı düşünme talimatlarıyla üretilmiş yanıtlar geçerli karşılaştırma sayılmaz.
-- Anahtarlar, profiller, fal metni ve oylar araştırma ZIP'ine girmez. Yalnız minimal AI gösterim zamanı/audit eklenir; güncel işaretler AI etkisi taşıyabilir. Eğitim için mühürlü ilk gözlemler ve gösterim geçmişi kullanılmalıdır.
+- Araştırma ZIP dışa aktarımı kaldırılmıştır. Gözlem ve gösterim geçmişi yerel kayıt mekanizmalarında korunur; yeni bir araştırma paylaşımı bu gateway akışında bulunmaz.
+
+## Tarot ve içerik bildirimi — V93 düzeltmesi
+
+`capabilities.tarot` ayrı Tarot prompt sürümü/özetini duyurur.
+`atlas-tarot-context-v1`, seçilen 1/3 kartı katalog kimliği, pozisyonu,
+düz/ters yönü ve kanonik temalarıyla doğrular. Aynı iş kuyruğu, token sahipliği,
+idempotency ve iptal korunur; Tarot ayrı prompt kullanır ve en fazla bir
+üretim denemesi yapar. İstemcinin kuyruk dahil üretim bütçesi 180 saniyedir;
+iptal isteğinin iletilmesi ayrıca bağlantıya bağlıdır. Kahvenin mevcut
+düzeltme bütçesi değişmez.
+
+`reports` sözleşmesi sürüm 1 olarak kalır: yalnız id, reason, text ve version.
+Kahve ve Tarot UI aynı kimlik doğrulamalı rapor yolunu kullanır. Rapor,
+kalıcı kayıt tamamlandıktan sonra teyit edilir. Doğrudan üretim profilinin
+anahtarı/URL'si raporlama hedefi olarak kullanılmaz. Gerçek moderasyon kanalı,
+insan inceleme operasyonu ve rapor saklama/silme süresi işletmeci tarafından
+ayrıca tamamlanmalıdır. Yerel sentetik testlerin geçmesi bu operasyonun veya
+uzak gateway yayınının yapıldığı anlamına gelmez.
 
 ## Testler
 

@@ -7,6 +7,7 @@ import 'src/contribution_home.dart';
 import 'src/local_store.dart';
 import 'src/offline_contribution.dart';
 import 'src/atlas_design.dart';
+import 'src/atlas_intro.dart';
 import 'src/coffee_guide_gate.dart';
 import 'src/coffee_guide_page.dart';
 import 'src/coffee_guide_store.dart';
@@ -46,6 +47,8 @@ class OfflineStartupApp extends StatefulWidget {
     this.createAi = AiRuntime.create,
     this.createTarot = TarotRuntime.create,
     this.guideStore,
+    this.introEnabled = true,
+    this.introController,
     super.key,
   });
   final DraftStore store;
@@ -53,6 +56,8 @@ class OfflineStartupApp extends StatefulWidget {
   final Future<AiRuntime> Function(DraftStore) createAi;
   final Future<TarotRuntime> Function(Directory, AiRuntime?) createTarot;
   final CoffeeGuideStore? guideStore;
+  final bool introEnabled;
+  final AtlasIntroController? introController;
   @override
   State<OfflineStartupApp> createState() => _OfflineStartupAppState();
 }
@@ -62,9 +67,19 @@ class _OfflineStartupAppState extends State<OfflineStartupApp> {
   AiRuntime? _ai;
   TarotRuntime? _tarot;
   String? _aiError, _tarotError;
+  AtlasIntroController? _intro;
   @override
   void initState() {
     super.initState();
+    if (widget.introEnabled) {
+      _intro =
+          widget.introController ??
+          AtlasIntroController(
+            preferences: AtlasIntroPreferences(
+              Directory('${widget.store.directory.parent.path}/startup-intro'),
+            ),
+          );
+    }
     _load();
   }
 
@@ -104,11 +119,31 @@ class _OfflineStartupAppState extends State<OfflineStartupApp> {
   @override
   void dispose() {
     _tarot?.dispose();
+    _intro?.dispose();
     super.dispose();
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => _intro == null
+      ? _buildStartup(context)
+      : ListenableBuilder(listenable: _intro!, builder: _buildStartup);
+
+  Widget _buildStartup(BuildContext context, [Widget? child]) {
+    final intro = _intro;
+    if (intro != null && intro.visible) {
+      return MaterialApp(
+        title: 'Atlas',
+        debugShowCheckedModeBanner: false,
+        theme: atlasTheme(),
+        home: PopScope(
+          canPop: false,
+          onPopInvokedWithResult: (didPop, _) {
+            if (!didPop) intro.finish(immediate: true);
+          },
+          child: Scaffold(body: AtlasIntroView(controller: intro)),
+        ),
+      );
+    }
     if (_loading) {
       return MaterialApp(
         theme: atlasTheme(),

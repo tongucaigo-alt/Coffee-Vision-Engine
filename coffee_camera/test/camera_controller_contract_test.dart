@@ -22,6 +22,8 @@ import 'package:coffee_camera/src/models/saucer_detection_result.dart';
 import 'package:coffee_camera/src/quality/saucer_quality_checker.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'support/dense_coffee_scene.dart';
+
 void main() {
   for (final closeDuringInitialization in [false, true]) {
     test(
@@ -242,6 +244,7 @@ void main() {
 
     expect(service.takePictureCalls, 1);
     expect(controller.draftResult!.mode, CameraCaptureMode.automatic);
+    expect(controller.draftResult!.requiresStrictPhotoVerification, false);
     await controller.takeApprovedFlowResult();
     expect(controller.currentStep, CoffeeCaptureStep.saucer);
     expect(controller.cupAnalysisActive, isFalse);
@@ -252,6 +255,54 @@ void main() {
     expect(service.takePictureCalls, 1);
     await controller.close();
   });
+
+  for (final mode in CameraCaptureMode.values) {
+    test(
+      'dense scan keeps strict final verification through $mode capture',
+      () async {
+        final file = await _createCaptureFile('dense-cup');
+        final service = _FakeCameraService(capturePath: file.path);
+        final controller = CoffeeCameraController(
+          config: CoffeeCameraConfig(
+            analysisInterval: Duration.zero,
+            autoCaptureStableDuration: const Duration(milliseconds: 10),
+            coffeeActivationFrames: 1,
+            initialAutoCaptureEnabled: mode == CameraCaptureMode.automatic,
+          ),
+          cameraService: service,
+          motionService: _FakeMotionService(),
+        );
+        await controller.initialize();
+        controller.setViewportSize(const Size(360, 800));
+        final frame = _cameraImageFromFrame(denseCoffeeScene());
+        service.emitFrame(frame);
+        await _waitForCondition(() => controller.coffeeDetected);
+        expect(controller.coffeeMask!.requiresStrictPhotoVerification, true);
+        expect(controller.captureReady, true);
+        await Future<void>.delayed(const Duration(milliseconds: 20));
+        service.emitFrame(frame);
+        if (mode == CameraCaptureMode.manual) {
+          // A real dense mask must not bypass the disabled automatic switch.
+          await Future<void>.delayed(const Duration(milliseconds: 30));
+          await controller.capture(CameraCaptureMode.automatic);
+          expect(service.takePictureCalls, 0);
+          await controller.capture(mode);
+        }
+        await _waitForPhase(controller, CameraExperiencePhase.reviewing);
+        expect(service.takePictureCalls, 1);
+        expect(controller.draftResult!.mode, mode);
+        expect(controller.draftResult!.coffeeDetected, true);
+        expect(controller.draftResult!.requiresStrictPhotoVerification, true);
+        await controller.capture(CameraCaptureMode.automatic);
+        expect(service.takePictureCalls, 1);
+        await controller.retake();
+        expect(controller.coffeeMask, isNull);
+        expect(controller.coffeeDetected, false);
+        expect(await file.exists(), false);
+        await controller.close();
+      },
+    );
+  }
 
   for (final failure in ['motion', 'blur', 'dark', 'no cup']) {
     test('fresh $failure frame resets automatic accumulation', () async {
@@ -812,6 +863,25 @@ CameraImage _cameraImage() {
         'height': height ~/ 2,
         'width': width ~/ 2,
       },
+    ],
+  });
+}
+
+CameraImage _cameraImageFromFrame(AnalysisFrame frame) {
+  // ignore: deprecated_member_use
+  return CameraImage.fromPlatformData({
+    'format': 35,
+    'height': frame.height,
+    'width': frame.width,
+    'planes': [
+      for (var index = 0; index < frame.planes.length; index++)
+        {
+          'bytes': frame.planes[index].bytes,
+          'bytesPerPixel': frame.planes[index].bytesPerPixel,
+          'bytesPerRow': frame.planes[index].bytesPerRow,
+          'height': index == 0 ? frame.height : frame.height ~/ 2,
+          'width': index == 0 ? frame.width : frame.width ~/ 2,
+        },
     ],
   });
 }

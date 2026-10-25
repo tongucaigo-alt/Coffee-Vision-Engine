@@ -14,6 +14,7 @@ import 'package:atlas_contribution_app/src/contribution_home.dart';
 import 'package:atlas_contribution_app/src/local_store.dart';
 import 'package:atlas_contribution_app/src/models.dart';
 import 'package:atlas_contribution_app/src/offline_contribution.dart';
+import 'package:atlas_contribution_app/src/privacy_support.dart';
 import 'fixtures.dart';
 import 'suitability_fixture.dart';
 import 'photo_set_test.dart' show setDraft;
@@ -143,14 +144,14 @@ void main() {
           await tester.pumpAndSettle();
           expect(find.byTooltip('Kaldığın Yerden Devam Et'), findsOneWidget);
           if (scale == 1) {
-            expect(
-              find.byWidgetPredicate(
-                (w) =>
-                    w is Scrollable &&
-                    axisDirectionToAxis(w.axisDirection) == Axis.vertical,
-              ),
-              findsNothing,
-            );
+            for (final scrollable in tester.stateList<ScrollableState>(
+              find.byType(Scrollable),
+            )) {
+              if (axisDirectionToAxis(scrollable.axisDirection) ==
+                  Axis.vertical) {
+                expect(scrollable.position.maxScrollExtent, 0);
+              }
+            }
           }
           final heading = find.text('Fincanını Keşfet');
           await tester.ensureVisible(heading);
@@ -282,14 +283,13 @@ void main() {
         atlasCoffee,
       );
       if (scale == 1) {
-        expect(
-          find.byWidgetPredicate(
-            (w) =>
-                w is Scrollable &&
-                axisDirectionToAxis(w.axisDirection) == Axis.vertical,
-          ),
-          findsNothing,
-        );
+        for (final scrollable in tester.stateList<ScrollableState>(
+          find.byType(Scrollable),
+        )) {
+          if (axisDirectionToAxis(scrollable.axisDirection) == Axis.vertical) {
+            expect(scrollable.position.maxScrollExtent, 0);
+          }
+        }
       }
       expect(scanButton.hitTestable(), findsOneWidget);
       if (scale == 1 && size.width >= 360) {
@@ -325,8 +325,14 @@ void main() {
         await tester.ensureVisible(find.text(label));
         await tester.tap(find.text(label));
         await tester.pumpAndSettle();
-        expect(find.byType(AlertDialog), findsOneWidget);
-        await tester.tap(find.text('Kapat'));
+        if (label == 'İçerik Bildir') {
+          expect(find.byType(AlertDialog), findsOneWidget);
+          await tester.tap(find.text('Kapat'));
+        } else {
+          expect(find.byType(PrivacySupportPage), findsOneWidget);
+          expect(find.textContaining('henüz hazırlanıyor'), findsNothing);
+          await tester.pageBack();
+        }
         await tester.pumpAndSettle();
       }
       expect(tester.takeException(), isNull);

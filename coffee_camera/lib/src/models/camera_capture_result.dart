@@ -18,6 +18,7 @@ class CameraCaptureResult {
     required this.qualityScore,
     required this.coffeePresenceScore,
     this.coffeeDetected = false,
+    this.requiresStrictPhotoVerification = false,
     required this.mode,
   });
 
@@ -35,6 +36,10 @@ class CameraCaptureResult {
   final int qualityScore;
   final double coffeePresenceScore;
   final bool coffeeDetected;
+
+  /// The live scan used the dense-grounds fallback. It is not supporting
+  /// evidence for an otherwise uncertain final photo classification.
+  final bool requiresStrictPhotoVerification;
   final CameraCaptureMode mode;
 
   String? get croppedImagePath => croppedCupPath ?? croppedSaucerPath;

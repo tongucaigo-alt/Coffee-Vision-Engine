@@ -5,6 +5,7 @@ import { readFileSync } from 'node:fs';
 import { createHash, randomUUID } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
 import { exact, validateContext, messages, qualityError, qualityWarnings, exampleRepetitionError, prompt, promptHash } from './contract.mjs';
+import { tarotContextVersion, tarotPrompt, tarotPromptHash, validateTarotContext, tarotMessages, tarotQualityError } from './tarot-contract.mjs';
 
 const hash = value => createHash('sha256').update(value).digest('hex');
 export function createGateway({config, tokens, fetchImpl = fetch, runtimeMs = 180000, queueMs = 1800000, retentionMs = 1800000, saveReport = null}) {
@@ -34,11 +35,13 @@ export function createGateway({config, tokens, fetchImpl = fetch, runtimeMs = 18
       const attemptLimit=job.maxAttempts??2;
       for (let attempt=job.attempts??0; attempt<attemptLimit && job.state === 'running'; attempt++) {
         job.attempts=attempt+1; job.phase=attempt===0?'generating':'repairing';
+        const isTarot = job.context.version === tarotContextVersion;
+        const selectedPrompt = isTarot ? tarotPrompt : prompt;
         const upstream = new URL(job.model.baseUrl.replace(/\/$/,'')+'/chat/completions');
         const response = await fetchImpl(upstream, {
           method:'POST', redirect:'error',
           headers:{'Content-Type':'application/json', ...(job.model.apiKey ? {Authorization:`Bearer ${job.model.apiKey}`} : {})},
-          body:JSON.stringify({model:job.model.model, messages:messages(job.context,job.model.noThink,attempt===1,lastError,job.previousReply), stream:false, temperature:prompt.temperature,max_tokens:prompt.maxTokens}),
+          body:JSON.stringify({model:job.model.model, messages:isTarot ? tarotMessages(job.context,job.model.noThink) : messages(job.context,job.model.noThink,attempt===1,lastError,job.previousReply), stream:false, temperature:selectedPrompt.temperature,max_tokens:selectedPrompt.maxTokens}),
         });
         const raw = await response.text();
         if (job.state !== 'running') break;
@@ -49,10 +52,10 @@ export function createGateway({config, tokens, fetchImpl = fetch, runtimeMs = 18
         const choice = data.choices?.[0];
         const text = choice?.message?.content;
         job.previousReply=typeof text==='string'?text.slice(0,12000):null;
-        const error = qualityError(text,choice?.finish_reason,job.context,false) ?? exampleRepetitionError(text,job.context);
+        const error = isTarot ? tarotQualityError(text,choice?.finish_reason,job.context) : qualityError(text,choice?.finish_reason,job.context,false) ?? exampleRepetitionError(text,job.context);
         lastError = error; job.qualityReason=error;
         if (!error) {
-          job.result = {qualityWarnings:qualityWarnings(text,job.context),diagnostics:{code:"completed",stage:job.phase,attempts:attempt+1,durationMs:(job.productionMs??0)+Date.now()-job.startedAt},text:text.trim(),model:job.model.model,modelAlias:job.alias,promptVersion:prompt.version,promptHash,temperature:prompt.temperature,maxTokens:prompt.maxTokens,noThink:!!job.model.noThink,durationMs:(job.productionMs??0)+Date.now()-job.startedAt,attempts:attempt+1,reasoningTokens:data.usage?.completion_tokens_details?.reasoning_tokens??null,reasoningReturned:!!choice?.message?.reasoning_content};
+          job.result = {qualityWarnings:isTarot?[]:qualityWarnings(text,job.context),diagnostics:{code:"completed",stage:job.phase,attempts:attempt+1,durationMs:(job.productionMs??0)+Date.now()-job.startedAt},text:text.trim(),model:job.model.model,modelAlias:job.alias,promptVersion:selectedPrompt.version,promptHash:isTarot?tarotPromptHash:promptHash,temperature:selectedPrompt.temperature,maxTokens:selectedPrompt.maxTokens,noThink:!!job.model.noThink,durationMs:(job.productionMs??0)+Date.now()-job.startedAt,attempts:attempt+1,reasoningTokens:data.usage?.completion_tokens_details?.reasoning_tokens??null,reasoningReturned:!!choice?.message?.reasoning_content};
           end(job,'completed');
         } else if (attempt + 1 >= attemptLimit) end(job,'failed','quality_rejected');
       }
@@ -80,7 +83,7 @@ export function createGateway({config, tokens, fetchImpl = fetch, runtimeMs = 18
       if (!owner) return reply(res,401,{error:'unauthorized'});
       const url = new URL(req.url,'http://localhost');
       const route = url.pathname;
-      if (req.method === 'GET' && route === '/api/ai/v1/capabilities') return reply(res,200,{apiVersion:1,reportVersion:saveReport?1:null,contextVersions:['atlas-fortune-context-v1','atlas-fortune-context-v2','atlas-fortune-context-v3','atlas-fortune-context-v4'],clientRepetitionRepair:true,serverInstanceId:instance,promptVersion:prompt.version,promptHash,models:Object.keys(models()),available:!stalled,capacity:10});
+      if (req.method === 'GET' && route === '/api/ai/v1/capabilities') return reply(res,200,{apiVersion:1,reportVersion:saveReport?1:null,contextVersions:['atlas-fortune-context-v1','atlas-fortune-context-v2','atlas-fortune-context-v3','atlas-fortune-context-v4',tarotContextVersion],tarot:{promptVersion:tarotPrompt.version,promptHash:tarotPromptHash},clientRepetitionRepair:true,serverInstanceId:instance,promptVersion:prompt.version,promptHash,models:Object.keys(models()),available:!stalled,capacity:10});
       if (req.method === 'POST' && route === '/api/ai/v1/reports') {
         if (!saveReport) return reply(res,503,{error:'reporting_unavailable'});
         const window = reportCounts.get(owner);
@@ -104,13 +107,15 @@ export function createGateway({config, tokens, fetchImpl = fetch, runtimeMs = 18
         let body;
         try {
           body=JSON.parse(Buffer.concat(chunks).toString('utf8'));
-          exact(body,['context','modelAlias','promptVersion',...(Object.hasOwn(body,'generationLimits')?['generationLimits']:[])]); validateContext(body.context);
+          exact(body,['context','modelAlias','promptVersion',...(Object.hasOwn(body,'generationLimits')?['generationLimits']:[])]);
+          if (body.context?.version === tarotContextVersion) validateTarotContext(body.context); else validateContext(body.context);
           if(Object.hasOwn(body,'generationLimits')) {
             exact(body.generationLimits,['maxAttempts','maxDurationMs']);
             const limits=body.generationLimits;
             if(!Number.isSafeInteger(limits.maxAttempts)||limits.maxAttempts<1||limits.maxAttempts>2||!Number.isSafeInteger(limits.maxDurationMs)||limits.maxDurationMs<1||limits.maxDurationMs>180000) throw new Error();
           }
-          if(body.promptVersion!==prompt.version) throw new Error();
+          if(body.promptVersion!==(body.context.version === tarotContextVersion ? tarotPrompt.version : prompt.version)) throw new Error();
+          if(body.context.version === tarotContextVersion && body.generationLimits?.maxAttempts !== 1) throw new Error();
         } catch { return reply(res,400,{error:'invalid_context_or_version'}); }
         const idempotency = req.headers['idempotency-key'];
         if(typeof idempotency!=='string' || !/^[a-zA-Z0-9-]{16,80}$/.test(idempotency)) return reply(res,400,{error:'idempotency_required'});

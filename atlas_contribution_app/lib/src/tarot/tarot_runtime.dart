@@ -18,28 +18,37 @@ class TarotRuntime extends ChangeNotifier {
     required this.generateReading,
     required this.promptVersion,
     required this.promptHash,
+    this.reportingRuntime,
   });
   final TarotStore store;
   final List<TarotCard> catalog;
   final TarotGenerate generateReading;
   final String promptVersion, promptHash;
+  final AiRuntime? reportingRuntime;
   final Map<String, ({AiCancellation cancellation, String attemptId})> _active =
       {};
   bool busy(String id) => _active.containsKey(id);
-  static Future<TarotRuntime> create(Directory directory, AiRuntime? ai) async {
+  static Future<TarotRuntime> create(
+    Directory directory,
+    AiRuntime? ai, {
+    TarotAiClient? client,
+  }) async {
     final catalog = loadTarotCatalog(
       await rootBundle.loadString('assets/tarot/catalog-v1.json'),
     );
-    final client = TarotAiClient(
-      await rootBundle.loadString('assets/tarot-prompt-v1.json'),
-    );
+    final tarotClient =
+        client ??
+        TarotAiClient(
+          await rootBundle.loadString('assets/tarot-prompt-v1.json'),
+        );
     final store = TarotStore(directory);
     await store.initialize();
     return TarotRuntime(
       store: store,
       catalog: catalog,
-      promptVersion: client.version,
-      promptHash: client.hash,
+      promptVersion: tarotClient.version,
+      promptHash: tarotClient.hash,
+      reportingRuntime: ai,
       generateReading: (draw, cancellation) async {
         if (ai == null) {
           throw const AiFailure(
@@ -47,7 +56,7 @@ class TarotRuntime extends ChangeNotifier {
           );
         }
         final profile = (await ai.store.profiles())
-            .where((p) => p.provider == AiProvider.direct)
+            .where((p) => !playTestEnabled || p.provider == AiProvider.atlas)
             .firstOrNull;
         cancellation.check();
         if (profile == null) {
@@ -57,7 +66,7 @@ class TarotRuntime extends ChangeNotifier {
         }
         final key = await ai.key(profile);
         cancellation.check();
-        return client.generate(draw, profile, key, cancellation);
+        return tarotClient.generate(draw, profile, key, cancellation);
       },
     );
   }

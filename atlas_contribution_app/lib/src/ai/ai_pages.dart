@@ -20,6 +20,7 @@ import 'narrative.dart';
 import 'fortune_personalization.dart';
 import 'fortune_memory.dart';
 import 'reading_identity.dart';
+import 'content_reporting.dart';
 import '../fortune_progress.dart';
 import '../opencv_traces.dart';
 import '../trace_overlay.dart';
@@ -1394,92 +1395,6 @@ class _AiFortunePageState extends State<AiFortunePage> {
     );
   }
 
-  Future<void> _report(Map<String, dynamic> result, Map answer) async {
-    final profiles = await widget.runtime.store.profiles();
-    final profile = profiles
-        .where(
-          (p) =>
-              p.id == answer['profileId'] &&
-              p.url == answer['profileUrl'] &&
-              p.provider == AiProvider.atlas,
-        )
-        .firstOrNull;
-    if (!mounted) return;
-    if (profile == null) {
-      setState(
-        () => _message =
-            'Bu eski bağlantıda bildirim desteklenmiyor. Atlas test bağlantısıyla oluşturulan yorumlar bildirilebilir.',
-      );
-      return;
-    }
-    var reason = 'misleading';
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, update) => AlertDialog(
-          title: const Text('Bu yorumu bildir'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text(
-                  'Aşağıdaki yorum ve seçtiğin neden Atlas test yöneticisine gönderilecek. Fotoğrafların eklenmez.',
-                ),
-                DropdownButton<String>(
-                  value: reason,
-                  isExpanded: true,
-                  items: const [
-                    DropdownMenuItem(
-                      value: 'misleading',
-                      child: Text('Yanıltıcı yorum'),
-                    ),
-                    DropdownMenuItem(
-                      value: 'harmful',
-                      child: Text('Rahatsız edici içerik'),
-                    ),
-                    DropdownMenuItem(value: 'other', child: Text('Diğer')),
-                  ],
-                  onChanged: (v) => update(() => reason = v!),
-                ),
-                SelectableText(answer['text'] as String),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Vazgeç'),
-            ),
-            AtlasPrimaryButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Bildir'),
-            ),
-          ],
-        ),
-      ),
-    );
-    if (confirmed != true || !mounted) return;
-    await _act(() async {
-      await widget.runtime.store.queueReport({
-        'id': const Uuid().v4(),
-        'sessionId': session.id,
-        'profileId': profile.id,
-        'url': profile.url,
-        'reason': reason,
-        'text': answer['text'],
-        'state': 'pending',
-      });
-      final pending = await widget.runtime.sendPendingReports();
-      if (mounted) {
-        setState(
-          () => _message = pending == 0
-              ? 'Bildirim iletildi.'
-              : 'Bildirim telefonda bekliyor. Ayarlar’dan yeniden gönderebilirsin.',
-        );
-      }
-    });
-  }
-
   List<Widget> _fortuneWidgets() => [
     for (final result in _results.where(
       (r) => (r['answers'] as List).isNotEmpty,
@@ -1533,12 +1448,12 @@ class _AiFortunePageState extends State<AiFortunePage> {
             (p) => (p['userObservations'] as List).isNotEmpty,
           ),
         ),
-        TextButton.icon(
-          onPressed: _busy
-              ? null
-              : () => _report(result, result['answers'][i] as Map),
-          icon: const Icon(Icons.flag_outlined),
-          label: const Text('Bu yorumu bildir'),
+        ContentReportButton(
+          runtime: widget.runtime,
+          sessionId: session.id,
+          contentId: '${result['id']}|$i',
+          text: result['answers'][i]['text'] as String,
+          enabled: !_busy,
         ),
         if (!widget.simple &&
             (result['comparison'] != true || result['vote'] != null))

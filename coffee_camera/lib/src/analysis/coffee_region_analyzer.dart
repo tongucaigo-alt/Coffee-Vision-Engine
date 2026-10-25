@@ -43,6 +43,7 @@ class CoffeeRegionAnalyzer {
         cup.normalizedBounds,
         config.minimumGroundCoverage,
         config.maximumGroundCoverage,
+        config.minimumCoffeePresence,
         0.78,
       ),
     );
@@ -54,6 +55,7 @@ CoffeeRegionAnalysis _analyzeCoffeeRegion(
   Rect normalizedBounds,
   double minimumCoverage,
   double maximumCoverage,
+  double minimumScore,
   double innerAnalysisRatio,
 ) {
   const gridSize = 32;
@@ -97,7 +99,6 @@ CoffeeRegionAnalysis _analyzeCoffeeRegion(
   luminances.sort();
   final brightReference = _percentile(luminances, 0.78);
   final middleReference = _percentile(luminances, 0.48);
-  if (brightReference < 105) return const CoffeeRegionAnalysis.empty();
   final threshold = math.min(brightReference - 26, middleReference - 10);
   final raw = Uint8List(gridSize * gridSize);
   for (var index = 0; index < raw.length; index++) {
@@ -105,11 +106,164 @@ CoffeeRegionAnalysis _analyzeCoffeeRegion(
     if (sample == null) continue;
     final contrast = brightReference - sample.luminance;
     final colorAccepted = sample.warmth > -0.24 || contrast >= 52;
-    if (sample.luminance <= threshold && contrast >= 22 && colorAccepted) {
+    if (brightReference >= 105 &&
+        sample.luminance <= threshold &&
+        contrast >= 22 &&
+        colorAccepted) {
       raw[index] = ((contrast - 18) / 80 * 255).round().clamp(48, 255);
     }
   }
 
+  final normalizedInnerBounds = Rect.fromLTRB(
+    innerBounds.left / viewport.width,
+    innerBounds.top / viewport.height,
+    innerBounds.right / viewport.width,
+    innerBounds.bottom / viewport.height,
+  );
+  final insideCount = inside.where((value) => value > 0).length;
+  CoffeeRegionAnalysis resultFor(Uint8List cells, {bool dense = false}) {
+    final cleaned = _cleanGroundCells(cells, gridSize);
+    final activeValues = cleaned.where((value) => value > 0).toList();
+    final coverage = insideCount == 0 ? 0.0 : activeValues.length / insideCount;
+    final averageIntensity = activeValues.isEmpty
+        ? 0.0
+        : activeValues.reduce((a, b) => a + b) / activeValues.length / 255;
+    final score = (coverage * 0.65 + averageIntensity * 0.35).clamp(0.0, 1.0);
+    return CoffeeRegionAnalysis(
+      score: score,
+      coverage: coverage,
+      mask: CoffeeRegionMask(
+        normalizedBounds: normalizedInnerBounds,
+        width: gridSize,
+        height: gridSize,
+        intensities: cleaned,
+        coverage: coverage,
+        requiresStrictPhotoVerification: dense,
+      ),
+    );
+  }
+
+  bool usable(CoffeeRegionAnalysis result) =>
+      result.score >= minimumScore &&
+      result.coverage >= minimumCoverage &&
+      result.coverage <= maximumCoverage &&
+      (result.mask?.activeCellCount ?? 0) >= 24;
+
+  final legacy = resultFor(raw);
+  if (usable(legacy)) return legacy;
+
+  // A coated cup has little exposed porcelain inside the analysis disk.
+  // Keep the existing path first; use the visible rim only when warm colour
+  // and spatial texture independently support dense grounds.
+  final denseCells = _denseGroundCells(
+    samples: samples,
+    gridSize: gridSize,
+    sampler: sampler,
+    subjectBounds: subjectBounds,
+    middleReference: middleReference,
+    luminances: luminances,
+  );
+  if (denseCells != null) {
+    final dense = resultFor(denseCells, dense: true);
+    if (usable(dense)) return dense;
+  }
+  return brightReference < 105 ? const CoffeeRegionAnalysis.empty() : legacy;
+}
+
+Uint8List? _denseGroundCells({
+  required List<FramePixel?> samples,
+  required int gridSize,
+  required FramePixelSampler sampler,
+  required Rect subjectBounds,
+  required double middleReference,
+  required List<double> luminances,
+}) {
+  if (middleReference < 24 || middleReference > 150) return null;
+  if (_percentile(luminances, 0.90) - _percentile(luminances, 0.10) < 18) {
+    return null;
+  }
+  bool brown(FramePixel pixel) =>
+      pixel.luminance >= 18 &&
+      pixel.luminance <= 155 &&
+      pixel.warmth >= 0.025 &&
+      pixel.chromaU < 128 &&
+      pixel.chromaV > 128;
+  if (samples.whereType<FramePixel>().where(brown).length <
+      luminances.length * 0.55) {
+    return null;
+  }
+
+  final rimValues = <double>[];
+  var brightRimSamples = 0;
+  const angleSamples = 64;
+  for (var index = 0; index < angleSamples; index++) {
+    final angle = 2 * math.pi * index / angleSamples;
+    final direction = Offset(
+      math.cos(angle) * subjectBounds.width / 2,
+      math.sin(angle) * subjectBounds.height / 2,
+    );
+    double? brightest;
+    // Stay inside the detected rim: a bright background outside a dark cup
+    // must not become the porcelain reference.
+    for (final ratio in const [0.90, 0.94, 0.98]) {
+      final pixel = sampler.sampleViewport(
+        subjectBounds.center + direction * ratio,
+      );
+      if (pixel != null) {
+        brightest = math.max(brightest ?? 0, pixel.luminance);
+      }
+    }
+    if (brightest == null) continue;
+    rimValues.add(brightest);
+    if (brightest >= 142 && brightest - middleReference >= 35) {
+      brightRimSamples++;
+    }
+  }
+  if (rimValues.length < 56 || brightRimSamples < angleSamples * 0.48) {
+    return null;
+  }
+  rimValues.sort();
+  final rimReference = _percentile(rimValues, 0.60);
+  final raw = Uint8List(samples.length);
+  var texturedCells = 0;
+  for (var row = 1; row < gridSize - 1; row++) {
+    for (var column = 1; column < gridSize - 1; column++) {
+      final index = row * gridSize + column;
+      final pixel = samples[index];
+      if (pixel == null) continue;
+      final neighbors = [
+        samples[index - 1],
+        samples[index + 1],
+        samples[index - gridSize],
+        samples[index + gridSize],
+      ].whereType<FramePixel>().toList();
+      if (neighbors.length != 4) continue;
+      final localMean =
+          neighbors.fold(0.0, (sum, value) => sum + value.luminance) / 4;
+      final localValues = [
+        pixel.luminance,
+        ...neighbors.map((p) => p.luminance),
+      ];
+      final localRange =
+          localValues.reduce(math.max) - localValues.reduce(math.min);
+      // Reject a flat brown surface, smooth shadows and sensor black. The
+      // actual texture cells become the mask; no synthetic coverage is added.
+      final textured =
+          (pixel.luminance - localMean).abs() >= 3 && localRange >= 10;
+      if (textured && brown(pixel)) texturedCells++;
+      final contrast = rimReference - pixel.luminance;
+      if (textured &&
+          brown(pixel) &&
+          pixel.luminance <= middleReference &&
+          contrast >= 35) {
+        raw[index] = ((contrast - 18) / 80 * 255).round().clamp(48, 255);
+      }
+    }
+  }
+  return texturedCells >= luminances.length * 0.12 ? raw : null;
+}
+
+Uint8List _cleanGroundCells(Uint8List raw, int gridSize) {
   final filtered = Uint8List(gridSize * gridSize);
   for (var row = 1; row < gridSize - 1; row++) {
     for (var column = 1; column < gridSize - 1; column++) {
@@ -128,31 +282,7 @@ CoffeeRegionAnalysis _analyzeCoffeeRegion(
     }
   }
 
-  final cleaned = _removeSmallComponents(filtered, gridSize, minimumCells: 3);
-  final insideCount = inside.where((value) => value > 0).length;
-  final activeValues = cleaned.where((value) => value > 0).toList();
-  final coverage = insideCount == 0 ? 0.0 : activeValues.length / insideCount;
-  final averageIntensity = activeValues.isEmpty
-      ? 0.0
-      : activeValues.reduce((a, b) => a + b) / activeValues.length / 255;
-  final score = (coverage * 0.65 + averageIntensity * 0.35).clamp(0.0, 1.0);
-  final normalizedInnerBounds = Rect.fromLTRB(
-    innerBounds.left / viewport.width,
-    innerBounds.top / viewport.height,
-    innerBounds.right / viewport.width,
-    innerBounds.bottom / viewport.height,
-  );
-  final mask = CoffeeRegionMask(
-    normalizedBounds: normalizedInnerBounds,
-    width: gridSize,
-    height: gridSize,
-    intensities: cleaned,
-    coverage: coverage,
-  );
-  if (coverage < minimumCoverage || coverage > maximumCoverage) {
-    return CoffeeRegionAnalysis(score: score, coverage: coverage, mask: mask);
-  }
-  return CoffeeRegionAnalysis(score: score, coverage: coverage, mask: mask);
+  return _removeSmallComponents(filtered, gridSize, minimumCells: 3);
 }
 
 double _percentile(List<double> sorted, double percentile) {

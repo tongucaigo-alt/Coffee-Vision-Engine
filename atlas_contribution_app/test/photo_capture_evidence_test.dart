@@ -22,6 +22,7 @@ void main() {
   CameraCaptureResult capture({
     CameraCaptureMode mode = CameraCaptureMode.automatic,
     bool detected = true,
+    bool strict = false,
   }) => CameraCaptureResult(
     filePath: original.path,
     widthPixels: 160,
@@ -31,6 +32,7 @@ void main() {
     qualityScore: 85,
     coffeePresenceScore: .9,
     coffeeDetected: detected,
+    requiresStrictPhotoVerification: strict,
     mode: mode,
   );
 
@@ -84,6 +86,61 @@ void main() {
       },
     );
   }
+
+  test('dense fallback capture is saved without supporting evidence', () async {
+    final result = capture(strict: true);
+    final p = await store.importCapture(CaptureRole.free, result);
+    await evidence.record(p, result);
+    expect(await evidence.supports(p), false);
+    expect(await store.file(p.localName).exists(), true);
+  });
+
+  test(
+    'dense auto scan cannot promote an uncertain photo or override a negative',
+    () async {
+      final result = capture(strict: true);
+      final p = await store.importCapture(CaptureRole.free, result);
+      final checker = PhotoSuitability(Directory('${root.path}/checks'));
+      await checker.recordCaptureEvidence(p, result);
+      final low = localImageScreenRejectBelow - 1;
+      final high = localImageScreenSupportAbove + 1;
+      final middle =
+          (localImageScreenRejectBelow + localImageScreenSupportAbove) / 2;
+      final messenger =
+          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+      addTearDown(
+        () => messenger.setMockMethodCallHandler(
+          PhotoSuitability.imageScreenChannel,
+          null,
+        ),
+      );
+      for (final entry in [
+        ([high, middle], 'uncertain'),
+        ([middle, high], 'uncertain'),
+        ([low, high], 'uncertain'),
+        ([high, low], 'uncertain'),
+        ([low, low], 'unsuitable'),
+        ([double.nan, high], 'error'),
+        ([high, high], 'supported'),
+      ]) {
+        messenger.setMockMethodCallHandler(
+          PhotoSuitability.imageScreenChannel,
+          (_) async => {
+            'modelSha256': localImageScreenModelSha256,
+            'scores': entry.$1,
+          },
+        );
+        final decision = await checker.assess(
+          store.file(p.localName),
+          p,
+          retry: true,
+        );
+        expect(decision['status'], entry.$2);
+        expect(suitabilityAccepted(decision, p), entry.$2 == 'supported');
+      }
+    },
+    skip: !localImageScreenEnabled,
+  );
 
   test(
     'manual scan, gallery, saucer, and mismatched original cannot provide evidence',

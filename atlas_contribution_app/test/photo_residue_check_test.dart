@@ -74,15 +74,23 @@ void main() {
         'checksum': 'sha256:${sha256.convert(bytes)}',
       });
       var calls = 0;
+      final activeChannel = localImageScreenEnabled
+          ? PhotoSuitability.imageScreenChannel
+          : PhotoSuitability.channel;
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-          .setMockMethodCallHandler(PhotoSuitability.channel, (call) async {
+          .setMockMethodCallHandler(activeChannel, (call) async {
             calls++;
             if (calls == 1) throw PlatformException(code: 'temporary');
-            return scores('cup', .95);
+            return localImageScreenEnabled
+                ? {
+                    'modelSha256': localImageScreenModelSha256,
+                    'scores': [0.0, 0.0],
+                  }
+                : scores('cup', .95);
           });
       addTearDown(
         () => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-            .setMockMethodCallHandler(PhotoSuitability.channel, null),
+            .setMockMethodCallHandler(activeChannel, null),
       );
       final checker = PhotoSuitability(Directory('${dir.path}/checks'));
       final results = await Future.wait([
@@ -91,7 +99,10 @@ void main() {
       ]);
       expect(calls, 2);
       expect(results[0]['attempts'], 2);
-      expect(results[0]['candidateStatus'], 'residueFree');
+      expect(
+        results[0]['candidateStatus'],
+        localImageScreenEnabled ? 'uncertain' : 'residueFree',
+      );
       expect(results[0]['status'], 'uncertain'); // release gate not passed
       expect(results[0]['continuedAtUtc'], isNull);
       expect(jsonEncode(results[0]), jsonEncode(results[1]));
@@ -99,6 +110,15 @@ void main() {
       expect(calls, 2);
       final saucer = p.asSetPhoto(type: PhotoSurface.saucer);
       expect(suitabilityAccepted(results[0], saucer), isFalse);
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(PhotoSuitability.channel, (_) async {
+            calls++;
+            return scores('cup', .95);
+          });
+      addTearDown(
+        () => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(PhotoSuitability.channel, null),
+      );
       await checker.assess(file, saucer);
       expect(calls, 3);
     },
@@ -115,14 +135,17 @@ void main() {
         'checksum': 'sha256:${sha256.convert(bytes)}',
       });
       var calls = 0;
+      final activeChannel = localImageScreenEnabled
+          ? PhotoSuitability.imageScreenChannel
+          : PhotoSuitability.channel;
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-          .setMockMethodCallHandler(PhotoSuitability.channel, (_) async {
+          .setMockMethodCallHandler(activeChannel, (_) async {
             calls++;
             throw PlatformException(code: 'failed');
           });
       addTearDown(
         () => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-            .setMockMethodCallHandler(PhotoSuitability.channel, null),
+            .setMockMethodCallHandler(activeChannel, null),
       );
       final checker = PhotoSuitability(Directory('${dir.path}/checks'));
       final error = await checker.assess(file, p);

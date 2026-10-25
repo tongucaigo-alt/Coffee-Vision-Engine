@@ -1,5 +1,31 @@
 # Atlas Katki Beta v1
 
+## V93 denetim düzeltmeleri — 24 Ekim 2026
+
+Tarot, Play Atlas profiliyle ayrı `atlas-tarot-context-v1` sözleşmesi üzerinden
+aynı yetkili gateway kuyruğunu kullanır. Kahve isteği veya prompt'u olarak
+sunulmaz; doğrudan sağlayıcı ve eski kayıt okuma yolları korunur. Gateway'in
+bu kaynakla ayrıca dağıtılması gerekir; yerel test uzak yayın değildir.
+
+Kahve ve Tarot sonuçlarında ortak uygulama içi bildirim bulunur. Doğrudan
+üretim sağlayıcısı bildirim sunucusu sayılmaz; ayrıca yapılandırılmış Atlas
+bağlantısı gerekir. Ağ/disk hatası başarı olarak gösterilmez. Yerel testler
+`node` (24+) ile yalnız loopback'te sentetik gateway başlatır; gerekirse
+`ATLAS_TEST_NODE` ile yürütücü yolu verilir. Canlı sağlayıcı kullanılmaz.
+
+Gizlilik/destek yerel sayfaları `ATLAS_OPERATOR_NAME`, `ATLAS_PRIVACY_URL`,
+`ATLAS_SUPPORT_URL` veya `ATLAS_SUPPORT_EMAIL` herkese açık derleme değerleriyle
+gerçek adreslere bağlanır. Bu bilgiler kullanıcı tarafından doğrulanmadan
+yayımlanmış politika/destek veya mağaza kabulü tamamlandı sayılmaz.
+Gerçek destek bilgisi yokken kullanıcı talebiyle `xxxx@atlas.com` taslağı
+“henüz etkin değil” etiketiyle görünür; örnek adres bağlantı açmaz.
+[Güncel yayımlanmamış metin](PLAY_PRIVACY_DRAFT.md) bu veri akışını açıklar.
+Saklama politikası değişmedi; yedi günlük otomatik silme uygulanmıyor.
+
+Kısa ekran yerleşimi içeriğe göre kaydırılır; yazı ölçeği küçültülmez.
+Fotoğraf filtresinin bağımsız kabul hedefleri hâlâ geçmedi; model ve eşikler
+gevşetilmedi. Bu kaynak değişikliği telefon kurulumu veya yayın izni değildir.
+
 Implementation candidate. AI test capability is available only with `ATLAS_AI_LAB=true` in the separate `.beta` package. Signed distribution and remote acceptance must be verified before participant rollout. See [AI setup and validation](../atlas_ai_gateway/README.md). No training, canonical Symbol release or frozen engine changes.
 
 ## Beta 8 — Sade akış ve yıldızlar
