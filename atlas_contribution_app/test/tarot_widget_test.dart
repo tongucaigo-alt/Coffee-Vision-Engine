@@ -63,6 +63,20 @@ class _HeldRevealStore extends TarotStore {
   }
 }
 
+class _FailingSelectionStore extends TarotStore {
+  _FailingSelectionStore(super.directory);
+  var attempts = 0;
+  @override
+  Future<TarotDraw> select(String id, int index) {
+    if (++attempts == 1) {
+      return Future.error(
+        const FileSystemException('Test selection write failure'),
+      );
+    }
+    return super.select(id, index);
+  }
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   late Directory temp;
@@ -163,9 +177,14 @@ void main() {
     return capture;
   }
 
-  Future<void> capture(WidgetTester tester, GlobalKey key, String name) async {
+  Future<void> capture(
+    WidgetTester tester,
+    GlobalKey key,
+    String name, {
+    bool settle = true,
+  }) async {
     if (!const bool.fromEnvironment('ATLAS_UI_CAPTURE')) return;
-    await settleIo(tester);
+    if (settle) await settleIo(tester);
     await tester.runAsync(() async {
       final boundary =
           key.currentContext!.findRenderObject()! as RenderRepaintBoundary;
@@ -754,40 +773,284 @@ void main() {
     await tester.pumpWidget(const SizedBox());
   });
 
-  Finder guide(int position) =>
-      find.byKey(ValueKey('tarot-guidance-active-$position'));
-
   testWidgets(
-    'obvious tap hint targets one card and lets touch reach that card',
+    'overlap selects the visible top card and used cards absorb taps',
     (tester) async {
-      final closed = fixture().copy(revealed: 0);
-      await saveDraw(tester, closed);
-      final key = await mount(
-        tester,
-        TarotDrawPage(runtime: runtime, draw: closed),
-        size: const Size(384, 832),
-        padding: const EdgeInsets.only(top: 40, bottom: 48),
-      );
-      final hint = find.byKey(const ValueKey('tarot-tap-hint-0'));
-      expect(hint, findsOneWidget);
-      expect(find.byIcon(Icons.touch_app_rounded), findsOneWidget);
-      expect(find.text('DOKUN'), findsOneWidget);
-      final bounds = tester.getRect(find.byKey(const ValueKey('tarot-slot-0')));
-      final hintBounds = tester.getRect(hint);
-      expect(hintBounds.width, greaterThanOrEqualTo(56));
-      expect(bounds.contains(hintBounds.center), true);
-      await capture(tester, key, 'clear-tap-hint');
-      // The entire overlay is decorative; tapping the large hand opens the card.
-    await tester.runAsync(() => tester.tapAt(hintBounds.center));
+      final initial = fixture().copy(selected: [], revealed: 0);
+      await saveDraw(tester, initial);
+      await mount(tester, TarotDrawPage(runtime: runtime, draw: initial));
+      final first = find.byKey(const ValueKey('tarot-deck-0'));
+      final bounds = tester.getRect(first);
+      final overlap = Offset(bounds.right - 6, bounds.center.dy);
+      await tester.runAsync(() => tester.tapAt(overlap));
       await settleIo(tester);
-      expect((await tester.runAsync(() => store.get(closed.id)))!.revealed, 1);
-      expect(find.byKey(const ValueKey('tarot-tap-hint-0')), findsNothing);
-      expect(find.byKey(const ValueKey('tarot-tap-hint-1')), findsOneWidget);
-      expect(find.byIcon(Icons.touch_app_rounded), findsOneWidget);
+      expect((await tester.runAsync(() => store.get(initial.id)))!.selected, [
+        1,
+      ]);
+      await tester.runAsync(() => tester.tapAt(overlap));
+      await settleIo(tester);
+      expect((await tester.runAsync(() => store.get(initial.id)))!.selected, [
+        1,
+      ]);
       expect(calls, 0);
       await tester.pumpWidget(const SizedBox());
     },
   );
+
+  testWidgets(
+    'dense deck reaches all 78 indices without changing a draw or loading all cards',
+    (tester) async {
+      final initial = fixture().copy(selected: [], revealed: 0);
+      await saveDraw(tester, initial);
+      await mount(tester, TarotDrawPage(runtime: runtime, draw: initial));
+      final deck = find.byKey(const ValueKey('tarot-deck'));
+      final position = tester
+          .state<ScrollableState>(
+            find.descendant(of: deck, matching: find.byType(Scrollable)),
+          )
+          .position;
+      final before = await tester.runAsync(
+        () => File('${store.directory.path}/state.json').readAsString(),
+      );
+      for (var i = 0; i < 78; i++) {
+        position.jumpTo((i * 52.0).clamp(0.0, position.maxScrollExtent));
+        await tester.pump();
+        await tester.pump();
+        final card = find.byKey(ValueKey('tarot-deck-$i'));
+        expect(card, findsOneWidget, reason: 'index $i');
+        expect(
+          tester.getRect(card).intersect(tester.getRect(deck)).width,
+          greaterThanOrEqualTo(48),
+        );
+        final rendered = find.byWidgetPredicate(
+          (w) =>
+              w.key is ValueKey<String> &&
+              RegExp(
+                r'^tarot-deck-\d+$',
+              ).hasMatch((w.key! as ValueKey<String>).value),
+        );
+        expect(rendered.evaluate().length, lessThan(18));
+      }
+      expect(
+        await tester.runAsync(
+          () => File('${store.directory.path}/state.json').readAsString(),
+        ),
+        before,
+      );
+      expect(calls, 0);
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+
+  testWidgets(
+    'deck aura is behind cards and touch fades it without selecting during drag',
+    (tester) async {
+      final initial = fixture().copy(selected: [], revealed: 0);
+      await saveDraw(tester, initial);
+      final key = await mount(
+        tester,
+        TarotDrawPage(runtime: runtime, draw: initial),
+      );
+      final before = await tester.runAsync(
+        () => File('${store.directory.path}/state.json').readAsString(),
+      );
+      final aura = find.byWidgetPredicate(
+        (w) =>
+            w.key is ValueKey<String> &&
+            RegExp(
+              r'^tarot-aura-\d+$',
+            ).hasMatch((w.key! as ValueKey<String>).value),
+      );
+      for (var i = 0; i < 50 && aura.evaluate().isEmpty; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      expect(aura.evaluate().length, inInclusiveRange(1, 2));
+      await tester.pump(const Duration(milliseconds: 600));
+      await capture(tester, key, 'selection-aura-peak', settle: false);
+      final deck = find.byKey(const ValueKey('tarot-deck'));
+      final gesture = await tester.startGesture(tester.getCenter(deck));
+      await tester.pump(const Duration(milliseconds: 201));
+      await tester.pump();
+      expect(aura, findsNothing);
+      await gesture.moveBy(const Offset(-120, 0));
+      await gesture.up();
+      await settleIo(tester);
+      expect(
+        await tester.runAsync(
+          () => File('${store.directory.path}/state.json').readAsString(),
+        ),
+        before,
+      );
+      expect(calls, 0);
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+
+  testWidgets(
+    'failed deck selection preserves the draw and allows the same card retry',
+    (tester) async {
+      final initial = fixture().copy(selected: [], revealed: 0);
+      await saveDraw(tester, initial);
+      final failing = _FailingSelectionStore(store.directory);
+      runtime.dispose();
+      runtime = TarotRuntime(
+        store: failing,
+        catalog: catalog(),
+        promptVersion: 'v1',
+        promptHash: 'hash',
+        generateReading: (draw, token) async {
+          calls++;
+          return sampleReading;
+        },
+      );
+      await mount(tester, TarotDrawPage(runtime: runtime, draw: initial));
+      final first = find.byKey(const ValueKey('tarot-deck-0'));
+      await tester.runAsync(() => tester.tap(first));
+      await settleIo(tester);
+      expect(
+        (await tester.runAsync(() => failing.get(initial.id)))!.selected,
+        isEmpty,
+      );
+      await tester.ensureVisible(first);
+      await tester.runAsync(() => tester.tap(first));
+      await settleIo(tester);
+      final saved = (await tester.runAsync(() => failing.get(initial.id)))!;
+      expect(saved.selected, [0]);
+      expect(saved.chosen.single.toJson(), initial.deck.first.toJson());
+      expect(calls, 0);
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+
+  testWidgets(
+    'dense deck fits five and six full cards and never drifts by itself',
+    (tester) async {
+      final initial = fixture().copy(selected: [], revealed: 0);
+      await saveDraw(tester, initial);
+      for (final pair in [(360.0, 5), (412.0, 6)]) {
+        await mount(
+          tester,
+          TarotDrawPage(runtime: runtime, draw: initial),
+          size: Size(pair.$1, 800),
+        );
+        final deck = find.byKey(const ValueKey('tarot-deck'));
+        final viewport = tester.getRect(deck);
+        final cards = find.byWidgetPredicate(
+          (w) =>
+              w.key is ValueKey<String> &&
+              RegExp(
+                r'^tarot-deck-\d+$',
+              ).hasMatch((w.key! as ValueKey<String>).value),
+        );
+        final full = cards.evaluate().where((e) {
+          final r = tester.getRect(find.byWidget(e.widget));
+          return r.left >= viewport.left && r.right <= viewport.right;
+        }).length;
+        expect(full, pair.$2);
+        final position = tester
+            .state<ScrollableState>(
+              find.descendant(of: deck, matching: find.byType(Scrollable)),
+            )
+            .position;
+        final before = position.pixels;
+        await tester.pump(const Duration(seconds: 5));
+        await tester.pump();
+        expect(position.pixels, before);
+        await tester.pumpWidget(const SizedBox());
+      }
+      expect(calls, 0);
+    },
+  );
+
+  testWidgets('hidden deck stops its aura and resumes without a new draw', (
+    tester,
+  ) async {
+    final initial = fixture().copy(selected: [], revealed: 0);
+    await saveDraw(tester, initial);
+    await mount(tester, TarotDrawPage(runtime: runtime, draw: initial));
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pump();
+    expect(tester.binding.hasScheduledFrame, false);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pump();
+    final navigator = Navigator.of(
+      tester.element(find.byKey(const ValueKey('tarot-deck'))),
+    );
+    unawaited(
+      navigator.push<void>(
+        MaterialPageRoute(
+          builder: (_) => const Scaffold(body: Text('Covered')),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 5));
+    expect(tester.binding.hasScheduledFrame, false);
+    navigator.pop();
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pump();
+    expect(
+      (await tester.runAsync(() => store.get(initial.id)))!.selected,
+      isEmpty,
+    );
+    expect(calls, 0);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  Finder guide(int position) =>
+      find.byKey(ValueKey('tarot-guidance-active-$position'));
+
+  testWidgets('glass replaces tap icon and card remains directly tappable', (
+    tester,
+  ) async {
+    final closed = fixture().copy(revealed: 0);
+    await saveDraw(tester, closed);
+    final key = await mount(
+      tester,
+      TarotDrawPage(runtime: runtime, draw: closed),
+      size: const Size(384, 832),
+      padding: const EdgeInsets.only(top: 40, bottom: 48),
+    );
+    expect(find.text('DOKUN'), findsNothing);
+    expect(find.byIcon(Icons.touch_app_rounded), findsNothing);
+    final card = find.byKey(const ValueKey('tarot-slot-0'));
+    final bounds = tester.getRect(card);
+    final phase =
+        (tester
+                        .widget<CustomPaint>(
+                          find.byKey(const ValueKey('tarot-guidance-sheen-0')),
+                        )
+                        .foregroundPainter
+                    as dynamic)
+                .phase
+            as double;
+    await tester.pump(
+      Duration(microseconds: (((.40 - phase + 1) % 1) * 2400000).round()),
+    );
+    await capture(tester, key, 'reveal-light-sweep', settle: false);
+    for (var i = 0; i < 60; i++) {
+      await tester.pump(const Duration(milliseconds: 40));
+      final matrix = tester
+          .widget<Transform>(
+            find.byKey(const ValueKey('tarot-guidance-motion-0')),
+          )
+          .transform;
+      expect(matrix.storage[12].abs(), lessThanOrEqualTo(2.001));
+      expect(tester.getRect(card), bounds);
+    }
+    await tester.runAsync(() => tester.tap(card));
+    await settleIo(tester);
+    expect((await tester.runAsync(() => store.get(closed.id)))!.revealed, 1);
+    expect(guide(0), findsNothing);
+    expect(guide(1), findsOneWidget);
+    expect(calls, 0);
+    await tester.pumpWidget(const SizedBox());
+  });
 
   BoxDecoration guidanceDecoration(WidgetTester tester, int position) =>
       tester.widget<DecoratedBox>(guide(position)).decoration as BoxDecoration;
@@ -829,18 +1092,24 @@ void main() {
     final bytes = await tester.runAsync(
       () => File('${store.directory.path}/state.json').readAsString(),
     );
-    final firstColor =
-        (guidanceDecoration(tester, 0).border! as Border).top.color;
+    final sheen = find.byKey(const ValueKey('tarot-guidance-sheen-0'));
+    final firstPhase =
+        (tester.widget<CustomPaint>(sheen).foregroundPainter as dynamic).phase
+            as double;
     await tester.pump(const Duration(milliseconds: 400));
     expect(
-      (guidanceDecoration(tester, 0).border! as Border).top.color,
-      isNot(firstColor),
+      (tester.widget<CustomPaint>(sheen).foregroundPainter as dynamic).phase,
+      isNot(firstPhase),
     );
     // Out-of-order taps intensify the expected card, never reveal another one.
     await tester.tap(find.byKey(const ValueKey('tarot-slot-2')));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 225));
-    expect((guidanceDecoration(tester, 0).border! as Border).top.color.a, 1);
+    expect(
+      (tester.widget<CustomPaint>(sheen).foregroundPainter as dynamic)
+          .nudgeProgress,
+      closeTo(.5, .01),
+    );
     for (var i = 0; i < 5; i++) {
       await tester.tap(find.byKey(const ValueKey('tarot-slot-1')));
     }

@@ -1,14 +1,18 @@
 import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import '../atlas_design.dart';
 import '../atlas_home_atmosphere.dart';
 import '../atlas_landing_layout.dart';
 import '../ai/content_reporting.dart';
 import 'tarot_models.dart';
+import 'tarot_aura.dart';
 import 'tarot_runtime.dart';
 
 part 'tarot_presentation.dart';
+part 'tarot_reveal_effect.dart';
+part 'tarot_selection_deck.dart';
 
 const _gold = atlasCopper;
 const _back = 'assets/tarot/KART_ARKASI.webp';
@@ -698,6 +702,7 @@ class _TarotDrawPageState extends State<TarotDrawPage>
               child: _TarotRevealGuidance(
                 position: i,
                 active: _canReveal(i),
+                dimmed: _draw.selected.length == count && i > _draw.revealed,
                 nudge: _guidanceNudge,
                 child: TarotCardView(
                   card: _draw.chosen[i],
@@ -724,64 +729,11 @@ class _TarotDrawPageState extends State<TarotDrawPage>
       ),
       child: child,
     ),
-    child: Container(
-      height: 220,
-      decoration: BoxDecoration(
-        color: atlasSageSurface,
-        borderRadius: BorderRadius.circular(24),
-      ),
-      child: AnimatedBuilder(
-        animation: _scroll,
-        builder: (context, _) => ListView.builder(
-          key: const ValueKey('tarot-deck'),
-          controller: _scroll,
-          scrollDirection: Axis.horizontal,
-          itemCount: _draw.deck.length,
-          padding: const EdgeInsets.symmetric(horizontal: 24),
-          itemBuilder: (context, index) {
-            final used = _draw.selected.contains(index);
-            final center =
-                (_scroll.hasClients ? _scroll.offset : 0) / 100 + 1.5;
-            final distance = (index - center).clamp(-3.0, 3.0);
-            return SizedBox(
-              width: 100,
-              child: Center(
-                child: Transform.translate(
-                  offset: Offset(0, distance.abs() * 5),
-                  child: Transform.rotate(
-                    angle: distance * (math.pi / 90),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 2),
-                      child: Semantics(
-                        button: !used && !_locked,
-                        label: used
-                            ? 'Seçildi'
-                            : 'Kapalı kart ${index + 1}, 78 karttan biri',
-                        child: GestureDetector(
-                          key: ValueKey('tarot-deck-$index'),
-                          onTap: used || _locked ? null : () => _select(index),
-                          child: used
-                              ? const SizedBox(
-                                  width: 96,
-                                  height: 144,
-                                  child: Center(
-                                    child: Icon(
-                                      Icons.check_circle_outline,
-                                      color: _gold,
-                                    ),
-                                  ),
-                                )
-                              : const TarotCardView(showFront: false),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            );
-          },
-        ),
-      ),
+    child: _TarotSelectionDeck(
+      controller: _scroll,
+      selected: _draw.selected.toSet(),
+      locked: _locked,
+      onSelect: _select,
     ),
   );
 }
