@@ -143,14 +143,14 @@ void main() {
           await tester.pumpAndSettle();
           expect(find.byTooltip('Kaldığın Yerden Devam Et'), findsOneWidget);
           if (scale == 1) {
-            expect(
-              find.byWidgetPredicate(
-                (w) =>
-                    w is Scrollable &&
-                    axisDirectionToAxis(w.axisDirection) == Axis.vertical,
-              ),
-              findsNothing,
-            );
+            for (final scrollable in tester.stateList<ScrollableState>(
+              find.byType(Scrollable),
+            )) {
+              if (axisDirectionToAxis(scrollable.axisDirection) ==
+                  Axis.vertical) {
+                expect(scrollable.position.maxScrollExtent, 0);
+              }
+            }
           }
           final heading = find.text('Fincanını Keşfet');
           await tester.ensureVisible(heading);
@@ -282,14 +282,13 @@ void main() {
         atlasCoffee,
       );
       if (scale == 1) {
-        expect(
-          find.byWidgetPredicate(
-            (w) =>
-                w is Scrollable &&
-                axisDirectionToAxis(w.axisDirection) == Axis.vertical,
-          ),
-          findsNothing,
-        );
+        for (final scrollable in tester.stateList<ScrollableState>(
+          find.byType(Scrollable),
+        )) {
+          if (axisDirectionToAxis(scrollable.axisDirection) == Axis.vertical) {
+            expect(scrollable.position.maxScrollExtent, 0);
+          }
+        }
       }
       expect(scanButton.hitTestable(), findsOneWidget);
       if (scale == 1 && size.width >= 360) {

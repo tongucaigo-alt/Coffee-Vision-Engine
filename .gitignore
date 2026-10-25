@@ -15,3 +15,6 @@ Thumbs.db
 .DS_Store
 atlas_m5b_dataset/
 **/*.mp4
+
+# Reviewed local asset required by the Atlas welcome sequence.
+!atlas_contribution_app/assets/intro/atlas-welcome.mp4

@@ -94,6 +94,7 @@ void main() {
         await tester.runAsync(() async {
           await tester.pumpWidget(
             OfflineStartupApp(
+              introEnabled: false,
               store: source,
               aiEnabled: true,
               guideStore: DismissedGuideStore(),

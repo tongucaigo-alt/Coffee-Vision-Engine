@@ -152,11 +152,24 @@ void main() {
         final coffeeAction = tester.getRect(
           find.widgetWithText(FilledButton, 'Fincanını Tara'),
         );
+        final coffeeHero = tester.getRect(
+          find.byKey(const ValueKey('atlas-landing-hero-slot')),
+        );
+        final coffeeTitle = tester.getRect(
+          find.byKey(const ValueKey('atlas-landing-title')),
+        );
+        final coffeeTitleStyle = tester
+            .widget<Text>(find.byKey(const ValueKey('atlas-landing-title')))
+            .style;
         expect(find.text('Gizlilik Politikası'), findsNothing);
         if (scale == 1) {
           expect(coffeeAction.width, 280);
           expect(find.text('Fincanını Tara').hitTestable(), findsOneWidget);
-          expect(find.byType(Scrollable), findsNothing);
+          for (final scrollable in tester.stateList<ScrollableState>(
+            find.byType(Scrollable),
+          )) {
+            expect(scrollable.position.maxScrollExtent, 0);
+          }
         } else {
           await tester.ensureVisible(find.text('Fincanını Tara'));
         }
@@ -166,7 +179,25 @@ void main() {
         expect(tester.getRect(find.byType(AppBar)), header);
         expect(find.byTooltip('Bilgilerim'), findsOneWidget);
         expect(find.text('Tarot Geçmişi'), findsNothing);
+        expect(
+          tester
+              .widget<Text>(find.byKey(const ValueKey('atlas-landing-title')))
+              .style,
+          coffeeTitleStyle,
+        );
         if (scale == 1) {
+          expect(
+            tester.getRect(
+              find.byKey(const ValueKey('atlas-landing-hero-slot')),
+            ),
+            coffeeHero,
+          );
+          expect(
+            tester
+                .getRect(find.byKey(const ValueKey('atlas-landing-title')))
+                .top,
+            closeTo(coffeeTitle.top, .01),
+          );
           expect(
             tester.getRect(find.byKey(const ValueKey('tarot-home-frame'))),
             coffeeFrame,
@@ -176,7 +207,11 @@ void main() {
             coffeeAction,
           );
           expect(find.text('Üç Kart · Karıştır').hitTestable(), findsOneWidget);
-          expect(find.byType(Scrollable), findsNothing);
+          for (final scrollable in tester.stateList<ScrollableState>(
+            find.byType(Scrollable),
+          )) {
+            expect(scrollable.position.maxScrollExtent, 0);
+          }
         } else {
           await tester.ensureVisible(find.text('Üç Kart · Karıştır'));
         }

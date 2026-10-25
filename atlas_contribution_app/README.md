@@ -197,3 +197,8 @@ düzeltme sınırı uygulanır. Prompt iç sürümü `atlas-fortune-prompt-v4` o
 Gateway kaynakları da birlikte güncellenmelidir. Teknik doğrulama, canlı model
 sınırlamaları ve bekleyen telefon/12 fincan kabulü için
 [RICH_FORTUNE_VALIDATION.md](RICH_FORTUNE_VALIDATION.md) dosyasına bakın.
+
+
+## V99 — Açılış animasyonu ve geçiş ekranı
+
+8 saniyelik yerel açılış videosu, kırpılmayan görüntü, sıcak zemin ve yumuşak geçişler. Ayrıntılar ve doğrulama kapsamı için [V99 sürüm notları](../KAHVE_ACILIS_V99_NOTLARI.md).

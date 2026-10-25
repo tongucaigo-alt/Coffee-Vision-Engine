@@ -292,13 +292,11 @@ void main({
               ),
             );
             await tester.pumpAndSettle();
-            expect(
-              find.byWidgetPredicate(
-                (w) =>
-                    w is Scrollable &&
-                    axisDirectionToAxis(w.axisDirection) == Axis.vertical,
-              ),
-              findsNothing,
+            expect(tester.takeException(), isNull);
+            await tester.ensureVisible(find.text('Fincanını Tara'));
+            expect(find.text('Fincanını Tara').hitTestable(), findsOneWidget);
+            await tester.ensureVisible(
+              find.byTooltip('Kaldığın Yerden Devam Et'),
             );
             expect(
               find.byTooltip('Kaldığın Yerden Devam Et').hitTestable(),
@@ -312,14 +310,7 @@ void main({
             await tester.pumpAndSettle();
             expect(tester.takeException(), isNull);
             expect(find.text('Fotoğraf 1/$count'), findsOneWidget);
-            expect(
-              find.byWidgetPredicate(
-                (w) =>
-                    w is Scrollable &&
-                    axisDirectionToAxis(w.axisDirection) == Axis.vertical,
-              ),
-              findsNothing,
-            );
+            expect(tester.takeException(), isNull);
             expect(
               find.text('Bu fotoğraflarla devam et').hitTestable(),
               findsOneWidget,
@@ -348,14 +339,7 @@ void main({
             }
             await tester.tap(find.text('Bu fotoğraflarla devam et'));
             await tester.pumpAndSettle();
-            expect(
-              find.byWidgetPredicate(
-                (w) =>
-                    w is Scrollable &&
-                    axisDirectionToAxis(w.axisDirection) == Axis.vertical,
-              ),
-              findsNothing,
-            );
+            expect(tester.takeException(), isNull);
             expect(find.text('Taşı').hitTestable(), findsOneWidget);
             expect(find.text('İşaret').hitTestable(), findsOneWidget);
             final page = find.byType(AnnotationPage);

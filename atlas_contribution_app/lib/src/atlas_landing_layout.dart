@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'atlas_design.dart';
+import 'atlas_home_atmosphere.dart';
 
 /// Shared home geometry. The empty coffee notice slot matches the Tarot notice.
 class AtlasLandingLayout extends StatelessWidget {
@@ -63,6 +64,7 @@ class AtlasLandingLayout extends StatelessWidget {
               final body = Stack(
                 fit: StackFit.passthrough,
                 children: [
+                  const Positioned.fill(child: AtlasHomeAtmosphere()),
                   Positioned.fill(child: IgnorePointer(child: frame)),
                   Padding(
                     padding: EdgeInsets.fromLTRB(
@@ -77,7 +79,7 @@ class AtlasLandingLayout extends StatelessWidget {
                         const Spacer(),
                         content,
                         const Spacer(),
-                        secondary,
+                        AtlasActionWidth(child: secondary),
                         const SizedBox(height: 8),
                         primary,
                         const SizedBox(height: 8),
@@ -98,21 +100,83 @@ class AtlasLandingLayout extends StatelessWidget {
                     Positioned(top: 8, right: 8, child: resume!),
                 ],
               );
-              if (MediaQuery.textScalerOf(context).scale(16) > 22 ||
-                  box.maxHeight < 440) {
-                return SingleChildScrollView(
-                  key: scrollKey,
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(minHeight: box.maxHeight),
-                    child: IntrinsicHeight(child: body),
-                  ),
-                );
-              }
-              return SizedBox.expand(child: body);
+              // Intrinsic content, not a fixed viewport threshold, decides
+              // whether scrolling is necessary (including short landscapes).
+              return SingleChildScrollView(
+                key: scrollKey,
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(minHeight: box.maxHeight),
+                  child: IntrinsicHeight(child: body),
+                ),
+              );
             },
           ),
         ),
       ),
     ),
+  );
+}
+
+/// Identical presentation slots keep home typography and artwork aligned.
+class AtlasLandingContent extends StatelessWidget {
+  const AtlasLandingContent({
+    required this.hero,
+    required this.kicker,
+    required this.title,
+    required this.description,
+    super.key,
+  });
+  final Widget hero, kicker;
+  final String title, description;
+  static const titleStyle = TextStyle(
+    fontFamily: 'Literata',
+    fontSize: 22,
+    height: 1.25,
+    fontWeight: FontWeight.w500,
+    color: atlasInk,
+  );
+  static const bodyStyle = TextStyle(
+    fontFamily: 'Plus Jakarta Sans',
+    fontSize: 13,
+    height: 1.45,
+    fontWeight: FontWeight.w400,
+    color: atlasMuted,
+  );
+  static const kickerStyle = TextStyle(
+    fontFamily: 'Plus Jakarta Sans',
+    fontSize: 12,
+    height: 1.4,
+    fontWeight: FontWeight.w600,
+    color: atlasSageInk,
+  );
+  @override
+  Widget build(BuildContext context) => Column(
+    children: [
+      SizedBox(
+        key: const ValueKey('atlas-landing-hero-slot'),
+        height: 152,
+        child: Center(child: hero),
+      ),
+      const SizedBox(height: 12),
+      ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 20),
+        child: Center(child: kicker),
+      ),
+      const SizedBox(height: 8),
+      Text(
+        title,
+        key: const ValueKey('atlas-landing-title'),
+        textAlign: TextAlign.center,
+        style: titleStyle,
+      ),
+      const SizedBox(height: 8),
+      ConstrainedBox(
+        constraints: BoxConstraints(
+          minHeight: (MediaQuery.textScalerOf(context).scale(13) * 1.45 * 2)
+              .ceilToDouble(),
+        ),
+        child: Text(description, textAlign: TextAlign.center, style: bodyStyle),
+      ),
+    ],
   );
 }
