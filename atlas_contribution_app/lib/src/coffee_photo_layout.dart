@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'atlas_design.dart';
+import 'atlas_atmosphere.dart';
 import 'coffee_controls.dart';
 import 'models.dart';
 import 'photo_crop.dart';
@@ -33,15 +34,18 @@ class CoffeePhotoLayout extends StatelessWidget {
               left: 0,
               right: 0,
               height: height,
-              child: Material(
-                key: const ValueKey('coffee-photo-frame'),
-                color: atlasCard,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                  side: const BorderSide(color: atlasBorder),
+              child: AtlasAtmosphereRegion(
+                kind: AtlasAtmosphereRegionKind.protected,
+                child: Material(
+                  key: const ValueKey('coffee-photo-frame'),
+                  color: atlasCard,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    side: const BorderSide(color: atlasBorder),
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: photo,
                 ),
-                clipBehavior: Clip.antiAlias,
-                child: photo,
               ),
             ),
             Positioned(

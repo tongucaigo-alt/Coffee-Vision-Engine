@@ -7,7 +7,11 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
-val signingFile = rootProject.file("key.properties")
+// An existing private signing configuration may stay outside the checkout.
+// Values are loaded locally and are never Gradle command-line arguments.
+val signingFile = providers.gradleProperty("ATLAS_SIGNING_PROPERTIES").orNull
+    ?.let { file(it) } ?: rootProject.file("key.properties")
+val atlasReleaseTask = gradle.startParameter.taskNames.any { it.contains("Release", ignoreCase = true) }
 // Flutter test generates a temporary listener target outside integration_test/.
 // Fail closed: only explicit production entrypoints may own contributor data.
 val atlasTarget = providers.gradleProperty("target").orElse("lib/main.dart")
@@ -40,8 +44,17 @@ if (atlasUiPreview && !atlasTestTarget) {
     throw GradleException("Visual preview requires an auxiliary entrypoint.")
 }
 val atlasLocalImageScreen = "ATLAS_IMAGE_SCREEN=true" in atlasDefines
+if (atlasPlayTest && atlasReleaseTask) {
+    if (atlasDiagnostic || atlasUiPreview || atlasKimiLocalTest ||
+        !(atlasTarget == "lib/offline_main.dart" || atlasTarget.endsWith("/lib/offline_main.dart"))) {
+        throw GradleException("Play release requires the existing offline production entrypoint and production package identity.")
+    }
+    if (!atlasLocalImageScreen) {
+        throw GradleException("Play release must preserve the current local image-screen model and behavior.")
+    }
+}
 val signing = Properties().apply { if (signingFile.exists()) signingFile.inputStream().use { load(it) } }
-if (gradle.startParameter.taskNames.any { it.contains("Release", ignoreCase = true) } && !signingFile.exists()) {
+if (atlasReleaseTask && !signingFile.exists()) {
     throw GradleException("Founder signing key is required for a release APK. Debug signing is not a distribution key.")
 }
 

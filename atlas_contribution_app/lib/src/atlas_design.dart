@@ -140,14 +140,14 @@ ThemeData atlasTheme() {
       ),
     ),
     bottomSheetTheme: const BottomSheetThemeData(
-      backgroundColor: atlasCream,
+      backgroundColor: atlasCard,
       showDragHandle: true,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
     ),
     dialogTheme: DialogThemeData(
-      backgroundColor: atlasCream,
+      backgroundColor: atlasCard,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
     ),
   );

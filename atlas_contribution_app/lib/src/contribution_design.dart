@@ -398,168 +398,171 @@ extension _AtlasHomePresentation on _ContributionHomeState {
                     )
                   : Theme.of(context).snackBarTheme,
             ),
-        child: Scaffold(
-          appBar: AppBar(
-            automaticallyImplyLeading: false,
-            toolbarHeight: inFlow
-                ? CoffeePhotoLayout.toolbarHeight
-                : _tab == 0 || (_hasTarot && _tab == 1)
-                ? 72
-                : null,
-            flexibleSpace: inFlow ? _coffeeAngleHeader() : null,
-            leading: inFlow
-                ? IconButton(
-                    tooltip: 'Ana sayfaya dön',
-                    onPressed: _atlasBusy
-                        ? null
-                        : () => _change(() => _flowOpen = false),
-                    icon: const Icon(Icons.arrow_back),
-                  )
-                : null,
-            title: inFlow
-                ? const Text(
-                    'Fotoğraflarına Bak',
-                    style: TextStyle(fontFamily: 'Literata', fontSize: 18),
-                  )
-                : _tab == 0 || (_hasTarot && _tab == 1)
-                ? Row(
-                    children: [
-                      const AtlasBrand(size: 32, showName: false),
-                      const SizedBox(width: 10),
-                      Flexible(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Atlas',
-                              style: Theme.of(context).textTheme.titleMedium
-                                  ?.copyWith(
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                            ),
-                            Text(
-                              _tab == 0 ? 'Kahve Ritüeli' : 'Tarot',
-                              style: Theme.of(context).textTheme.bodySmall
-                                  ?.copyWith(
-                                    fontSize: 10,
-                                    color: atlasCopperInk,
-                                  ),
-                            ),
-                          ],
+        child: AtlasAtmosphereSurface(
+          scene: inFlow ? AtlasAtmosphereScene.coffeePhoto : null,
+          child: Scaffold(
+            appBar: AppBar(
+              automaticallyImplyLeading: false,
+              toolbarHeight: inFlow
+                  ? CoffeePhotoLayout.toolbarHeight
+                  : _tab == 0 || (_hasTarot && _tab == 1)
+                  ? 72
+                  : null,
+              flexibleSpace: inFlow ? _coffeeAngleHeader() : null,
+              leading: inFlow
+                  ? IconButton(
+                      tooltip: 'Ana sayfaya dön',
+                      onPressed: _atlasBusy
+                          ? null
+                          : () => _change(() => _flowOpen = false),
+                      icon: const Icon(Icons.arrow_back),
+                    )
+                  : null,
+              title: inFlow
+                  ? const Text(
+                      'Fotoğraflarına Bak',
+                      style: TextStyle(fontFamily: 'Literata', fontSize: 18),
+                    )
+                  : _tab == 0 || (_hasTarot && _tab == 1)
+                  ? Row(
+                      children: [
+                        const AtlasBrand(size: 32, showName: false),
+                        const SizedBox(width: 10),
+                        Flexible(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Atlas',
+                                style: Theme.of(context).textTheme.titleMedium
+                                    ?.copyWith(
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                              ),
+                              Text(
+                                _tab == 0 ? 'Kahve Ritüeli' : 'Tarot',
+                                style: Theme.of(context).textTheme.bodySmall
+                                    ?.copyWith(
+                                      fontSize: 10,
+                                      color: atlasCopperInk,
+                                    ),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                    ],
-                  )
-                : Text(
-                    _hasTarot && _tab == 1
-                        ? 'Tarot'
-                        : _tab == _historyTab
-                        ? 'Kayıtlarım'
-                        : 'Ayarlar',
-                  ),
-            actions: !inFlow && (_tab == 0 || (_hasTarot && _tab == 1))
-                ? [
-                    Padding(
-                      padding: const EdgeInsets.only(right: 16),
-                      child: IconButton.filled(
-                        tooltip: 'Bilgilerim',
-                        onPressed: _atlasBusy
-                            ? null
-                            : () => Navigator.push<void>(
-                                context,
-                                MaterialPageRoute<void>(
-                                  builder: (_) => UserProfilePage(
-                                    store: UserProfileStore(
-                                      Directory(
-                                        '${widget.store.directory.parent.path}/user-profile',
+                      ],
+                    )
+                  : Text(
+                      _hasTarot && _tab == 1
+                          ? 'Tarot'
+                          : _tab == _historyTab
+                          ? 'Kayıtlarım'
+                          : 'Ayarlar',
+                    ),
+              actions: !inFlow && (_tab == 0 || (_hasTarot && _tab == 1))
+                  ? [
+                      Padding(
+                        padding: const EdgeInsets.only(right: 16),
+                        child: IconButton.filled(
+                          tooltip: 'Bilgilerim',
+                          onPressed: _atlasBusy
+                              ? null
+                              : () => Navigator.push<void>(
+                                  context,
+                                  MaterialPageRoute<void>(
+                                    builder: (_) => UserProfilePage(
+                                      store: UserProfileStore(
+                                        Directory(
+                                          '${widget.store.directory.parent.path}/user-profile',
+                                        ),
                                       ),
                                     ),
                                   ),
                                 ),
-                              ),
-                        style: IconButton.styleFrom(
-                          minimumSize: const Size(48, 48),
-                          shape: const CircleBorder(),
-                          backgroundColor: Colors.transparent,
-                          foregroundColor: Colors.white,
-                          disabledBackgroundColor: Colors.transparent,
-                          disabledForegroundColor: Colors.white,
-                        ),
-                        icon: Container(
-                          width: 32,
-                          height: 32,
-                          decoration: const BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: atlasCoffee,
+                          style: IconButton.styleFrom(
+                            minimumSize: const Size(48, 48),
+                            shape: const CircleBorder(),
+                            backgroundColor: Colors.transparent,
+                            foregroundColor: Colors.white,
+                            disabledBackgroundColor: Colors.transparent,
+                            disabledForegroundColor: Colors.white,
                           ),
-                          child: const Icon(
-                            Icons.person,
-                            size: 17,
-                            color: Colors.white,
+                          icon: Container(
+                            width: 32,
+                            height: 32,
+                            decoration: const BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: atlasCoffee,
+                            ),
+                            child: const Icon(
+                              Icons.person,
+                              size: 17,
+                              color: Colors.white,
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                  ]
-                : null,
-          ),
-          bottomNavigationBar: inFlow
-              ? null
-              : SafeArea(
-                  top: false,
-                  child: MediaQuery.removePadding(
-                    context: context,
-                    removeTop: true,
-                    removeBottom: true,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        NavigationBar(
-                          height: 76,
-                          backgroundColor: atlasCream,
-                          selectedIndex: _tab,
-                          onDestinationSelected: _atlasBusy
-                              ? null
-                              : (index) => _change(() => _tab = index),
-                          destinations: [
-                            const NavigationDestination(
-                              icon: Icon(Icons.home_outlined),
-                              selectedIcon: Icon(Icons.home),
-                              label: 'Ana Sayfa',
-                            ),
-                            if (_hasTarot)
+                    ]
+                  : null,
+            ),
+            bottomNavigationBar: inFlow
+                ? null
+                : SafeArea(
+                    top: false,
+                    child: MediaQuery.removePadding(
+                      context: context,
+                      removeTop: true,
+                      removeBottom: true,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          NavigationBar(
+                            height: 76,
+                            backgroundColor: atlasCream,
+                            selectedIndex: _tab,
+                            onDestinationSelected: _atlasBusy
+                                ? null
+                                : (index) => _change(() => _tab = index),
+                            destinations: [
                               const NavigationDestination(
-                                icon: Icon(Icons.style_outlined),
-                                selectedIcon: Icon(Icons.style),
-                                label: 'Tarot',
+                                icon: Icon(Icons.home_outlined),
+                                selectedIcon: Icon(Icons.home),
+                                label: 'Ana Sayfa',
                               ),
-                            const NavigationDestination(
-                              icon: Icon(Icons.history),
-                              label: 'Kayıtlarım',
-                            ),
-                            const NavigationDestination(
-                              icon: Icon(Icons.settings_outlined),
-                              label: 'Ayarlar',
-                            ),
-                          ],
-                        ),
-                      ],
+                              if (_hasTarot)
+                                const NavigationDestination(
+                                  icon: Icon(Icons.style_outlined),
+                                  selectedIcon: Icon(Icons.style),
+                                  label: 'Tarot',
+                                ),
+                              const NavigationDestination(
+                                icon: Icon(Icons.history),
+                                label: 'Kayıtlarım',
+                              ),
+                              const NavigationDestination(
+                                icon: Icon(Icons.settings_outlined),
+                                label: 'Ayarlar',
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                ),
-          body: _loading
-              ? const Center(child: CircularProgressIndicator())
-              : inFlow
-              ? SafeArea(child: _atlasDraft())
-              : _hasTarot && _tab == 1
-              ? widget.tarotPage!
-              : _tab == _historyTab
-              ? _atlasRecords()
-              : _tab == _settingsTab
-              ? _atlasSettings()
-              : _atlasLanding(),
+            body: _loading
+                ? const Center(child: CircularProgressIndicator())
+                : inFlow
+                ? SafeArea(child: _atlasDraft())
+                : _hasTarot && _tab == 1
+                ? widget.tarotPage!
+                : _tab == _historyTab
+                ? _atlasRecords()
+                : _tab == _settingsTab
+                ? _atlasSettings()
+                : _atlasLanding(),
+          ),
         ),
       ),
     );

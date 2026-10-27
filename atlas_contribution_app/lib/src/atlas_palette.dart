@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 // Reference palette. Ink companions keep small labels readable on cream.
 const atlasCoffee = Color(0xff4a342a);
-const atlasCream = Color(0xfff6efe2);
+const atlasCream = Color(0xffefe1c8);
 const atlasCard = Color(0xfffbf7ee);
 const atlasInk = Color(0xff2e241f);
 const atlasCopper = Color(0xffb0714f);

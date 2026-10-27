@@ -103,6 +103,7 @@ class _TarotHomePageState extends State<TarotHomePage> {
         )
         .firstOrNull;
     return AtlasLandingLayout(
+      scene: AtlasAtmosphereScene.tarotHome,
       scrollKey: const ValueKey('tarot-home-scroll'),
       frame: const CustomPaint(
         key: ValueKey('tarot-home-frame'),
@@ -354,190 +355,204 @@ class _TarotDrawPageState extends State<TarotDrawPage>
     final complete = _draw.result.state == TarotResultState.completed;
     final generating = widget.runtime.busy(_draw.id);
     final selectedAll = _draw.selected.length == _draw.requiredCards;
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(_draw.title),
-        actions: [
-          if (complete)
-            IconButton(
-              tooltip: _draw.starred ? 'Yıldızı kaldır' : 'Yıldızla',
-              onPressed: _locked
-                  ? null
-                  : () => _act(() async {
-                      await widget.runtime.store.star(_draw.id, !_draw.starred);
-                      await _reload();
-                    }),
-              icon: Icon(
-                _draw.starred ? Icons.star : Icons.star_border,
-                color: atlasSageInk,
+    return AtlasAtmosphereSurface(
+      scene: _draw.requiredCards == 3
+          ? AtlasAtmosphereScene.tarotSelection
+          : null,
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text(_draw.title),
+          actions: [
+            if (complete)
+              IconButton(
+                tooltip: _draw.starred ? 'Yıldızı kaldır' : 'Yıldızla',
+                onPressed: _locked
+                    ? null
+                    : () => _act(() async {
+                        await widget.runtime.store.star(
+                          _draw.id,
+                          !_draw.starred,
+                        );
+                        await _reload();
+                      }),
+                icon: Icon(
+                  _draw.starred ? Icons.star : Icons.star_border,
+                  color: atlasSageInk,
+                ),
               ),
-            ),
-        ],
-      ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 600),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Text(
-                    !selectedAll
-                        ? 'Kapalı kartlardan ${_draw.requiredCards == 3 ? 'üçünü' : 'birini'} seç.'
-                        : !_draw.ready
-                        ? '${_draw.positions[_draw.revealed]} kartına dokunarak aç.'
-                        : 'Kartlarının hikâyesi',
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontFamily: 'Literata',
-                      fontSize: 22,
-                      height: 1.4,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    _draw.spread == TarotSpread.daily
-                        ? 'Günlük odağın · ${_draw.day ?? 'Kartını sen seç'}'
-                        : 'Geçmiş · Şimdi · Olası Yön',
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(color: atlasSageInk, height: 1.5),
-                  ),
-                  const SizedBox(height: 22),
-                  _slots(compact: _reading && complete),
-                  if (selectedAll && !_reading) ...[
-                    const SizedBox(height: 4),
-                    _TarotMoodPicker(
-                      mood: _draw.mood,
-                      saving: _moodSaving,
-                      error: _moodError,
-                      onSelect: _setMood,
-                    ),
-                  ] else if (_reading && _draw.mood != null) ...[
-                    const SizedBox(height: 12),
+          ],
+        ),
+        body: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(20),
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 600),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
                     Text(
-                      'Ruh hâlin: ${_draw.mood!.label}',
-                      key: const ValueKey('tarot-mood-summary'),
+                      !selectedAll
+                          ? 'Kapalı kartlardan ${_draw.requiredCards == 3 ? 'üçünü' : 'birini'} seç.'
+                          : !_draw.ready
+                          ? '${_draw.positions[_draw.revealed]} kartına dokunarak aç.'
+                          : 'Kartlarının hikâyesi',
                       textAlign: TextAlign.center,
-                      style: const TextStyle(color: atlasSageInk, height: 1.5),
-                    ),
-                  ],
-                  if (!selectedAll) ...[
-                    const SizedBox(height: 18),
-                    Semantics(
-                      liveRegion: true,
-                      child: Text(
-                        '${_draw.selected.length} / ${_draw.requiredCards} kart seçildi',
-                        textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontFamily: 'Literata',
+                        fontSize: 22,
+                        height: 1.4,
                       ),
                     ),
                     const SizedBox(height: 8),
-                    _deck(),
-                    const Text(
-                      'Desteyi yana kaydır · Dokunduğun kart korunur',
+                    Text(
+                      _draw.spread == TarotSpread.daily
+                          ? 'Günlük odağın · ${_draw.day ?? 'Kartını sen seç'}'
+                          : 'Geçmiş · Şimdi · Olası Yön',
                       textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: atlasSageInk,
-                        height: 1.5,
-                      ),
+                      style: const TextStyle(color: atlasSageInk, height: 1.5),
                     ),
-                    if (_draw.selected.isEmpty)
-                      TextButton.icon(
-                        onPressed: _locked ? null : _reshuffle,
-                        icon: const Icon(Icons.shuffle),
-                        label: const Text('Yeniden Karıştır'),
+                    const SizedBox(height: 22),
+                    AtlasAtmosphereRegion(
+                      kind: AtlasAtmosphereRegionKind.protected,
+                      child: _slots(compact: _reading && complete),
+                    ),
+                    if (selectedAll && !_reading) ...[
+                      const SizedBox(height: 4),
+                      _TarotMoodPicker(
+                        mood: _draw.mood,
+                        saving: _moodSaving,
+                        error: _moodError,
+                        onSelect: _setMood,
                       ),
-                  ],
-                  if (_draw.ready) ...[
-                    SizedBox(height: _reading ? 22 : 8),
-                    if (generating) ...[
-                      const Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          SizedBox(
-                            width: 22,
-                            height: 22,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          ),
-                          SizedBox(width: 12),
-                          Flexible(child: Text('Kimi yorumunu hazırlıyor…')),
-                        ],
+                    ] else if (_reading && _draw.mood != null) ...[
+                      const SizedBox(height: 12),
+                      Text(
+                        'Ruh hâlin: ${_draw.mood!.label}',
+                        key: const ValueKey('tarot-mood-summary'),
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: atlasSageInk,
+                          height: 1.5,
+                        ),
                       ),
-                      TextButton(
-                        onPressed: () => widget.runtime.cancel(_draw.id),
-                        child: const Text('Yorum İşlemini İptal Et'),
-                      ),
-                    ] else if (complete && !_reading)
-                      AtlasPrimaryButton(
-                        onPressed: _locked
-                            ? null
-                            : () => setState(() => _reading = true),
-                        child: const Text('Yorumunu Oku'),
-                      )
-                    else if (!complete)
-                      AtlasPrimaryButton(
-                        key: const ValueKey('tarot-generate'),
-                        onPressed: _locked ? null : _generate,
+                    ],
+                    if (!selectedAll) ...[
+                      const SizedBox(height: 18),
+                      Semantics(
+                        liveRegion: true,
                         child: Text(
-                          _draw.result.state == TarotResultState.idle
-                              ? 'Yorumunu Oluştur'
-                              : 'Yeniden Dene',
+                          '${_draw.selected.length} / ${_draw.requiredCards} kart seçildi',
+                          textAlign: TextAlign.center,
                         ),
                       ),
-                    if (_reading && complete) ...[
-                      Container(
-                        key: const ValueKey('tarot-reading'),
-                        padding: const EdgeInsets.all(24),
-                        decoration: BoxDecoration(
-                          color: atlasCard,
-                          borderRadius: BorderRadius.circular(24),
-                          border: Border.all(color: atlasBorder),
+                      const SizedBox(height: 8),
+                      _deck(),
+                      const Text(
+                        'Desteyi yana kaydır · Dokunduğun kart korunur',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: atlasSageInk,
+                          height: 1.5,
                         ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                      ),
+                      if (_draw.selected.isEmpty)
+                        TextButton.icon(
+                          onPressed: _locked ? null : _reshuffle,
+                          icon: const Icon(Icons.shuffle),
+                          label: const Text('Yeniden Karıştır'),
+                        ),
+                    ],
+                    if (_draw.ready) ...[
+                      SizedBox(height: _reading ? 22 : 8),
+                      if (generating) ...[
+                        const Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            const Text(
-                              'Yorumun',
-                              style: TextStyle(
-                                fontFamily: 'Literata',
-                                fontSize: 21,
-                              ),
+                            SizedBox(
+                              width: 22,
+                              height: 22,
+                              child: CircularProgressIndicator(strokeWidth: 2),
                             ),
-                            const SizedBox(height: 16),
-                            _TarotReadingText(_draw.result.text!),
-                            ContentReportButton(
-                              runtime: widget.runtime.reportingRuntime,
-                              sessionId: 'tarot-${_draw.id}',
-                              contentId: _draw.result.attemptId ?? _draw.id,
-                              text: _draw.result.text!,
-                              enabled: !_locked,
-                            ),
+                            SizedBox(width: 12),
+                            Flexible(child: Text('Kimi yorumunu hazırlıyor…')),
                           ],
                         ),
+                        TextButton(
+                          onPressed: () => widget.runtime.cancel(_draw.id),
+                          child: const Text('Yorum İşlemini İptal Et'),
+                        ),
+                      ] else if (complete && !_reading)
+                        AtlasPrimaryButton(
+                          onPressed: _locked
+                              ? null
+                              : () => setState(() => _reading = true),
+                          child: const Text('Yorumunu Oku'),
+                        )
+                      else if (!complete)
+                        AtlasPrimaryButton(
+                          key: const ValueKey('tarot-generate'),
+                          onPressed: _locked ? null : _generate,
+                          child: Text(
+                            _draw.result.state == TarotResultState.idle
+                                ? 'Yorumunu Oluştur'
+                                : 'Yeniden Dene',
+                          ),
+                        ),
+                      if (_reading && complete) ...[
+                        Container(
+                          key: const ValueKey('tarot-reading'),
+                          padding: const EdgeInsets.all(24),
+                          decoration: BoxDecoration(
+                            color: atlasCard,
+                            borderRadius: BorderRadius.circular(24),
+                            border: Border.all(color: atlasBorder),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              const Text(
+                                'Yorumun',
+                                style: TextStyle(
+                                  fontFamily: 'Literata',
+                                  fontSize: 21,
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              _TarotReadingText(_draw.result.text!),
+                              ContentReportButton(
+                                runtime: widget.runtime.reportingRuntime,
+                                sessionId: 'tarot-${_draw.id}',
+                                contentId: _draw.result.attemptId ?? _draw.id,
+                                text: _draw.result.text!,
+                                enabled: !_locked,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                      if (_draw.result.error != null) ...[
+                        const SizedBox(height: 12),
+                        AtlasNotice(_draw.result.error!),
+                      ],
+                      SizedBox(height: _reading ? 16 : 8),
+                      const Text(
+                        'Tarot eğlence ve öz değerlendirme içindir. Yorum bir düşünme davetidir.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: atlasSageInk,
+                          height: 1.5,
+                        ),
                       ),
                     ],
-                    if (_draw.result.error != null) ...[
+                    if (_error != null) ...[
                       const SizedBox(height: 12),
-                      AtlasNotice(_draw.result.error!),
+                      AtlasNotice(_error!),
                     ],
-                    SizedBox(height: _reading ? 16 : 8),
-                    const Text(
-                      'Tarot eğlence ve öz değerlendirme içindir. Yorum bir düşünme davetidir.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: atlasSageInk,
-                        height: 1.5,
-                      ),
-                    ),
                   ],
-                  if (_error != null) ...[
-                    const SizedBox(height: 12),
-                    AtlasNotice(_error!),
-                  ],
-                ],
+                ),
               ),
             ),
           ),
@@ -729,11 +744,14 @@ class _TarotDrawPageState extends State<TarotDrawPage>
       ),
       child: child,
     ),
-    child: _TarotSelectionDeck(
-      controller: _scroll,
-      selected: _draw.selected.toSet(),
-      locked: _locked,
-      onSelect: _select,
+    child: AtlasAtmosphereRegion(
+      kind: AtlasAtmosphereRegionKind.hero,
+      child: _TarotSelectionDeck(
+        controller: _scroll,
+        selected: _draw.selected.toSet(),
+        locked: _locked,
+        onSelect: _select,
+      ),
     ),
   );
 }

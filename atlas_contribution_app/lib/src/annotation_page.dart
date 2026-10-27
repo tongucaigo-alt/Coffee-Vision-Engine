@@ -12,6 +12,7 @@ import 'theme.dart';
 import 'opencv_traces.dart';
 import 'trace_overlay.dart';
 import 'atlas_design.dart';
+import 'atlas_atmosphere.dart';
 import 'coffee_controls.dart';
 import 'coffee_photo_layout.dart';
 
@@ -1043,185 +1044,192 @@ class _AnnotationPageState extends State<AnnotationPage> {
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(
-      toolbarHeight: widget.modern ? CoffeePhotoLayout.toolbarHeight : null,
-      flexibleSpace: widget.modern ? _modeHeader() : null,
-      title: Text(
-        widget.modern ? 'Sen ne görüyorsun?' : _photo.title,
-        style: widget.modern
-            ? const TextStyle(
-                fontFamily: 'Literata',
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-              )
-            : null,
+  Widget build(BuildContext context) => AtlasAtmosphereSurface(
+    scene: widget.modern ? AtlasAtmosphereScene.coffeePhoto : null,
+    child: Scaffold(
+      appBar: AppBar(
+        toolbarHeight: widget.modern ? CoffeePhotoLayout.toolbarHeight : null,
+        flexibleSpace: widget.modern ? _modeHeader() : null,
+        title: Text(
+          widget.modern ? 'Sen ne görüyorsun?' : _photo.title,
+          style: widget.modern
+              ? const TextStyle(
+                  fontFamily: 'Literata',
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                )
+              : null,
+        ),
       ),
-    ),
-    body: SafeArea(
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          if (widget.modern) return _modernBody();
-          final content = Column(
-            children: [
-              if (widget.navigation != null) widget.navigation!,
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 8,
-                ),
-                child: SegmentedButton<bool>(
-                  segments: [
-                    ButtonSegment(
-                      value: false,
-                      label: Text(widget.modern ? 'Taşı' : 'Fotoğraf'),
-                      icon: widget.modern ? null : const Icon(LucideIcons.hand),
-                    ),
-                    ButtonSegment(
-                      value: true,
-                      label: const Text('İşaret'),
-                      icon: widget.modern ? null : const Icon(LucideIcons.scan),
-                    ),
-                  ],
-                  selected: {_markMode},
-                  onSelectionChanged: _saving
-                      ? null
-                      : (value) => setState(() {
-                          _abortGesture();
-                          _markMode = value.single;
-                        }),
-                ),
-              ),
-              Expanded(
-                flex: 3,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: _canvas(),
-                ),
-              ),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  IconButton(
-                    tooltip: 'Uzaklaştır',
-                    onPressed: _saving ? null : () => _zoom(.8),
-                    icon: const Icon(LucideIcons.zoomOut),
+      body: SafeArea(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            if (widget.modern) return _modernBody();
+            final content = Column(
+              children: [
+                if (widget.navigation != null) widget.navigation!,
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
                   ),
-                  IconButton(
-                    tooltip: 'Yakınlaştır',
-                    onPressed: _saving ? null : () => _zoom(1.25),
-                    icon: const Icon(LucideIcons.zoomIn),
-                  ),
-                  IconButton(
-                    tooltip: 'Fotoğrafı sığdır',
-                    onPressed: _saving
-                        ? null
-                        : () {
-                            setState(_abortGesture);
-                            _transform.value = Matrix4.identity();
-                          },
-                    icon: const Icon(LucideIcons.maximize),
-                  ),
-                  if (_box != null)
-                    IconButton(
-                      tooltip: 'Seçimi kaldır',
-                      onPressed: _saving
-                          ? null
-                          : () => setState(() {
-                              _box = null;
-                              _editingId = null;
-                            }),
-                      icon: const Icon(LucideIcons.x),
-                    ),
-                ],
-              ),
-              Expanded(
-                flex: 2,
-                child: PageBody(
-                  children: [
-                    if (_box != null)
-                      AtlasPrimaryButton(
-                        onPressed: _saving ? null : _choose,
-                        child: const Text('Bu alanı seç'),
-                      ),
-                    const SizedBox(height: 16),
-                    for (final region in _photo.regions)
-                      ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        leading: LabelIcon(region.label),
-                        title: Text(region.title),
-                        selected: _editingId == region.id,
-                        onTap: _saving
+                  child: SegmentedButton<bool>(
+                    segments: [
+                      ButtonSegment(
+                        value: false,
+                        label: Text(widget.modern ? 'Taşı' : 'Fotoğraf'),
+                        icon: widget.modern
                             ? null
-                            : () => setState(() {
-                                _abortGesture();
-                                _editingId = region.id;
-                                _box = _displayCrop.toDisplayBox(region.box);
-                                _markMode = true;
-                              }),
-                        trailing: IconButton(
-                          tooltip: '${region.title} işaretini sil',
-                          onPressed: _saving
-                              ? null
-                              : () {
-                                  final remaining = _photo.regions
-                                      .where((r) => r.id != region.id)
-                                      .toList();
-                                  _persist(
-                                    _photo.annotated(
-                                      remaining,
-                                      remaining.isEmpty
-                                          ? PhotoDecision.unreviewed
-                                          : PhotoDecision.marked,
-                                    ),
-                                  );
-                                },
-                          icon: const Icon(LucideIcons.trash2),
-                        ),
+                            : const Icon(LucideIcons.hand),
                       ),
-                    if (_photo.regions.isNotEmpty)
-                      AtlasPrimaryButton(
-                        onPressed: _saving ? null : _complete,
-                        child: Text(widget.completionLabel),
-                      ),
-                    if (_photo.regions.isEmpty) ...[
-                      OutlinedButton(
-                        onPressed: _saving
+                      ButtonSegment(
+                        value: true,
+                        label: const Text('İşaret'),
+                        icon: widget.modern
                             ? null
-                            : () => _decision(PhotoDecision.notSeen),
-                        child: const Text('Bu fotoğrafta şekil seçemedim'),
-                      ),
-                      const SizedBox(height: 8),
-                      OutlinedButton(
-                        onPressed: _saving
-                            ? null
-                            : () => _decision(PhotoDecision.uncertain),
-                        child: const Text('Emin değilim'),
-                      ),
-                      TextButton(
-                        onPressed: _saving
-                            ? null
-                            : () => _decision(PhotoDecision.skipped),
-                        child: const Text('Şimdilik geç'),
+                            : const Icon(LucideIcons.scan),
                       ),
                     ],
+                    selected: {_markMode},
+                    onSelectionChanged: _saving
+                        ? null
+                        : (value) => setState(() {
+                            _abortGesture();
+                            _markMode = value.single;
+                          }),
+                  ),
+                ),
+                Expanded(
+                  flex: 3,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: _canvas(),
+                  ),
+                ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    IconButton(
+                      tooltip: 'Uzaklaştır',
+                      onPressed: _saving ? null : () => _zoom(.8),
+                      icon: const Icon(LucideIcons.zoomOut),
+                    ),
+                    IconButton(
+                      tooltip: 'Yakınlaştır',
+                      onPressed: _saving ? null : () => _zoom(1.25),
+                      icon: const Icon(LucideIcons.zoomIn),
+                    ),
+                    IconButton(
+                      tooltip: 'Fotoğrafı sığdır',
+                      onPressed: _saving
+                          ? null
+                          : () {
+                              setState(_abortGesture);
+                              _transform.value = Matrix4.identity();
+                            },
+                      icon: const Icon(LucideIcons.maximize),
+                    ),
+                    if (_box != null)
+                      IconButton(
+                        tooltip: 'Seçimi kaldır',
+                        onPressed: _saving
+                            ? null
+                            : () => setState(() {
+                                _box = null;
+                                _editingId = null;
+                              }),
+                        icon: const Icon(LucideIcons.x),
+                      ),
                   ],
                 ),
+                Expanded(
+                  flex: 2,
+                  child: PageBody(
+                    children: [
+                      if (_box != null)
+                        AtlasPrimaryButton(
+                          onPressed: _saving ? null : _choose,
+                          child: const Text('Bu alanı seç'),
+                        ),
+                      const SizedBox(height: 16),
+                      for (final region in _photo.regions)
+                        ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: LabelIcon(region.label),
+                          title: Text(region.title),
+                          selected: _editingId == region.id,
+                          onTap: _saving
+                              ? null
+                              : () => setState(() {
+                                  _abortGesture();
+                                  _editingId = region.id;
+                                  _box = _displayCrop.toDisplayBox(region.box);
+                                  _markMode = true;
+                                }),
+                          trailing: IconButton(
+                            tooltip: '${region.title} işaretini sil',
+                            onPressed: _saving
+                                ? null
+                                : () {
+                                    final remaining = _photo.regions
+                                        .where((r) => r.id != region.id)
+                                        .toList();
+                                    _persist(
+                                      _photo.annotated(
+                                        remaining,
+                                        remaining.isEmpty
+                                            ? PhotoDecision.unreviewed
+                                            : PhotoDecision.marked,
+                                      ),
+                                    );
+                                  },
+                            icon: const Icon(LucideIcons.trash2),
+                          ),
+                        ),
+                      if (_photo.regions.isNotEmpty)
+                        AtlasPrimaryButton(
+                          onPressed: _saving ? null : _complete,
+                          child: Text(widget.completionLabel),
+                        ),
+                      if (_photo.regions.isEmpty) ...[
+                        OutlinedButton(
+                          onPressed: _saving
+                              ? null
+                              : () => _decision(PhotoDecision.notSeen),
+                          child: const Text('Bu fotoğrafta şekil seçemedim'),
+                        ),
+                        const SizedBox(height: 8),
+                        OutlinedButton(
+                          onPressed: _saving
+                              ? null
+                              : () => _decision(PhotoDecision.uncertain),
+                          child: const Text('Emin değilim'),
+                        ),
+                        TextButton(
+                          onPressed: _saving
+                              ? null
+                              : () => _decision(PhotoDecision.skipped),
+                          child: const Text('Şimdilik geç'),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            );
+            if (!widget.modern ||
+                (constraints.maxHeight >= 700 &&
+                    MediaQuery.textScalerOf(context).scale(16) <= 21)) {
+              return content;
+            }
+            return SingleChildScrollView(
+              child: SizedBox(
+                height: math.max(constraints.maxHeight, 840),
+                child: content,
               ),
-            ],
-          );
-          if (!widget.modern ||
-              (constraints.maxHeight >= 700 &&
-                  MediaQuery.textScalerOf(context).scale(16) <= 21)) {
-            return content;
-          }
-          return SingleChildScrollView(
-            child: SizedBox(
-              height: math.max(constraints.maxHeight, 840),
-              child: content,
-            ),
-          );
-        },
+            );
+          },
+        ),
       ),
     ),
   );

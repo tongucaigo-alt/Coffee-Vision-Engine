@@ -1,3 +1,4 @@
+import 'atlas_atmosphere.dart';
 import 'package:flutter/material.dart';
 import 'atlas_design.dart';
 import 'coffee_loading_animation.dart';
@@ -251,7 +252,10 @@ class _FortunePreparationHostState extends State<FortunePreparationHost> {
         children: [
           ExcludeSemantics(
             excluding: showing,
-            child: IgnorePointer(ignoring: showing, child: widget.child),
+            child: IgnorePointer(
+              ignoring: showing,
+              child: TickerMode(enabled: !showing, child: widget.child),
+            ),
           ),
           if (showing)
             if (!flow.readyToShow)
@@ -268,29 +272,33 @@ class _FortunePreparationHostState extends State<FortunePreparationHost> {
                 ),
               )
             else
-              Scaffold(
-                key: const ValueKey('fortune-preparation-host'),
-                appBar: AppBar(
-                  automaticallyImplyLeading: false,
-                  title: const Text('Fincanının Hikâyesi'),
-                ),
-                body: ValueListenableBuilder<FortuneProgress>(
-                  valueListenable: flow.progress,
-                  builder: (_, progress, _) => FortuneScan(
-                    key: const ValueKey('continuous-fortune-scan'),
-                    progress: flow.cancelled
-                        ? const FortuneProgress(FortunePhase.cancelled)
-                        : progress,
-                    photos: flow.displayPhotos,
-                    traces: flow.traces,
-                    noTracesMessage:
-                        flow._markedOnly &&
-                        flow._tracesComplete &&
-                        flow.traces.selected.isEmpty,
-                    imageFor: flow.imageFor!,
-                    symbolAnchorsFor: flow.anchorsFor,
-                    showDecorativeSymbols: true,
-                    onCancel: flow.cancelled ? null : flow.cancel,
+              AtlasAtmosphereSurface(
+                scene: AtlasAtmosphereScene.coffeePreparation,
+                active: !flow.cancelled,
+                child: Scaffold(
+                  key: const ValueKey('fortune-preparation-host'),
+                  appBar: AppBar(
+                    automaticallyImplyLeading: false,
+                    title: const Text('Fincanının Hikâyesi'),
+                  ),
+                  body: ValueListenableBuilder<FortuneProgress>(
+                    valueListenable: flow.progress,
+                    builder: (_, progress, _) => FortuneScan(
+                      key: const ValueKey('continuous-fortune-scan'),
+                      progress: flow.cancelled
+                          ? const FortuneProgress(FortunePhase.cancelled)
+                          : progress,
+                      photos: flow.displayPhotos,
+                      traces: flow.traces,
+                      noTracesMessage:
+                          flow._markedOnly &&
+                          flow._tracesComplete &&
+                          flow.traces.selected.isEmpty,
+                      imageFor: flow.imageFor!,
+                      symbolAnchorsFor: flow.anchorsFor,
+                      showDecorativeSymbols: true,
+                      onCancel: flow.cancelled ? null : flow.cancel,
+                    ),
                   ),
                 ),
               ),

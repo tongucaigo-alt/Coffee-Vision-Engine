@@ -1,0 +1,86 @@
+[
+  {
+    "screen": "coffee-home-360x700-1x",
+    "creamGap": 39.0,
+    "creamToGold": 69.37970691114208,
+    "top": 50,
+    "bottom": 8
+  },
+  {
+    "screen": "coffee-home-360x700-2x",
+    "creamGap": 39.0,
+    "creamToGold": 69.37970691114208,
+    "top": 50,
+    "bottom": 8
+  },
+  {
+    "screen": "coffee-home-412x700-1x",
+    "creamGap": 39.0,
+    "creamToGold": 69.37970691114208,
+    "top": 50,
+    "bottom": 8
+  },
+  {
+    "screen": "coffee-home-412x700-2x",
+    "creamGap": 39.0,
+    "creamToGold": 69.37970691114208,
+    "top": 50,
+    "bottom": 8
+  },
+  {
+    "screen": "coffee-home-412x892-1x",
+    "creamGap": 39.0,
+    "creamToGold": 69.37970691114208,
+    "top": 50,
+    "bottom": 8
+  },
+  {
+    "screen": "coffee-home-412x892-2x",
+    "creamGap": 39.0,
+    "creamToGold": 69.37970691114208,
+    "top": 50,
+    "bottom": 8
+  },
+  {
+    "screen": "tarot-home-360x700-1x",
+    "creamGap": 39.0,
+    "creamToGold": 68.67369617946778,
+    "top": 50,
+    "bottom": 8
+  },
+  {
+    "screen": "tarot-home-360x700-2x",
+    "creamGap": 39.0,
+    "creamToGold": 68.67369617946778,
+    "top": 50,
+    "bottom": 8
+  },
+  {
+    "screen": "tarot-home-412x700-1x",
+    "creamGap": 39.0,
+    "creamToGold": 68.67369617946778,
+    "top": 50,
+    "bottom": 8
+  },
+  {
+    "screen": "tarot-home-412x700-2x",
+    "creamGap": 39.0,
+    "creamToGold": 68.67369617946778,
+    "top": 50,
+    "bottom": 8
+  },
+  {
+    "screen": "tarot-home-412x892-1x",
+    "creamGap": 39.0,
+    "creamToGold": 68.67369617946778,
+    "top": 50,
+    "bottom": 8
+  },
+  {
+    "screen": "tarot-home-412x892-2x",
+    "creamGap": 39.0,
+    "creamToGold": 68.67369617946778,
+    "top": 50,
+    "bottom": 8
+  }
+]

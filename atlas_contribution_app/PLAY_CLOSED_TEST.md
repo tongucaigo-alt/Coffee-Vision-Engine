@@ -1,54 +1,45 @@
-# Atlas — Play kapalı test hazırlığı
+# Atlas — mevcut deneyimi koruyarak Play hazırlığı
 
-Durum: uygulama geliştirmesi ve doğrulama devam ediyor. Bu belge yayın onayı değildir.
+26 Ekim 2026. V101 (`49d4b57`) tabanı. Bu belge yerel hazırlıktır; mağaza veya canlı hizmet kabulü değildir. Önceki V12/V93 test/kurulum belgeleri tarihsel kanıttır.
 
-## Dağıtım
+## Güncel kapsam
 
-- Giriş: `lib/offline_main.dart`, `ATLAS_PLAY_TEST=true`; `ATLAS_AI_LAB` kapalı.
-- Kimlik: `com.coffeeplatform.atlas_contribution_app`. Mevcut `.beta` ve `.diagnostic` ayrı kalır; otomatik veri aktarımı yoktur.
-- Play derlemesi laboratuvar bayrağı veya dolu `ATLAS_KIMI_TEST_KEY` ile durdurulur. Özel defines dosyası Play komutuna verilmez.
-- Kurulum: `tool/install_preserving_data.py` paket, sertifika ve kurulu sürümden büyük sürüm kodunu doğrular. Yalnız `adb install -r` kullanır. Başarısızlıkta kaldırma/veri temizleme yapılmaz.
-- Flutter test aracının otomatik kurulumunu kullanıcı verisi taşıyan paketlerde kullanmayın. Diagnostic test APK'sını ayrı derleyip doğrulayarak kurun.
-- İmzayı ve upload anahtarını özel alanda yedekleyin; Git'e koymayın. Play App Signing kurulumu hesap sahibi tarafından yapılır.
+Kullanıcı mevcut fotoğraf filtresini yeterli kabul etti. Yeniden eğitim/veri hazırlığı veya eski %90/%80 kalite hedefleri yayın ön koşulu olarak açılmaz. Model, eşikler, `suitabilityBlockingValidated`, ön işleme ve yeni üretim öncesi yeniden kontrol değişmez. 29/33 (%87,9) yalnız ilgili tarihsel fincan ölçümüdür; genel doğruluk iddiası değildir.
 
-Örnek derleme (Flutter PATH üzerinde):
+Kahve/Tarot arayüzü, efektler, ses/video, kamera/galeri ve kayıt davranışı korunur. Araştırma ZIP'i ve yedi günlük otomatik silme yoktur. Kullanıcı onayı olmadan görünür metin veya yeni adım eklenmez.
+
+## Release hazırlığı
+
+- Giriş: `lib/offline_main.dart`; `ATLAS_PLAY_TEST=true` ve mevcut filtre için **`ATLAS_IMAGE_SCREEN=true`**.
+- Kimlik: `com.coffeeplatform.atlas_contribution_app`; diagnostic/beta kimlikleri ayrı. Kullanıcı verisi taşıma veya telefon kurulumu bu hazırlığın kapsamında değil.
+- Laboratuvar, gömülü sağlayıcı anahtarı, diagnostic/önizleme kimliği Play release için kabul edilmez. Özel Kimi defines dosyası build girdisi değildir.
+- Mevcut imza kullanılır. `ATLAS_SIGNING_PROPERTIES` Gradle proje özelliği harici özel properties dosyasına işaret edebilir; değerler komut satırına basılmaz. Yerel `android/key.properties` desteği de sürer. Anahtar oluşturma/sıfırlama veya debug imzaya dönüş yoktur.
+- `tool/build_play_candidate.ps1` yalnız yerel imzalı AAB adayı üretir. Sürüm numarası açıkça verilir; çıktı klasörü yeni olmalıdır. PublicConfig yalnız işletmeci/gizlilik/destek metinlerini kabul eder. Gerçek bilgiler uygulamaya yansıtılmadan görünür içerik etkisi kullanıcıya onaylatılmalı.
+- Flutter release hazırlığı dev-only `integration_test` kaydını doğru üretmelidir; stale debug registrant yüzünden `--no-pub` ile build yapılmaz. Üretim bağımlılığı veya kullanıcı akışı değişmez.
+
+Yerel aday örneği (nihai mağaza sürümü tahsisi değildir):
 
 ```powershell
-flutter build appbundle --release --target lib/offline_main.dart --dart-define=ATLAS_PLAY_TEST=true --build-number=12 --build-name=1.0.0-test.12
+./tool/build_play_candidate.ps1 -Flutter flutter -BuildNumber 101 `
+  -BuildName 1.0.0-play-prep.101 `
+  -SigningProperties "$env:LOCALAPPDATA/AtlasAiBeta/key.properties.backup" `
+  -OutputDirectory C:/AtlasLocalOutput/new-play-preparation
 ```
 
-## Test servisi
+## Önceden var olan Play bağlantı akışı
 
-LM Studio'da modeli yükleyip yerel sunucuyu başlatın. Mevcut `atlas_ai_gateway/tool/run-local.ps1` ile Atlas servisini ve HTTPS tünelini açın. Her testçiye ayrı erişim kodu verin; kişisel sağlayıcı anahtarı vermeyin. APK içindeki Ayarlar → Atlas Test Bağlantısı ekranına HTTPS adresi ve testçinin kodu girilir. Model takma adı `atlas` sunucuda yapılandırılır.
+Play profili mevcut Ayarlar → Atlas Test Bağlantısı ekranını kullanır: HTTPS adresi ve kişiye özel erişim kodu. V101 diagnostic paketindeki hazır Kimi profiliyle aynı bağlantı deneyimi değildir. Bu fark kullanıcıya bildirildi; yeni giriş veya otomatik token edinme tasarlanmadı. Mevcut adımla kapalı test veya başka yayın hizmeti kararı kullanıcıda. Mağazadaki genel kullanıcı deneyimi onaylanmış sayılmaz.
 
-Test saatlerini testçilere önceden bildirin. Bilgisayar kapanınca fal üretimi kullanılamaz; telefondaki kayıtlar silinmez. Adres değiştiğinde erişim kodu yeni adrese kendiliğinden taşınmaz. Kuyruk 1 çalışan + 9 bekleyen iş; 12 testçinin aynı anda kabul edilmesi vaat edilmez.
+## Gateway ve bildirimler
 
-## İçerik bildirimleri
+Kahve/Tarot ayrı sözleşmelerle aynı yetkili kuyruğu kullanır. Rapor yalnız açık onayla `version/id/reason/text` içerir; sunucu kalıcı kaydı teyit eder. Ağ/disk hatası teslim sayılmaz. Doğrudan sağlayıcı rapor alıcısı değildir. Gerçek Atlas alıcısı, kalıcı HTTPS, insan incelemesi, saklama/silme ve destek sorumluları işletmeci tarafından kurulmalı. Yerel testler canlı dağıtımı kanıtlamaz.
 
-- `POST /api/ai/v1/reports`: kimliği doğrulanmış testçi; `version:1`, UUID `id`, `reason` (`harmful`, `misleading`, `other`), yalnız bildirilen `text`.
-- Kapasite: istek başına 64 KiB, yorum başına 12.000 karakter, testçi başına saatte 30 gönderim denemesi.
-- Yanıt yalnız dosya kalıcı kaydedilince `201`, `status:received` olur. Aynı testçinin aynı bildirimi tekrar göndermesi çoğaltmaz. Testçi başka testçinin raporunu okuyamaz; okuma API'si yoktur.
-- Sunucu raporları özel yapılandırmanın yanındaki `content-reports` klasörüne yazar. Bu klasörü yayımlamayın veya Git'e eklemeyin. Yöneticinin yerelden incelemesi gerekir; otomatik moderasyon paneli yoktur.
-- Telefonda başarısız gönderimler bekler. Ayarlar'dan açık eylemle yeniden gönderilir; başka profile veya değişen adrese otomatik gönderilmez. Gönderilen metin telefonun bildirim kuyruğundan çıkarılır. Kayıt silinince ilgili yerel bildirimler de silinir.
-- Sunucuya iletilmiş şikâyet, telefon kaydı silinince uzaktan kendiliğinden silinmez. Kullanıcıya bu ayrım gizlilik açıklamasında bildirilmelidir. Sunucu bildirimleri test yöneticisi tarafından manuel yönetilir.
+## Bekleyen gerçek bilgiler ve kabul
 
-## Play Console hazırlığı
+Kullanıcı 26 Ekim'de Play hesabı ile gerçek işletmeci/destek/politika bilgilerinin olmadığını, sağlayıcı/hosting'i seçmediğini ve ücretlendirmeyi düşündüğünü bildirdi. Ücretsiz/reklamsız/ücretli varsayımıyla yeni özellik eklenmedi. `xxxx@atlas.com` taslaktır.
 
-1. Geliştirici hesabı, kimlik/cihaz doğrulaması, yayımlanacak geliştirici adı ve destek adresi.
-2. HTTPS üzerinde herkesin erişebildiği gizlilik politikası; aynı bağlantı uygulama içinde. Taslak `PLAY_PRIVACY_DRAFT.md` içindedir; eksik kimlik/iletişim bilgileri tamamlanmadan yayımlanmaz.
-3. Veri Güvenliği: metinsel fal girdisi, yorum bildirimi, isteğe bağlı araştırma ZIP'i ve SDK verileri ayrı değerlendirilir. "Hiç veri toplanmıyor" işaretlenmez. Tünel/SDK ağ verileri de incelenir.
-4. İçerik derecelendirmesi ve hedef kitle gerçek davranışa göre doldurulur. AI falı eğlence amaçlıdır; gerçek görsel sembol tanıma, kesin gelecek veya uzman tavsiyesi vaat edilmez.
-5. Reklam yok, ödeme yok, hesap sistemi yok. Gerçek ekran görüntüleri ve açıklamalar kullanılır; prototip puan/üyelik ekranları yüklenmez.
-6. İnceleyicinin hizmeti deneyebilmesi için çalışan test hizmeti ve özel inceleme erişimi sağlanır. Geçici tünel/test saatleri mağaza incelemesinde erişim riski oluşturur.
-7. Yeni kişisel hesap için en az 12 testçi / kesintisiz 14 gün koşulu Console üzerinden izlenir. Gerçek katılım ve geri bildirim gerekir; otomatik yük testi bunun yerine geçmez.
+Nihai Console paket/sürüm/sertifika eşleştirmesi, kamuya açık politika/Data Safety, inceleyici erişimi, moderasyon, fiyat/yaş/derecelendirme kararları bekliyor. Mevcut API 36 hedefi nihai artefaktta kontrol edilir. Yeni AAB üzerinde ELF ve paket 16 KB kontrolleri/indirme tahmini yapılır; gerçek 16 KB çalışma zamanı, küçültülmüş native modelin cihazda çalışması ve Play ön lansmanı ayrı kabul bekler.
 
-## Açık kabul koşulları
+Test/cihaz işlemleri gerçek kullanıcı paketinde `flutter test` otomatik kurulumu, kaldırma veya veri temizlemeyle yapılmaz. Bu işte telefon, gerçek kullanıcı verisi, canlı/ücretli AI, hosting satın alma, push/release veya mağaza gönderimi yoktur.
 
-- Gerçek üç açı → tabak → kayıt → fal yürüyüşü. Siyah önizlemenin lens/ortam kaynaklı mı yazılım kaynaklı mı olduğu telveli fincanla doğrulanmalı.
-- 30 telveli, 30 uygunsuz (10 klavye dahil), ayrıca 20 telvesiz örnek; bağımsız doğrulama grubu. Yedi olumsuz örnek yeterli değil.
-- 12 fincan setinde kör eski/yeni değerlendirme, en az sekiz tercihle iyileşme kanıtı. Önceki 429 hataları başarı değildir.
-- Sakıncalı içerik değerlendirmesi ve bildirimlerin yönetici tarafından gerçekten incelenmesi. Basit dil kontrolleri tek başına moderasyon garantisi değildir.
-- 16 KB ELF kontrolüne ek olarak 16 KB cihaz/emülatör ve Play ön lansman raporu.
-- Paylaşılmış sağlayıcı anahtarının hesap sahibi tarafından iptal edildiğinin teyidi.
-
-Bu koşullar tamamlanmadan "Play'e hazır" veya "herkese açık yayına hazır" denmez.
+Tüm güncel çıktı ve taslaklar kullanıcı çalışma alanındaki `GOOGLE_PLAY_HAZIRLIK` klasöründedir. Resmî kaynaklar: [API koşulları](https://support.google.com/googleplay/android-developer/answer/11926878?hl=en), [Data Safety](https://support.google.com/googleplay/android-developer/answer/10787469?hl=en), [AI bildirimi](https://support.google.com/googleplay/android-developer/answer/13985936?hl=en), [16 KB denetimi](https://developer.android.com/guide/practices/page-sizes).

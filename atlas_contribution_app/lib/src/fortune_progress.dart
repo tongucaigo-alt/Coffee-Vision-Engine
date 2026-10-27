@@ -8,6 +8,7 @@ import 'opencv_traces.dart';
 import 'trace_overlay.dart';
 import 'label_picker.dart' show labelIcons;
 import 'coffee_loading_animation.dart';
+import 'atlas_atmosphere.dart';
 
 enum FortunePhase {
   saving,
@@ -154,10 +155,13 @@ class _FortuneScanState extends State<FortuneScan>
             alignment: Alignment.center,
             children: [
               RepaintBoundary(
-                child: _ScanPhoto(
-                  photo: photo,
-                  image: widget.imageFor(photo),
-                  traces: widget.traces,
+                child: AtlasAtmosphereRegion(
+                  kind: AtlasAtmosphereRegionKind.protected,
+                  child: _ScanPhoto(
+                    photo: photo,
+                    image: widget.imageFor(photo),
+                    traces: widget.traces,
+                  ),
                 ),
               ),
               if (_animate &&
@@ -184,10 +188,13 @@ class _FortuneScanState extends State<FortuneScan>
         const SizedBox(height: 12),
         Center(
           key: const ValueKey('fortune-loading-area'),
-          child: CoffeeLoadingAnimation(
-            key: const ValueKey('fortune-coffee-loading'),
-            active: _animate,
-            reducedMotion: _reduce,
+          child: AtlasAtmosphereRegion(
+            kind: AtlasAtmosphereRegionKind.steam,
+            child: CoffeeLoadingAnimation(
+              key: const ValueKey('fortune-coffee-loading'),
+              active: _animate,
+              reducedMotion: _reduce,
+            ),
           ),
         ),
         const SizedBox(height: 8),

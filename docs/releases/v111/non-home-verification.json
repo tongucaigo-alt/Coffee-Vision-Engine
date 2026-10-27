@@ -1,0 +1,152 @@
+[
+  {
+    "file": "annotation-360x700-1x.png",
+    "pixelIdentical": true,
+    "differenceBounds": null
+  },
+  {
+    "file": "annotation-360x700-2x.png",
+    "pixelIdentical": true,
+    "differenceBounds": null
+  },
+  {
+    "file": "annotation-412x700-1x.png",
+    "pixelIdentical": true,
+    "differenceBounds": null
+  },
+  {
+    "file": "annotation-412x700-2x.png",
+    "pixelIdentical": true,
+    "differenceBounds": null
+  },
+  {
+    "file": "annotation-412x892-1x.png",
+    "pixelIdentical": true,
+    "differenceBounds": null
+  },
+  {
+    "file": "annotation-412x892-2x.png",
+    "pixelIdentical": true,
+    "differenceBounds": null
+  },
+  {
+    "file": "preparation-360x700-1x.png",
+    "pixelIdentical": false,
+    "differenceBounds": [
+      116,
+      199,
+      294,
+      397
+    ]
+  },
+  {
+    "file": "preparation-360x700-2x.png",
+    "pixelIdentical": false,
+    "differenceBounds": [
+      55,
+      185,
+      270,
+      386
+    ]
+  },
+  {
+    "file": "preparation-412x700-1x.png",
+    "pixelIdentical": false,
+    "differenceBounds": [
+      82,
+      212,
+      316,
+      476
+    ]
+  },
+  {
+    "file": "preparation-412x700-2x.png",
+    "pixelIdentical": false,
+    "differenceBounds": [
+      119,
+      233,
+      332,
+      463
+    ]
+  },
+  {
+    "file": "preparation-412x892-1x.png",
+    "pixelIdentical": false,
+    "differenceBounds": [
+      137,
+      187,
+      327,
+      385
+    ]
+  },
+  {
+    "file": "preparation-412x892-2x.png",
+    "pixelIdentical": false,
+    "differenceBounds": [
+      68,
+      234,
+      325,
+      464
+    ]
+  },
+  {
+    "file": "review-360x700-1x.png",
+    "pixelIdentical": true,
+    "differenceBounds": null
+  },
+  {
+    "file": "review-360x700-2x.png",
+    "pixelIdentical": true,
+    "differenceBounds": null
+  },
+  {
+    "file": "review-412x700-1x.png",
+    "pixelIdentical": true,
+    "differenceBounds": null
+  },
+  {
+    "file": "review-412x700-2x.png",
+    "pixelIdentical": true,
+    "differenceBounds": null
+  },
+  {
+    "file": "review-412x892-1x.png",
+    "pixelIdentical": true,
+    "differenceBounds": null
+  },
+  {
+    "file": "review-412x892-2x.png",
+    "pixelIdentical": true,
+    "differenceBounds": null
+  },
+  {
+    "file": "tarot-selection-360x700-1x.png",
+    "pixelIdentical": true,
+    "differenceBounds": null
+  },
+  {
+    "file": "tarot-selection-360x700-2x.png",
+    "pixelIdentical": true,
+    "differenceBounds": null
+  },
+  {
+    "file": "tarot-selection-412x700-1x.png",
+    "pixelIdentical": true,
+    "differenceBounds": null
+  },
+  {
+    "file": "tarot-selection-412x700-2x.png",
+    "pixelIdentical": true,
+    "differenceBounds": null
+  },
+  {
+    "file": "tarot-selection-412x892-1x.png",
+    "pixelIdentical": true,
+    "differenceBounds": null
+  },
+  {
+    "file": "tarot-selection-412x892-2x.png",
+    "pixelIdentical": true,
+    "differenceBounds": null
+  }
+]

@@ -10,11 +10,13 @@ class AtlasLandingLayout extends StatelessWidget {
     required this.secondary,
     required this.primary,
     required this.frame,
+    this.scene = AtlasAtmosphereScene.coffeeHome,
     this.resume,
     this.notice = false,
     this.scrollKey,
     super.key,
   });
+  final AtlasAtmosphereScene scene;
   final Widget content, secondary, primary, frame;
   final Widget? resume;
   final bool notice;
@@ -61,44 +63,46 @@ class AtlasLandingLayout extends StatelessWidget {
                 textDirection: Directionality.of(context),
                 textScaler: MediaQuery.textScalerOf(context),
               )..layout(maxWidth: math.max(1, box.maxWidth - 32));
-              final body = Stack(
-                fit: StackFit.passthrough,
-                children: [
-                  const Positioned.fill(child: AtlasHomeAtmosphere()),
-                  Positioned.fill(child: IgnorePointer(child: frame)),
-                  Padding(
-                    padding: EdgeInsets.fromLTRB(
-                      16,
-                      box.maxHeight < 500 ? 16 : 40,
-                      16,
-                      12,
+              final body = AtlasAtmosphereSurface(
+                scene: scene,
+                child: Stack(
+                  fit: StackFit.passthrough,
+                  children: [
+                    Positioned.fill(child: IgnorePointer(child: frame)),
+                    Padding(
+                      padding: EdgeInsets.fromLTRB(
+                        16,
+                        box.maxHeight < 500 ? 16 : 40,
+                        16,
+                        12,
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          const Spacer(),
+                          content,
+                          const Spacer(),
+                          AtlasActionWidth(child: secondary),
+                          const SizedBox(height: 8),
+                          primary,
+                          const SizedBox(height: 8),
+                          SizedBox(
+                            height: text.height,
+                            child: notice
+                                ? const Text(
+                                    noticeText,
+                                    textAlign: TextAlign.center,
+                                    style: noticeStyle,
+                                  )
+                                : null,
+                          ),
+                        ],
+                      ),
                     ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        const Spacer(),
-                        content,
-                        const Spacer(),
-                        AtlasActionWidth(child: secondary),
-                        const SizedBox(height: 8),
-                        primary,
-                        const SizedBox(height: 8),
-                        SizedBox(
-                          height: text.height,
-                          child: notice
-                              ? const Text(
-                                  noticeText,
-                                  textAlign: TextAlign.center,
-                                  style: noticeStyle,
-                                )
-                              : null,
-                        ),
-                      ],
-                    ),
-                  ),
-                  if (resume != null)
-                    Positioned(top: 8, right: 8, child: resume!),
-                ],
+                    if (resume != null)
+                      Positioned(top: 8, right: 8, child: resume!),
+                  ],
+                ),
               );
               // Intrinsic content, not a fixed viewport threshold, decides
               // whether scrolling is necessary (including short landscapes).

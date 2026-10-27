@@ -1,0 +1,9 @@
+{
+  "changedExistingFiles": [
+    "atlas_contribution_app/test/atlas_atmosphere_preview_test.dart",
+    "atlas_contribution_app/lib/src/atlas_atmosphere.dart",
+    "atlas_contribution_app/test/atlas_atmosphere_test.dart"
+  ],
+  "allOtherSnapshotFilesPreserved": true,
+  "matchesBuiltSource": true
+}

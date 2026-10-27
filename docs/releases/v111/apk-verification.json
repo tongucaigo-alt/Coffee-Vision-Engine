@@ -1,0 +1,15 @@
+{
+  "versionCode": 111,
+  "versionName": "1.0.0-kimi-test.111",
+  "package": "com.coffeeplatform.atlas_contribution_app.diagnostic",
+  "label": "Atlas Fotoğraf Testi V111",
+  "sha256": "7649884e479b6d31499394e2277ecb5cb696020a0cf43ec3e43e409c340c6352",
+  "sameSignerAsV110": true,
+  "certificateSha256": [
+    "3ff99635116fc66d42d08fb57abfbb0dd19fd611ab334803e9b89d37f0cb81ff"
+  ],
+  "unchangedAssets": 126,
+  "unchangedNativeLibraries": 30,
+  "phoneInstalled": true,
+  "githubPublished": false
+}

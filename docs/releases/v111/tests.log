@@ -1,0 +1,59 @@
+00:00 +0: loading C:/Users/exzau/Documents/Codex/2026-10-25/atlas-tarot-effects-v101/atlas_contribution_app/test/atlas_atmosphere_test.dart
+00:00 +0: C:/Users/exzau/Documents/Codex/2026-10-25/atlas-tarot-effects-v101/atlas_contribution_app/test/atlas_atmosphere_test.dart: resume control does not crop or shift the home halo: AtlasAtmosphereScene.coffeeHome
+00:00 +1: C:/Users/exzau/Documents/Codex/2026-10-25/atlas-tarot-effects-v101/atlas_contribution_app/test/atlas_atmosphere_preview_test.dart: atmosphere geometry coffee-home 360.0x700.0/1.0
+00:00 +2: C:/Users/exzau/Documents/Codex/2026-10-25/atlas-tarot-effects-v101/atlas_contribution_app/test/atlas_atmosphere_preview_test.dart: atmosphere geometry coffee-home 360.0x700.0/1.0
+00:00 +3: C:/Users/exzau/Documents/Codex/2026-10-25/atlas-tarot-effects-v101/atlas_contribution_app/test/atlas_atmosphere_preview_test.dart: atmosphere geometry coffee-home 360.0x700.0/1.0
+00:00 +4: C:/Users/exzau/Documents/Codex/2026-10-25/atlas-tarot-effects-v101/atlas_contribution_app/test/atlas_atmosphere_preview_test.dart: atmosphere geometry coffee-home 360.0x700.0/1.0
+00:00 +5: C:/Users/exzau/Documents/Codex/2026-10-25/atlas-tarot-effects-v101/atlas_contribution_app/test/atlas_atmosphere_preview_test.dart: atmosphere geometry coffee-home 360.0x700.0/1.0
+00:00 +6: C:/Users/exzau/Documents/Codex/2026-10-25/atlas-tarot-effects-v101/atlas_contribution_app/test/atlas_atmosphere_preview_test.dart: atmosphere geometry coffee-home 360.0x700.0/1.0
+00:00 +7: C:/Users/exzau/Documents/Codex/2026-10-25/atlas-tarot-effects-v101/atlas_contribution_app/test/atlas_atmosphere_preview_test.dart: atmosphere geometry coffee-home 360.0x700.0/1.0
+00:00 +8: C:/Users/exzau/Documents/Codex/2026-10-25/atlas-tarot-effects-v101/atlas_contribution_app/test/atlas_atmosphere_preview_test.dart: atmosphere geometry coffee-home 360.0x700.0/1.0
+00:00 +9: C:/Users/exzau/Documents/Codex/2026-10-25/atlas-tarot-effects-v101/atlas_contribution_app/test/atlas_atmosphere_preview_test.dart: atmosphere geometry coffee-home 360.0x700.0/1.0
+00:00 +10: C:/Users/exzau/Documents/Codex/2026-10-25/atlas-tarot-effects-v101/atlas_contribution_app/test/atlas_atmosphere_preview_test.dart: atmosphere geometry coffee-home 360.0x700.0/1.0
+00:00 +11: C:/Users/exzau/Documents/Codex/2026-10-25/atlas-tarot-effects-v101/atlas_contribution_app/test/atlas_atmosphere_preview_test.dart: atmosphere geometry coffee-home 360.0x700.0/1.0
+00:00 +12: C:/Users/exzau/Documents/Codex/2026-10-25/atlas-tarot-effects-v101/atlas_contribution_app/test/atlas_atmosphere_preview_test.dart: atmosphere geometry coffee-home 360.0x700.0/1.0
+00:00 +13: C:/Users/exzau/Documents/Codex/2026-10-25/atlas-tarot-effects-v101/atlas_contribution_app/test/atlas_atmosphere_preview_test.dart: atmosphere geometry coffee-home 360.0x700.0/1.0
+00:01 +14: C:/Users/exzau/Documents/Codex/2026-10-25/atlas-tarot-effects-v101/atlas_contribution_app/test/atlas_atmosphere_preview_test.dart: atmosphere geometry coffee-home 360.0x700.0/1.0
+00:01 +15: C:/Users/exzau/Documents/Codex/2026-10-25/atlas-tarot-effects-v101/atlas_contribution_app/test/home_consistency_test.dart: same home geometry and usable actions 360.0/2.0
+00:02 +16: C:/Users/exzau/Documents/Codex/2026-10-25/atlas-tarot-effects-v101/atlas_contribution_app/test/atlas_atmosphere_preview_test.dart: atmosphere geometry tarot-home 360.0x700.0/1.0
+00:02 +17: C:/Users/exzau/Documents/Codex/2026-10-25/atlas-tarot-effects-v101/atlas_contribution_app/test/atlas_atmosphere_preview_test.dart: atmosphere geometry tarot-home 360.0x700.0/1.0
+00:03 +18: C:/Users/exzau/Documents/Codex/2026-10-25/atlas-tarot-effects-v101/atlas_contribution_app/test/home_consistency_test.dart: same home geometry and usable actions 412.0/2.0
+00:03 +19: C:/Users/exzau/Documents/Codex/2026-10-25/atlas-tarot-effects-v101/atlas_contribution_app/test/atlas_atmosphere_preview_test.dart: atmosphere geometry review 360.0x700.0/1.0
+00:04 +20: C:/Users/exzau/Documents/Codex/2026-10-25/atlas-tarot-effects-v101/atlas_contribution_app/test/home_consistency_test.dart: record tabs keep selection and open existing Tarot detail
+00:05 +21: C:/Users/exzau/Documents/Codex/2026-10-25/atlas-tarot-effects-v101/atlas_contribution_app/test/atlas_atmosphere_preview_test.dart: atmosphere geometry annotation 360.0x700.0/1.0
+00:05 +22: C:/Users/exzau/Documents/Codex/2026-10-25/atlas-tarot-effects-v101/atlas_contribution_app/test/home_consistency_test.dart: empty Tarot records have one shell and privacy moves to settings
+00:06 +23: C:/Users/exzau/Documents/Codex/2026-10-25/atlas-tarot-effects-v101/atlas_contribution_app/test/home_consistency_test.dart: empty Tarot records have one shell and privacy moves to settings
+00:07 +24: C:/Users/exzau/Documents/Codex/2026-10-25/atlas-tarot-effects-v101/atlas_contribution_app/test/atlas_atmosphere_preview_test.dart: atmosphere geometry tarot-selection 360.0x700.0/1.0
+00:07 +25: C:/Users/exzau/Documents/Codex/2026-10-25/atlas-tarot-effects-v101/atlas_contribution_app/test/home_consistency_test.dart: embedded Tarot history preserves unreadable data and retries
+00:08 +26: C:/Users/exzau/Documents/Codex/2026-10-25/atlas-tarot-effects-v101/atlas_contribution_app/test/atlas_atmosphere_preview_test.dart: atmosphere geometry coffee-home 360.0x700.0/2.0
+00:08 +27: C:/Users/exzau/Documents/Codex/2026-10-25/atlas-tarot-effects-v101/atlas_contribution_app/test/atlas_atmosphere_preview_test.dart: atmosphere geometry tarot-home 360.0x700.0/2.0
+00:09 +28: C:/Users/exzau/Documents/Codex/2026-10-25/atlas-tarot-effects-v101/atlas_contribution_app/test/atlas_atmosphere_preview_test.dart: atmosphere geometry review 360.0x700.0/2.0
+00:11 +29: C:/Users/exzau/Documents/Codex/2026-10-25/atlas-tarot-effects-v101/atlas_contribution_app/test/atlas_atmosphere_preview_test.dart: atmosphere geometry annotation 360.0x700.0/2.0
+00:12 +30: C:/Users/exzau/Documents/Codex/2026-10-25/atlas-tarot-effects-v101/atlas_contribution_app/test/atlas_atmosphere_preview_test.dart: atmosphere geometry preparation 360.0x700.0/2.0
+00:13 +31: C:/Users/exzau/Documents/Codex/2026-10-25/atlas-tarot-effects-v101/atlas_contribution_app/test/atlas_atmosphere_preview_test.dart: atmosphere geometry tarot-selection 360.0x700.0/2.0
+00:14 +32: C:/Users/exzau/Documents/Codex/2026-10-25/atlas-tarot-effects-v101/atlas_contribution_app/test/atlas_atmosphere_preview_test.dart: atmosphere geometry coffee-home 412.0x700.0/1.0
+00:14 +33: C:/Users/exzau/Documents/Codex/2026-10-25/atlas-tarot-effects-v101/atlas_contribution_app/test/atlas_atmosphere_preview_test.dart: atmosphere geometry tarot-home 412.0x700.0/1.0
+00:16 +34: C:/Users/exzau/Documents/Codex/2026-10-25/atlas-tarot-effects-v101/atlas_contribution_app/test/atlas_atmosphere_preview_test.dart: atmosphere geometry review 412.0x700.0/1.0
+00:17 +35: C:/Users/exzau/Documents/Codex/2026-10-25/atlas-tarot-effects-v101/atlas_contribution_app/test/atlas_atmosphere_preview_test.dart: atmosphere geometry annotation 412.0x700.0/1.0
+00:18 +36: C:/Users/exzau/Documents/Codex/2026-10-25/atlas-tarot-effects-v101/atlas_contribution_app/test/atlas_atmosphere_preview_test.dart: atmosphere geometry preparation 412.0x700.0/1.0
+00:19 +37: C:/Users/exzau/Documents/Codex/2026-10-25/atlas-tarot-effects-v101/atlas_contribution_app/test/atlas_atmosphere_preview_test.dart: atmosphere geometry tarot-selection 412.0x700.0/1.0
+00:20 +38: C:/Users/exzau/Documents/Codex/2026-10-25/atlas-tarot-effects-v101/atlas_contribution_app/test/atlas_atmosphere_preview_test.dart: atmosphere geometry coffee-home 412.0x700.0/2.0
+00:21 +39: C:/Users/exzau/Documents/Codex/2026-10-25/atlas-tarot-effects-v101/atlas_contribution_app/test/atlas_atmosphere_preview_test.dart: atmosphere geometry tarot-home 412.0x700.0/2.0
+00:22 +40: C:/Users/exzau/Documents/Codex/2026-10-25/atlas-tarot-effects-v101/atlas_contribution_app/test/atlas_atmosphere_preview_test.dart: atmosphere geometry review 412.0x700.0/2.0
+00:24 +41: C:/Users/exzau/Documents/Codex/2026-10-25/atlas-tarot-effects-v101/atlas_contribution_app/test/atlas_atmosphere_preview_test.dart: atmosphere geometry annotation 412.0x700.0/2.0
+00:25 +42: C:/Users/exzau/Documents/Codex/2026-10-25/atlas-tarot-effects-v101/atlas_contribution_app/test/atlas_atmosphere_preview_test.dart: atmosphere geometry preparation 412.0x700.0/2.0
+00:26 +43: C:/Users/exzau/Documents/Codex/2026-10-25/atlas-tarot-effects-v101/atlas_contribution_app/test/atlas_atmosphere_preview_test.dart: atmosphere geometry tarot-selection 412.0x700.0/2.0
+00:26 +44: C:/Users/exzau/Documents/Codex/2026-10-25/atlas-tarot-effects-v101/atlas_contribution_app/test/atlas_atmosphere_preview_test.dart: atmosphere geometry coffee-home 412.0x892.0/1.0
+00:27 +45: C:/Users/exzau/Documents/Codex/2026-10-25/atlas-tarot-effects-v101/atlas_contribution_app/test/atlas_atmosphere_preview_test.dart: atmosphere geometry tarot-home 412.0x892.0/1.0
+00:29 +46: C:/Users/exzau/Documents/Codex/2026-10-25/atlas-tarot-effects-v101/atlas_contribution_app/test/atlas_atmosphere_preview_test.dart: atmosphere geometry review 412.0x892.0/1.0
+00:30 +47: C:/Users/exzau/Documents/Codex/2026-10-25/atlas-tarot-effects-v101/atlas_contribution_app/test/atlas_atmosphere_preview_test.dart: atmosphere geometry annotation 412.0x892.0/1.0
+00:31 +48: C:/Users/exzau/Documents/Codex/2026-10-25/atlas-tarot-effects-v101/atlas_contribution_app/test/atlas_atmosphere_preview_test.dart: atmosphere geometry preparation 412.0x892.0/1.0
+00:32 +49: C:/Users/exzau/Documents/Codex/2026-10-25/atlas-tarot-effects-v101/atlas_contribution_app/test/atlas_atmosphere_preview_test.dart: atmosphere geometry tarot-selection 412.0x892.0/1.0
+00:33 +50: C:/Users/exzau/Documents/Codex/2026-10-25/atlas-tarot-effects-v101/atlas_contribution_app/test/atlas_atmosphere_preview_test.dart: atmosphere geometry coffee-home 412.0x892.0/2.0
+00:34 +51: C:/Users/exzau/Documents/Codex/2026-10-25/atlas-tarot-effects-v101/atlas_contribution_app/test/atlas_atmosphere_preview_test.dart: atmosphere geometry tarot-home 412.0x892.0/2.0
+00:35 +52: C:/Users/exzau/Documents/Codex/2026-10-25/atlas-tarot-effects-v101/atlas_contribution_app/test/atlas_atmosphere_preview_test.dart: atmosphere geometry review 412.0x892.0/2.0
+00:37 +53: C:/Users/exzau/Documents/Codex/2026-10-25/atlas-tarot-effects-v101/atlas_contribution_app/test/atlas_atmosphere_preview_test.dart: atmosphere geometry annotation 412.0x892.0/2.0
+00:38 +54: C:/Users/exzau/Documents/Codex/2026-10-25/atlas-tarot-effects-v101/atlas_contribution_app/test/atlas_atmosphere_preview_test.dart: atmosphere geometry preparation 412.0x892.0/2.0
+00:38 +55: C:/Users/exzau/Documents/Codex/2026-10-25/atlas-tarot-effects-v101/atlas_contribution_app/test/atlas_atmosphere_preview_test.dart: atmosphere geometry tarot-selection 412.0x892.0/2.0
+00:39 +56: C:/Users/exzau/Documents/Codex/2026-10-25/atlas-tarot-effects-v101/atlas_contribution_app/test/atlas_atmosphere_preview_test.dart: (tearDownAll)
+00:39 +56: All tests passed!
