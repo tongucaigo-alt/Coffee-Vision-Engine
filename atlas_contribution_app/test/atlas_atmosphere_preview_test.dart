@@ -1,12 +1,12 @@
 import 'dart:convert';
 import 'dart:io';
-import 'dart:math' as math;
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:atlas_contribution_app/src/atlas_design.dart';
+import 'package:atlas_contribution_app/src/atlas_landing_layout.dart';
 import 'package:atlas_contribution_app/src/atlas_atmosphere.dart';
 import 'package:atlas_contribution_app/src/annotation_page.dart';
 import 'package:atlas_contribution_app/src/contribution_home.dart';
@@ -29,6 +29,7 @@ void main() {
   setUpAll(() async {
     for (final item in {
       'Literata': 'assets/brand/Literata.ttf',
+      'EB Garamond': 'assets/brand/EBGaramond.ttf',
       'Plus Jakarta Sans': 'assets/brand/PlusJakartaSans.ttf',
       'MaterialIcons': 'fonts/MaterialIcons-Regular.otf',
     }.entries) {
@@ -55,7 +56,14 @@ void main() {
     add('header', find.byType(AppBar));
     add('photo', find.byKey(const ValueKey('coffee-photo-frame')));
     add('home-title', find.byKey(const ValueKey('atlas-landing-title')));
-    add('home-hero', find.byKey(const ValueKey('atlas-landing-hero-slot')));
+    add(
+      'home-primary-artwork',
+      find.byKey(const ValueKey('atlas-primary-image')),
+    );
+    add(
+      'home-secondary-artwork',
+      find.byKey(const ValueKey('atlas-secondary-image')),
+    );
     add('navigation', find.byType(NavigationBar));
     add('loading-cup', find.byKey(const ValueKey('fortune-coffee-loading')));
     add('tarot-deck', find.byKey(const ValueKey('tarot-selection-deck')));
@@ -263,7 +271,7 @@ void main() {
             if (scene == 'tarot-home') {
               expect(
                 t
-                    .widget<FilledButton>(
+                    .widget<AtlasLandingImageButton>(
                       find.byKey(const ValueKey('tarot-start-three')),
                     )
                     .onPressed,
@@ -299,11 +307,7 @@ void main() {
                       find.byType(AtlasHomeAtmosphere).first,
                     )
                     .geometry;
-                final halo = atlasHomeHaloBounds(g)!;
                 final art = g.artwork!;
-                final y =
-                    (g.hero!.center.dy - halo.center.dy) / (halo.height / 2);
-                final creamHalfWidth = halo.width / 2 * math.sqrt(.25 - y * y);
                 List<double> rect(Rect r) => [r.left, r.top, r.width, r.height];
                 await t.runAsync(() async {
                   final file = File('$output/halo-metrics/$name.json');
@@ -313,10 +317,7 @@ void main() {
                       'hero': rect(g.hero!),
                       'artwork': rect(art),
                       'artworkHalfWidthAtMiddle': g.artworkHalfWidth,
-                      'halo': rect(halo),
-                      'creamGapAtMiddle': creamHalfWidth - g.artworkHalfWidth!,
-                      'topFadeBeyondArtwork': art.top - halo.top,
-                      'bottomFadeBeyondArtwork': halo.bottom - art.bottom,
+                      'halo': null,
                     }),
                   );
                 });

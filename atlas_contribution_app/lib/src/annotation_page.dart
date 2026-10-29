@@ -126,6 +126,13 @@ class _AnnotationPageState extends State<AnnotationPage> {
     _blocked = true;
   }
 
+  void _clearSelection() {
+    _highlightTimer?.cancel();
+    _highlight = false;
+    _editingId = null;
+    _box = null;
+  }
+
   void _pointerDown(PointerDownEvent event) {
     if (_saving || _viewport.isEmpty) return;
     setState(() {
@@ -279,6 +286,12 @@ class _AnnotationPageState extends State<AnnotationPage> {
           _box != null) {
         final moved = (event.localPosition - _downPoint).distance > kTouchSlop;
         saveMove = moved && (_action == -1 || _action >= 0);
+        if (!moved &&
+            _markMode &&
+            _action == -1 &&
+            _editingId == _beforeEditingId) {
+          _clearSelection();
+        }
       }
       _pointers.remove(event.pointer);
       if (_pointers.length >= 2 && !_blocked) _rebasePinch();
@@ -989,8 +1002,12 @@ class _AnnotationPageState extends State<AnnotationPage> {
                           selected: _editingId == region.id,
                           onSelected: _saving
                               ? null
-                              : (_) => setState(() {
+                              : (isSelected) => setState(() {
                                   _abortGesture();
+                                  if (!isSelected) {
+                                    _clearSelection();
+                                    return;
+                                  }
                                   _editingId = region.id;
                                   _box = _displayCrop.toDisplayBox(region.box);
                                   _markMode = true;

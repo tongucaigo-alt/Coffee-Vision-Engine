@@ -3,7 +3,7 @@ import 'atlas_design.dart';
 import 'atlas_atmosphere.dart';
 export 'atlas_atmosphere.dart';
 
-/// Identifies the unchanged hero; its halo is drawn once by the scene layer.
+/// Identifies artwork used to anchor the scene's subtle decorative accents.
 class AtlasHomeHalo extends StatelessWidget {
   const AtlasHomeHalo({required this.child, super.key});
   final Widget child;
@@ -22,7 +22,7 @@ class AtlasHomeFramePainter extends CustomPainter {
     final bounds = Offset.zero & size;
     final readingArea = Rect.fromLTRB(
       20,
-      16,
+      22,
       size.width - 20,
       size.height - 16,
     );
@@ -81,7 +81,7 @@ class AtlasHomeFramePainter extends CustomPainter {
       );
       for (final right in [false, true]) {
         canvas.save();
-        canvas.translate(center, 8);
+        canvas.translate(center, bottom ? 8 : 12);
         canvas.scale(right ? 1 : -1, 1);
         canvas.drawPath(
           Path()

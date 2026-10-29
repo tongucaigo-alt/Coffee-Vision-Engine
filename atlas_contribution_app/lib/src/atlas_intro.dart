@@ -2,10 +2,12 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
-import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:video_player/video_player.dart';
+import 'atlas_intro_composition.dart';
+
+const atlasIntroBackground = Color(0xff201611);
 
 class AtlasIntroPreferences {
   AtlasIntroPreferences(this.directory);
@@ -137,9 +139,14 @@ class AtlasIntroController extends ChangeNotifier with WidgetsBindingObserver {
   Timer? _timeout, _gainTimer, _exitTimer;
   Duration _start = Duration.zero;
   double _gain = 0, _exitGain = 0;
+  Future<void>? _visualReady;
+  void attachVisualReady(Future<void> ready) {
+    if (!_started) _visualReady = ready;
+  }
+
   int _exitTicks = 0;
   void start({required bool reducedMotion}) {
-    if (_started || _disposed || !visible) return;
+    if (_started || _disposed || closing || !visible) return;
     _started = true;
     if (reducedMotion) {
       staticFrame = true;
@@ -163,7 +170,6 @@ class AtlasIntroController extends ChangeNotifier with WidgetsBindingObserver {
       _start = Duration.zero;
       await media.seek(_start);
       if (_disposed || closing || !visible) return;
-      _timeout?.cancel();
       ready = true;
       notifyListeners();
       _gainTimer = Timer.periodic(
@@ -172,7 +178,9 @@ class AtlasIntroController extends ChangeNotifier with WidgetsBindingObserver {
       );
       // Attach the texture and first-frame poster before starting the timeline.
       await WidgetsBinding.instance.endOfFrame;
+      await _visualReady;
       if (_disposed || closing || !visible) return;
+      _timeout?.cancel();
       await media.play();
     } catch (_) {
       if (!_disposed) finish(markSeen: false);
@@ -283,16 +291,34 @@ class AtlasIntroController extends ChangeNotifier with WidgetsBindingObserver {
 }
 
 class AtlasIntroView extends StatefulWidget {
-  const AtlasIntroView({required this.controller, super.key});
+  const AtlasIntroView({
+    required this.controller,
+    this.poster = const AssetImage('assets/intro/atlas-welcome-first.jpg'),
+    this.waitForFirstFrame,
+    super.key,
+  });
   final AtlasIntroController controller;
+  final ImageProvider poster;
+
+  /// Injected by render tests; devices use the engine's first rasterized frame.
+  final Future<void> Function()? waitForFirstFrame;
   @override
   State<AtlasIntroView> createState() => _AtlasIntroViewState();
 }
 
-class _AtlasIntroViewState extends State<AtlasIntroView> {
+class _AtlasIntroViewState extends State<AtlasIntroView>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _reveal;
+  final _visualReady = Completer<void>();
+  bool _preparing = false;
   @override
   void initState() {
     super.initState();
+    _reveal = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1000),
+    );
+    widget.controller.attachVisualReady(_visualReady.future);
     unawaited(
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky),
     );
@@ -302,13 +328,45 @@ class _AtlasIntroViewState extends State<AtlasIntroView> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     final reduced = MediaQuery.disableAnimationsOf(context);
+    if (!_preparing) {
+      _preparing = true;
+      unawaited(_prepareReveal(reduced));
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) widget.controller.start(reducedMotion: reduced);
     });
   }
 
+  Future<void> _prepareReveal(bool reduced) async {
+    var failed = false;
+    await precacheImage(
+      widget.poster,
+      context,
+      onError: (Object _, StackTrace? _) => failed = true,
+    );
+    if (!mounted) return;
+    if (failed) {
+      widget.controller.finish(markSeen: false);
+      return;
+    }
+    await (widget.waitForFirstFrame?.call() ??
+        WidgetsBinding.instance.waitUntilFirstFrameRasterized);
+    if (!mounted || widget.controller.closing || !widget.controller.visible) {
+      return;
+    }
+    // Start from the first *visible* frame, not from asset decoding or build.
+    if (reduced) {
+      _reveal.value = 1;
+    } else {
+      _reveal.forward();
+    }
+    if (!_visualReady.isCompleted) _visualReady.complete();
+  }
+
   @override
   void dispose() {
+    _reveal.dispose();
+    if (!_visualReady.isCompleted) _visualReady.complete();
     unawaited(SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge));
     super.dispose();
   }
@@ -325,10 +383,10 @@ class _AtlasIntroViewState extends State<AtlasIntroView> {
                 key: posterKey,
                 opacity: flow.playbackFrame ? 0 : 1,
                 duration: const Duration(milliseconds: 180),
-                child: Image.asset(
-                  flow.staticFrame
-                      ? 'assets/intro/atlas-welcome-still.jpg'
-                      : 'assets/intro/atlas-welcome-first.jpg',
+                child: Image(
+                  image: flow.staticFrame
+                      ? const AssetImage('assets/intro/atlas-welcome-still.jpg')
+                      : widget.poster,
                   fit: BoxFit.contain,
                 ),
               ),
@@ -355,70 +413,21 @@ class _AtlasIntroViewState extends State<AtlasIntroView> {
             excludeFromSemantics: true,
             onTap: dismiss,
             child: ColoredBox(
-              color: const Color(0xFFEEDDBB),
-              child: TweenAnimationBuilder<double>(
-                tween: Tween(begin: 0, end: 1),
-                duration: MediaQuery.disableAnimationsOf(context)
-                    ? Duration.zero
-                    : const Duration(milliseconds: 450),
-                curve: Curves.easeOutCubic,
-                builder: (context, opacity, child) => Opacity(
+              color: atlasIntroBackground,
+              child: AnimatedBuilder(
+                animation: _reveal,
+                builder: (context, child) => Opacity(
                   key: const ValueKey('atlas-intro-reveal'),
-                  opacity: opacity,
+                  opacity: MediaQuery.disableAnimationsOf(context)
+                      ? 1
+                      : Curves.easeInOutCubic.transform(_reveal.value),
                   child: child,
                 ),
-                child: ClipRect(
-                  key: const ValueKey('atlas-intro-viewport'),
-                  child: SizedBox.expand(
-                    child: Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        ExcludeSemantics(
-                          child: ImageFiltered(
-                            imageFilter: ui.ImageFilter.blur(
-                              sigmaX: 24,
-                              sigmaY: 24,
-                              tileMode: TileMode.clamp,
-                            ),
-                            child: FittedBox(
-                              fit: BoxFit.cover,
-                              child: SizedBox(
-                                width: 720,
-                                height: 1280,
-                                child: _frame(flow),
-                              ),
-                            ),
-                          ),
-                        ),
-                        FittedBox(
-                          key: const ValueKey('atlas-intro-content'),
-                          fit: BoxFit.contain,
-                          alignment: Alignment.center,
-                          child: SizedBox(
-                            width: 720,
-                            height: 1280,
-                            child: ShaderMask(
-                              blendMode: BlendMode.dstIn,
-                              shaderCallback: (bounds) => const LinearGradient(
-                                begin: Alignment.topCenter,
-                                end: Alignment.bottomCenter,
-                                colors: [
-                                  Colors.transparent,
-                                  Colors.white,
-                                  Colors.white,
-                                  Colors.transparent,
-                                ],
-                                stops: [0, .035, .965, 1],
-                              ).createShader(bounds),
-                              child: _frame(
-                                flow,
-                                posterKey: const ValueKey('atlas-intro-poster'),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
+                child: AtlasIntroComposition(
+                  frame: () => _frame(flow),
+                  mainFrame: _frame(
+                    flow,
+                    posterKey: const ValueKey('atlas-intro-poster'),
                   ),
                 ),
               ),

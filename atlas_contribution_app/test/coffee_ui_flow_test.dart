@@ -1,3 +1,4 @@
+import 'home_action_finder.dart';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -293,8 +294,8 @@ void main({
             );
             await tester.pumpAndSettle();
             expect(tester.takeException(), isNull);
-            await tester.ensureVisible(find.text('Fincanını Tara'));
-            expect(find.text('Fincanını Tara').hitTestable(), findsOneWidget);
+            await tester.ensureVisible(homeAction('Fincanını Tara'));
+            expect(homeAction('Fincanını Tara').hitTestable(), findsOneWidget);
             await tester.ensureVisible(
               find.byTooltip('Kaldığın Yerden Devam Et'),
             );

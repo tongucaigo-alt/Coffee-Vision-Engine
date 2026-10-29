@@ -1,3 +1,4 @@
+import 'home_action_finder.dart';
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
@@ -141,7 +142,8 @@ void main({Future<void> Function(String)? capture, bool device = false}) {
                   ? null
                   : setDraft(gallery: source == 'gallery'),
             );
-            await tester.tap(find.text('Galeriden Seç'));
+            await tester.ensureVisible(homeAction('Galeriden Seç'));
+            await tester.tap(homeAction('Galeriden Seç'));
             await _drain(tester);
             expect(picker.calls, 1);
             expect(store.draft!.isGallery, true);
@@ -243,12 +245,12 @@ void main({Future<void> Function(String)? capture, bool device = false}) {
         await importedRoot.delete(recursive: true);
       });
       await mount(tester, draft: old, responses: [setImage(1)]);
-      await tester.tap(find.text('Galeriden Seç'));
+      await tester.tap(homeAction('Galeriden Seç'));
       await tester.pumpAndSettle();
       expect(find.text('Yarım kalan çalışman var'), findsOneWidget);
       // Re-entering the same callback while the choice is open must not stack dialogs.
       final action = tester
-          .widget<TextButton>(find.widgetWithText(TextButton, 'Galeriden Seç'))
+          .widget<TextButton>(homeAction('Galeriden Seç'))
           .onPressed!;
       action();
       await tester.pump();
@@ -280,7 +282,7 @@ void main({Future<void> Function(String)? capture, bool device = false}) {
   ) async {
     final old = setDraft().copy(queued: true);
     await mount(tester, draft: old);
-    await tester.tap(find.text('Galeriden Seç'));
+    await tester.tap(homeAction('Galeriden Seç'));
     await _drain(tester);
     expect(picker.calls, 0);
     expect(store.draft!.toJson(), old.toJson());
@@ -302,7 +304,7 @@ void main({Future<void> Function(String)? capture, bool device = false}) {
           setImage(1),
         ],
       );
-      await tester.tap(find.text('Galeriden Seç'));
+      await tester.tap(homeAction('Galeriden Seç'));
       await _drain(tester);
       expect(find.text('Yeniden dene').hitTestable(), findsOneWidget);
       expect(store.draft!.photos, isEmpty);
@@ -326,7 +328,7 @@ void main({Future<void> Function(String)? capture, bool device = false}) {
     final result = Completer<Uint8List?>();
     await mount(tester, responses: [result]);
     final start = tester
-        .widget<TextButton>(find.widgetWithText(TextButton, 'Galeriden Seç'))
+        .widget<TextButton>(homeAction('Galeriden Seç'))
         .onPressed!;
     await tester.runAsync(() async {
       start();
@@ -356,7 +358,7 @@ void main({Future<void> Function(String)? capture, bool device = false}) {
         scale: scale,
         responses: [const GallerySelectionLimit(message), setImage(1)],
       );
-      await tester.tap(find.text('Galeriden Seç'));
+      await tester.tap(homeAction('Galeriden Seç'));
       await _drain(tester);
       expect(store.draft!.photos, isEmpty);
       expect(find.text(message), findsOneWidget);

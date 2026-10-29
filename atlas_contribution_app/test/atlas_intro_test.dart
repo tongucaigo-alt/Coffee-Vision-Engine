@@ -6,6 +6,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:atlas_contribution_app/src/atlas_intro.dart';
+import 'package:atlas_contribution_app/src/atlas_intro_composition.dart';
 import 'package:atlas_contribution_app/src/atlas_design.dart';
 import 'package:atlas_contribution_app/src/atlas_home_atmosphere.dart';
 
@@ -114,6 +115,15 @@ void main() {
     }
   });
   Future<void> flush(WidgetTester t) async {
+    final views = find.byType(AtlasIntroView).evaluate();
+    if (views.isNotEmpty) {
+      await t.runAsync(
+        () => precacheImage(
+          const AssetImage('assets/intro/atlas-welcome-first.jpg'),
+          views.first,
+        ),
+      );
+    }
     for (var i = 0; i < 5; i++) {
       await t.pump();
     }
@@ -131,7 +141,12 @@ void main() {
         );
         await t.pumpWidget(
           MaterialApp(
-            home: Scaffold(body: AtlasIntroView(controller: flow)),
+            home: Scaffold(
+              body: AtlasIntroView(
+                controller: flow,
+                waitForFirstFrame: () async {},
+              ),
+            ),
           ),
         );
         await flush(t);
@@ -174,7 +189,12 @@ void main() {
       if (mode == 'reduced') flow.start(reducedMotion: true);
       await t.pumpWidget(
         MaterialApp(
-          home: Scaffold(body: AtlasIntroView(controller: flow)),
+          home: Scaffold(
+            body: AtlasIntroView(
+              controller: flow,
+              waitForFirstFrame: () async {},
+            ),
+          ),
         ),
       );
       await flush(t);
@@ -218,7 +238,12 @@ void main() {
       );
       await t.pumpWidget(
         MaterialApp(
-          home: Scaffold(body: AtlasIntroView(controller: flow)),
+          home: Scaffold(
+            body: AtlasIntroView(
+              controller: flow,
+              waitForFirstFrame: () async {},
+            ),
+          ),
         ),
       );
       expect(
@@ -227,6 +252,7 @@ void main() {
             .opacity,
         0,
       );
+      await flush(t);
       await t.pump(const Duration(milliseconds: 150));
       final reveal = t
           .widget<Opacity>(find.byKey(const ValueKey('atlas-intro-reveal')))
@@ -245,7 +271,7 @@ void main() {
       media.onPlay = () {
         expect(
           find.byKey(const ValueKey('fake-intro-video')),
-          findsNWidgets(2),
+          findsAtLeastNWidgets(2),
         );
         expect(
           find.byKey(const ValueKey('atlas-intro-poster')),
@@ -277,7 +303,7 @@ void main() {
             .opacity,
         0,
       );
-      await t.pump(const Duration(milliseconds: 450));
+      await t.pump(const Duration(milliseconds: 1000));
       expect(
         t
             .widget<Opacity>(find.byKey(const ValueKey('atlas-intro-reveal')))
@@ -321,7 +347,10 @@ void main() {
                 child: Scaffold(
                   body: RepaintBoundary(
                     key: key,
-                    child: AtlasIntroView(controller: flow),
+                    child: AtlasIntroView(
+                      controller: flow,
+                      waitForFirstFrame: () async {},
+                    ),
                   ),
                 ),
               ),
@@ -334,27 +363,15 @@ void main() {
           expect(t.getRect(viewport), Offset.zero & size);
           expect(find.byType(TextButton), findsNothing);
           expect(find.byType(Text), findsNothing);
-          final fit = t.widget<FittedBox>(
-            find.byKey(const ValueKey('atlas-intro-content')),
-          );
-          expect(fit.fit, BoxFit.contain);
           final content = t.getRect(
             find.byKey(const ValueKey('atlas-intro-content')),
           );
-          final source = t.getRect(
-            find
-                .descendant(
-                  of: find.byKey(const ValueKey('atlas-intro-content')),
-                  matching: find.byType(SizedBox),
-                )
-                .first,
-          );
-          expect(source.left, greaterThanOrEqualTo(-.01));
-          expect(source.top, greaterThanOrEqualTo(-.01));
-          expect(source.right, lessThanOrEqualTo(size.width + .01));
-          expect(source.bottom, lessThanOrEqualTo(size.height + .01));
-          expect(source.width / source.height, closeTo(720 / 1280, .001));
-          expect(content, Offset.zero & size);
+          expect(content, AtlasIntroComposition.contentRect(size));
+          expect(content.left, greaterThanOrEqualTo(-.01));
+          expect(content.top, greaterThanOrEqualTo(-.01));
+          expect(content.right, lessThanOrEqualTo(size.width + .01));
+          expect(content.bottom, lessThanOrEqualTo(size.height + .01));
+          expect(content.width / content.height, closeTo(720 / 1280, .001));
           expect(t.takeException(), isNull);
           final out = Platform.environment['ATLAS_V97_CAPTURE'];
           if (out != null) {
@@ -433,7 +450,10 @@ void main() {
           home: Scaffold(
             body: RepaintBoundary(
               key: key,
-              child: AtlasIntroView(controller: flow),
+              child: AtlasIntroView(
+                controller: flow,
+                waitForFirstFrame: () async {},
+              ),
             ),
           ),
         ),
@@ -476,7 +496,7 @@ void main() {
       );
       await t.pumpAndSettle();
       await t.pump(const Duration(seconds: 4));
-      await t.pump(const Duration(milliseconds: 500));
+      await t.pump(const Duration(milliseconds: 1000));
       navigator.currentState!.push(
         MaterialPageRoute<void>(
           builder: (_) => const Scaffold(body: Text('another page')),

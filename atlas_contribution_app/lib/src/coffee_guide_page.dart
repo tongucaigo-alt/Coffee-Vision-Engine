@@ -2,6 +2,8 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'atlas_design.dart';
 import 'label_picker.dart';
+import 'guide_additional_pages.dart';
+import 'guide_camera_scan.dart';
 
 const _cupAsset = 'assets/guide/example-cup.png';
 const _titles = [
@@ -12,6 +14,11 @@ const _titles = [
   'Fotoğrafı taşı',
   'Şekli seç',
   'Kutuyu düzelt',
+  'Bilgilerim',
+  'Kaldığın yerden devam et',
+  'Kayıtlarını bul',
+  'Tarot’u keşfet',
+  'Yardım ve bildirim',
   'Devam et',
 ];
 const _messages = [
@@ -22,8 +29,17 @@ const _messages = [
   'Fotoğrafı kaydırmak için Taşı’yı seç.',
   'Gördüğün yere dokun, benzettiğin şekli seç.',
   'Kutuyu şekle göre düzelt.',
+  'Bilgilerim’i istersen doldur, istersen boş bırak.',
+  '▶ ile yarım kalan kahvene veya Tarot açılımına dön.',
+  'Kayıtlarım’dan kahve ve Tarot geçmişine ulaş.',
+  'Günün Kartı veya Üç Kart ile kartlarını kendin seç.',
+  'Gizlilik, destek ve bildirim seçeneklerini Ayarlar’da bul.',
   'İşaretlemeden de fal oluşturabilirsin.',
 ];
+
+// Preserve the original demonstrations while extending the guide's contents.
+const _illustrations = [0, 1, 2, 3, 4, 5, 6, 8, 9, 10, 11, 12, 7];
+final int coffeeGuideCardCount = _titles.length;
 
 /// A demonstration only: no camera, annotation, AI or consent callbacks.
 class CoffeeGuidePage extends StatefulWidget {
@@ -61,7 +77,7 @@ class _CoffeeGuidePageState extends State<CoffeeGuidePage> {
 
   Future<void> _next() async {
     if (_finishing) return;
-    if (_index < 7) {
+    if (_index < coffeeGuideCardCount - 1) {
       _go(_index + 1);
       return;
     }
@@ -197,7 +213,7 @@ class _CoffeeGuidePageState extends State<CoffeeGuidePage> {
                               const SizedBox(height: 20),
                               _GuideIllustration(
                                 key: ValueKey(_index),
-                                index: _index,
+                                index: _illustrations[_index],
                               ),
                             ],
                           ),
@@ -217,12 +233,12 @@ class _CoffeeGuidePageState extends State<CoffeeGuidePage> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Semantics(
-                        label: 'Rehber, ${_index + 1} / 8',
+                        label: 'Rehber, ${_index + 1} / $coffeeGuideCardCount',
                         excludeSemantics: true,
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            for (var i = 0; i < 8; i++)
+                            for (var i = 0; i < coffeeGuideCardCount; i++)
                               Container(
                                 width: 8,
                                 height: 8,
@@ -243,7 +259,8 @@ class _CoffeeGuidePageState extends State<CoffeeGuidePage> {
                           ],
                         ),
                       ),
-                      if (_index == 7 && widget.allowSuppression)
+                      if (_index == coffeeGuideCardCount - 1 &&
+                          widget.allowSuppression)
                         CheckboxListTile(
                           key: const ValueKey('guide-dont-show-again'),
                           contentPadding: EdgeInsets.zero,
@@ -272,7 +289,9 @@ class _CoffeeGuidePageState extends State<CoffeeGuidePage> {
                               key: const ValueKey('guide-next'),
                               onPressed: _finishing ? null : _next,
                               child: Text(
-                                _index == 7 ? 'Başlayalım' : 'İleri',
+                                _index == coffeeGuideCardCount - 1
+                                    ? 'Başlayalım'
+                                    : 'İleri',
                                 textAlign: TextAlign.center,
                               ),
                             ),
@@ -365,7 +384,9 @@ class _GuideIllustrationState extends State<_GuideIllustration>
       final progress = _reduced ? .5 : _animation.value;
       return Column(
         children: [
-          if (widget.index == 0) ...[
+          if (widget.index >= 8) ...[
+            GuideAdditionalPage(kind: widget.index),
+          ] else if (widget.index == 0) ...[
             _wrap([
               _sample('Fincanını Tara', Icons.camera_alt_outlined),
               _sample('Galeriden Seç', Icons.photo_library_outlined),
@@ -382,6 +403,8 @@ class _GuideIllustrationState extends State<_GuideIllustration>
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 13, height: 1.5, color: atlasSageInk),
             ),
+            const SizedBox(height: 12),
+            _sample('Açılış videosu · Dokunarak geç', Icons.touch_app_outlined),
           ] else if (widget.index == 2) ...[
             _wrap([
               _sample('Kapalı', Icons.flash_off),
@@ -422,7 +445,7 @@ class _GuideIllustrationState extends State<_GuideIllustration>
             ),
             const SizedBox(height: 16),
             _wrap([
-              _sample('Ana Sayfa', Icons.home_outlined),
+              _sample('Kahve', Icons.home_outlined),
               _sample('Kayıtlarım', Icons.history),
               _sample('Ayarlar', Icons.settings_outlined),
             ]),
@@ -457,6 +480,22 @@ class _GuideIllustrationState extends State<_GuideIllustration>
               ),
             ),
             if (widget.index == 1) ...[
+              const SizedBox(height: 12),
+              const Text(
+                'Yeşil noktalar telve taramasını gösterir.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: atlasSageInk,
+                  height: 1.5,
+                ),
+              ),
+              const SizedBox(height: 6),
+              const Text(
+                'Sembol sonucu veya çekim onayı değildir; kamera yönlendirmesini izle.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 12, color: atlasMuted, height: 1.5),
+              ),
               const SizedBox(height: 16),
               _wrap([
                 _sample('Serbest açı', Icons.camera_alt_outlined),
@@ -565,7 +604,7 @@ class _GuideIllustrationState extends State<_GuideIllustration>
     }
     final description = switch (widget.index) {
       1 =>
-        'Örnek fincan: yoğun telve üst sağda. Fincan sabit kalır, kamera yönlendirilir.',
+        'Örnek fincan: yoğun telve üst sağda. Yeşil noktalar telve taramasının görsel yardımıdır; sembol sonucu veya çekim onayı değildir. Fincan sabit kalır, kamera yönlendirilir.',
       3 =>
         'İki parmak birbirinden uzaklaşınca örnek fotoğraf büyür, yaklaşınca küçülür.',
       4 => 'Taşı modunda tek parmak örnek fotoğrafı kaydırır.',
@@ -592,6 +631,12 @@ class _GuideIllustrationState extends State<_GuideIllustration>
                     child: Image.asset(_cupAsset, fit: BoxFit.cover),
                   ),
                 ),
+                if (widget.index == 1)
+                  GuideCameraScan(
+                    progress: t,
+                    playing: _animation.isAnimating,
+                    reducedMotion: _reduced,
+                  ),
                 CustomPaint(
                   painter: _GesturePainter(widget.index, t, _reduced),
                 ),
@@ -752,24 +797,7 @@ class _GesturePainter extends CustomPainter {
     }
 
     if (index == 1) {
-      final rect = Rect.fromLTRB(
-        size.width * .6,
-        size.height * .25,
-        size.width * .78,
-        size.height * .46,
-      );
-      for (final corner in [
-        rect.topLeft,
-        rect.topRight,
-        rect.bottomLeft,
-        rect.bottomRight,
-      ]) {
-        final dx = corner.dx == rect.left ? 1.0 : -1.0;
-        final dy = corner.dy == rect.top ? 1.0 : -1.0;
-        line(corner, corner + Offset(12 * dx, 0));
-        line(corner, corner + Offset(0, 12 * dy));
-      }
-      arrow(point(.88, .13), rect.topRight);
+      arrow(point(.88, .13), point(.76, .25));
       final travel = reduced ? .5 : math.sin(math.pi * t);
       canvas.drawCircle(
         point(.17 + .09 * travel, .2),

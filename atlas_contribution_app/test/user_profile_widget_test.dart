@@ -1,3 +1,4 @@
+import 'home_action_finder.dart';
 import 'dart:io';
 import 'dart:ui' as ui;
 
@@ -260,7 +261,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(find.text('Fincanını Tara'), findsOneWidget);
+      expect(homeAction('Fincanını Tara'), findsOneWidget);
       await tester.runAsync(() async {
         await tester.tap(find.byTooltip('Bilgilerim'));
         await tester.pump();
@@ -277,7 +278,7 @@ void main() {
       );
       await tester.pageBack();
       await tester.pumpAndSettle();
-      expect(find.text('Fincanını Tara'), findsOneWidget);
+      expect(homeAction('Fincanını Tara'), findsOneWidget);
       expect(drafts.draft, isNull);
       expect(aiCalls, 0);
       expect(tester.takeException(), isNull);

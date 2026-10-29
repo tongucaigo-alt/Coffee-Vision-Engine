@@ -1,0 +1,30 @@
+{
+  "title": "Uİ SON karar",
+  "date": "2026-10-30",
+  "branch": "codex/ui-son-karar",
+  "tag": "ui-son-karar-v118",
+  "sourceBase": "2cc33082f03885606cd72ba619de083fc5e2b25f",
+  "uiOnlyCheckpoint": true,
+  "unrelatedAiPromptGatewayWorkPreservedLocally": true,
+  "isolatedSourceTestsPassed": 268,
+  "optionalExportTestSkipped": 1,
+  "flutterAnalyze": "No issues found",
+  "landingConfigurations": 32,
+  "normalAndDoubleTextChecked": true,
+  "resumeVisibilityAndHintVisibilityKeepGeometry": true,
+  "phone": {
+    "versionCode": 118,
+    "sameSignerAsPrevious": true,
+    "filesBackedUp": 576,
+    "identicalImmediatelyAfterInstall": 576,
+    "unexpectedUserFileChangesAfterLaunch": 0,
+    "coffeeTarotRoundTripVerified": true,
+    "fontScalePreserved": 0.9,
+    "densityPreserved": 450,
+    "normalAtlasPackageUnchanged": true,
+    "firstInstallTimePreserved": true,
+    "liveAiRequestTriggered": false
+  },
+  "privateApkUploaded": false,
+  "apkSha256": "39f79182832861c525af9f27058b0291dbdc49c7255037761687e59204e6b75f"
+}

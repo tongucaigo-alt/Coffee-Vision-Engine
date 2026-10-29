@@ -1,35 +1,5 @@
 part of 'tarot_pages.dart';
 
-class _TarotHomeCards extends StatelessWidget {
-  const _TarotHomeCards();
-  @override
-  Widget build(BuildContext context) => SizedBox(
-    height: 152,
-    child: Center(
-      child: SizedBox(
-        width: 164,
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            for (final offset in [-29.0, 29.0])
-              Transform.translate(
-                offset: Offset(offset, 8),
-                child: Transform.rotate(
-                  angle: offset < 0 ? -.18 : .18,
-                  child: const SizedBox(
-                    width: 82,
-                    child: TarotCardView(showFront: false),
-                  ),
-                ),
-              ),
-            const SizedBox(width: 92, child: TarotCardView(showFront: false)),
-          ],
-        ),
-      ),
-    ),
-  );
-}
-
 class _TarotMoodPicker extends StatelessWidget {
   const _TarotMoodPicker({
     required this.mood,

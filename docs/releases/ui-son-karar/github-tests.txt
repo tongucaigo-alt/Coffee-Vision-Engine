@@ -1,0 +1,275 @@
+00:00 +0: loading <isolated-source>/atlas_contribution_app/test/atlas_soft_intro_test.dart
+00:00 +0: <isolated-source>/atlas_contribution_app/test/atlas_soft_intro_test.dart: startup stays dark on entry and preserves the parchment exit fade
+00:00 +1: <isolated-source>/atlas_contribution_app/test/atlas_landing_redesign_test.dart: reference landing Size(360.0, 700.0) text=1.0 resume=false
+00:00 +2: <isolated-source>/atlas_contribution_app/test/atlas_landing_redesign_test.dart: reference landing Size(360.0, 700.0) text=1.0 resume=false
+00:00 +3: <isolated-source>/atlas_contribution_app/test/atlas_landing_redesign_test.dart: reference landing Size(360.0, 700.0) text=1.0 resume=false
+00:00 +4: <isolated-source>/atlas_contribution_app/test/atlas_landing_redesign_test.dart: reference landing Size(360.0, 700.0) text=1.0 resume=false
+00:00 +5: <isolated-source>/atlas_contribution_app/test/atlas_landing_redesign_test.dart: reference landing Size(360.0, 700.0) text=1.0 resume=false
+00:01 +6: <isolated-source>/atlas_contribution_app/test/atlas_landing_redesign_test.dart: reference landing Size(360.0, 700.0) text=1.0 resume=false
+00:01 +7: <isolated-source>/atlas_contribution_app/test/atlas_landing_redesign_test.dart: reference landing Size(360.0, 700.0) text=1.0 resume=false
+00:01 +8: <isolated-source>/atlas_contribution_app/test/atlas_landing_redesign_test.dart: reference landing Size(360.0, 700.0) text=1.0 resume=false
+00:01 +9: <isolated-source>/atlas_contribution_app/test/atlas_landing_redesign_test.dart: reference landing Size(360.0, 700.0) text=1.0 resume=false
+00:01 +10: <isolated-source>/atlas_contribution_app/test/atlas_landing_redesign_test.dart: reference landing Size(360.0, 700.0) text=1.0 resume=false
+00:01 +11: <isolated-source>/atlas_contribution_app/test/atlas_landing_redesign_test.dart: reference landing Size(360.0, 700.0) text=1.0 resume=false
+00:01 +12: <isolated-source>/atlas_contribution_app/test/atlas_landing_redesign_test.dart: reference landing Size(360.0, 700.0) text=1.0 resume=false
+00:01 +13: <isolated-source>/atlas_contribution_app/test/atlas_landing_redesign_test.dart: reference landing Size(360.0, 700.0) text=1.0 resume=false
+00:01 +14: <isolated-source>/atlas_contribution_app/test/atlas_landing_redesign_test.dart: reference landing Size(360.0, 700.0) text=1.0 resume=false
+00:01 +15: <isolated-source>/atlas_contribution_app/test/atlas_landing_redesign_test.dart: reference landing Size(360.0, 700.0) text=1.0 resume=false
+00:01 +16: <isolated-source>/atlas_contribution_app/test/atlas_landing_redesign_test.dart: reference landing Size(360.0, 700.0) text=1.0 resume=false
+00:01 +17: <isolated-source>/atlas_contribution_app/test/atlas_landing_redesign_test.dart: reference landing Size(360.0, 700.0) text=1.0 resume=false
+00:02 +18: <isolated-source>/atlas_contribution_app/test/atlas_landing_redesign_test.dart: reference landing Size(360.0, 700.0) text=1.0 resume=false
+00:02 +19: <isolated-source>/atlas_contribution_app/test/atlas_landing_redesign_test.dart: reference landing Size(360.0, 700.0) text=1.0 resume=false
+00:02 +20: <isolated-source>/atlas_contribution_app/test/atlas_landing_redesign_test.dart: reference landing Size(360.0, 700.0) text=1.0 resume=false
+00:02 +21: <isolated-source>/atlas_contribution_app/test/atlas_landing_redesign_test.dart: reference landing Size(360.0, 700.0) text=1.0 resume=false
+00:02 +22: <isolated-source>/atlas_contribution_app/test/atlas_landing_redesign_test.dart: reference landing Size(360.0, 700.0) text=1.0 resume=false
+00:02 +23: <isolated-source>/atlas_contribution_app/test/atlas_landing_redesign_test.dart: reference landing Size(360.0, 700.0) text=1.0 resume=false
+00:02 +24: <isolated-source>/atlas_contribution_app/test/atlas_landing_redesign_test.dart: reference landing Size(360.0, 700.0) text=1.0 resume=false
+00:02 +25: <isolated-source>/atlas_contribution_app/test/atlas_landing_redesign_test.dart: reference landing Size(360.0, 700.0) text=1.0 resume=false
+00:02 +26: <isolated-source>/atlas_contribution_app/test/atlas_landing_redesign_test.dart: reference landing Size(360.0, 700.0) text=1.0 resume=false
+00:02 +27: <isolated-source>/atlas_contribution_app/test/atlas_landing_redesign_test.dart: reference landing Size(360.0, 700.0) text=1.0 resume=false
+00:02 +28: <isolated-source>/atlas_contribution_app/test/atlas_landing_redesign_test.dart: reference landing Size(360.0, 700.0) text=1.0 resume=false
+00:02 +29: <isolated-source>/atlas_contribution_app/test/atlas_landing_redesign_test.dart: reference landing Size(360.0, 700.0) text=1.0 resume=false
+00:02 +30: <isolated-source>/atlas_contribution_app/test/atlas_landing_redesign_test.dart: reference landing Size(360.0, 700.0) text=1.0 resume=false
+00:02 +31: <isolated-source>/atlas_contribution_app/test/atlas_landing_redesign_test.dart: reference landing Size(360.0, 700.0) text=1.0 resume=false
+00:02 +32: <isolated-source>/atlas_contribution_app/test/atlas_landing_redesign_test.dart: reference landing Size(360.0, 700.0) text=1.0 resume=false
+00:02 +33: <isolated-source>/atlas_contribution_app/test/tarot_widget_test.dart: Atlas exposes four destinations and keeps coffee landing intact
+00:02 +34: <isolated-source>/atlas_contribution_app/test/tarot_widget_test.dart: Atlas exposes four destinations and keeps coffee landing intact
+00:02 +35: <isolated-source>/atlas_contribution_app/test/tarot_widget_test.dart: Atlas exposes four destinations and keeps coffee landing intact
+00:02 +36: <isolated-source>/atlas_contribution_app/test/tarot_widget_test.dart: Atlas exposes four destinations and keeps coffee landing intact
+00:02 +37: <isolated-source>/atlas_contribution_app/test/tarot_widget_test.dart: Atlas exposes four destinations and keeps coffee landing intact
+00:02 +38: <isolated-source>/atlas_contribution_app/test/tarot_widget_test.dart: Atlas exposes four destinations and keeps coffee landing intact
+00:02 +39: <isolated-source>/atlas_contribution_app/test/tarot_widget_test.dart: Atlas exposes four destinations and keeps coffee landing intact
+00:02 +40: <isolated-source>/atlas_contribution_app/test/tarot_widget_test.dart: Atlas exposes four destinations and keeps coffee landing intact
+00:02 +41: <isolated-source>/atlas_contribution_app/test/tarot_widget_test.dart: Atlas exposes four destinations and keeps coffee landing intact
+00:02 +42: <isolated-source>/atlas_contribution_app/test/tarot_widget_test.dart: Atlas exposes four destinations and keeps coffee landing intact
+00:02 +43: <isolated-source>/atlas_contribution_app/test/tarot_widget_test.dart: Atlas exposes four destinations and keeps coffee landing intact
+00:02 +44: <isolated-source>/atlas_contribution_app/test/tarot_widget_test.dart: Atlas exposes four destinations and keeps coffee landing intact
+00:02 +45: <isolated-source>/atlas_contribution_app/test/tarot_widget_test.dart: Atlas exposes four destinations and keeps coffee landing intact
+00:02 +46: <isolated-source>/atlas_contribution_app/test/tarot_widget_test.dart: Atlas exposes four destinations and keeps coffee landing intact
+00:02 +47: <isolated-source>/atlas_contribution_app/test/tarot_widget_test.dart: Atlas exposes four destinations and keeps coffee landing intact
+00:02 +47 ~1: <isolated-source>/atlas_contribution_app/test/tarot_widget_test.dart: Atlas exposes four destinations and keeps coffee landing intact
+00:02 +48 ~1: <isolated-source>/atlas_contribution_app/test/tarot_widget_test.dart: Atlas exposes four destinations and keeps coffee landing intact
+00:03 +49 ~1: <isolated-source>/atlas_contribution_app/test/tarot_widget_test.dart: Atlas exposes four destinations and keeps coffee landing intact
+00:03 +50 ~1: <isolated-source>/atlas_contribution_app/test/tarot_widget_test.dart: Atlas exposes four destinations and keeps coffee landing intact
+00:03 +51 ~1: <isolated-source>/atlas_contribution_app/test/tarot_widget_test.dart: Atlas exposes four destinations and keeps coffee landing intact
+00:03 +52 ~1: <isolated-source>/atlas_contribution_app/test/tarot_widget_test.dart: Atlas exposes four destinations and keeps coffee landing intact
+00:03 +53 ~1: <isolated-source>/atlas_contribution_app/test/tarot_widget_test.dart: Atlas exposes four destinations and keeps coffee landing intact
+00:03 +54 ~1: <isolated-source>/atlas_contribution_app/test/tarot_widget_test.dart: Atlas exposes four destinations and keeps coffee landing intact
+00:03 +55 ~1: <isolated-source>/atlas_contribution_app/test/tarot_widget_test.dart: Atlas exposes four destinations and keeps coffee landing intact
+00:03 +56 ~1: <isolated-source>/atlas_contribution_app/test/tarot_widget_test.dart: Atlas exposes four destinations and keeps coffee landing intact
+00:04 +57 ~1: <isolated-source>/atlas_contribution_app/test/tarot_widget_test.dart: Atlas exposes four destinations and keeps coffee landing intact
+00:04 +58 ~1: <isolated-source>/atlas_contribution_app/test/coffee_gallery_start_test.dart: empty none draft opens gallery, cancellation retries: 360.0 / 1.0
+00:04 +59 ~1: <isolated-source>/atlas_contribution_app/test/coffee_gallery_start_test.dart: empty none draft opens gallery, cancellation retries: 360.0 / 1.0
+00:04 +60 ~1: <isolated-source>/atlas_contribution_app/test/coffee_gallery_start_test.dart: empty none draft opens gallery, cancellation retries: 360.0 / 1.0
+00:04 +61 ~1: <isolated-source>/atlas_contribution_app/test/coffee_gallery_start_test.dart: empty none draft opens gallery, cancellation retries: 360.0 / 1.0
+00:04 +62 ~1: <isolated-source>/atlas_contribution_app/test/coffee_gallery_start_test.dart: empty none draft opens gallery, cancellation retries: 360.0 / 1.0
+00:04 +63 ~1: <isolated-source>/atlas_contribution_app/test/coffee_gallery_start_test.dart: empty none draft opens gallery, cancellation retries: 360.0 / 1.0
+00:04 +64 ~1: <isolated-source>/atlas_contribution_app/test/coffee_gallery_start_test.dart: empty none draft opens gallery, cancellation retries: 360.0 / 1.0
+00:04 +65 ~1: <isolated-source>/atlas_contribution_app/test/coffee_gallery_start_test.dart: empty none draft opens gallery, cancellation retries: 360.0 / 1.0
+00:04 +66 ~1: <isolated-source>/atlas_contribution_app/test/coffee_gallery_start_test.dart: empty none draft opens gallery, cancellation retries: 360.0 / 1.0
+00:04 +67 ~1: <isolated-source>/atlas_contribution_app/test/coffee_gallery_start_test.dart: empty none draft opens gallery, cancellation retries: 360.0 / 1.0
+00:04 +68 ~1: <isolated-source>/atlas_contribution_app/test/coffee_gallery_start_test.dart: empty none draft opens gallery, cancellation retries: 360.0 / 1.0
+00:04 +69 ~1: <isolated-source>/atlas_contribution_app/test/coffee_gallery_start_test.dart: empty none draft opens gallery, cancellation retries: 360.0 / 1.0
+00:05 +70 ~1: <isolated-source>/atlas_contribution_app/test/coffee_gallery_start_test.dart: empty none draft opens gallery, cancellation retries: 360.0 / 1.0
+00:05 +71 ~1: <isolated-source>/atlas_contribution_app/test/coffee_gallery_start_test.dart: empty none draft opens gallery, cancellation retries: 360.0 / 1.0
+00:05 +72 ~1: <isolated-source>/atlas_contribution_app/test/coffee_gallery_start_test.dart: empty none draft opens gallery, cancellation retries: 360.0 / 1.0
+00:05 +73 ~1: <isolated-source>/atlas_contribution_app/test/coffee_gallery_start_test.dart: empty none draft opens gallery, cancellation retries: 360.0 / 1.0
+00:05 +74 ~1: <isolated-source>/atlas_contribution_app/test/coffee_gallery_start_test.dart: empty none draft opens gallery, cancellation retries: 360.0 / 1.0
+00:05 +75 ~1: <isolated-source>/atlas_contribution_app/test/coffee_gallery_start_test.dart: empty none draft opens gallery, cancellation retries: 360.0 / 1.0
+00:05 +76 ~1: <isolated-source>/atlas_contribution_app/test/coffee_gallery_start_test.dart: empty none draft opens gallery, cancellation retries: 360.0 / 1.0
+00:05 +77 ~1: <isolated-source>/atlas_contribution_app/test/home_consistency_test.dart: record tabs keep selection and open existing Tarot detail
+00:05 +78 ~1: <isolated-source>/atlas_contribution_app/test/home_consistency_test.dart: record tabs keep selection and open existing Tarot detail
+00:05 +79 ~1: <isolated-source>/atlas_contribution_app/test/home_consistency_test.dart: record tabs keep selection and open existing Tarot detail
+00:06 +80 ~1: <isolated-source>/atlas_contribution_app/test/home_consistency_test.dart: record tabs keep selection and open existing Tarot detail
+00:06 +81 ~1: <isolated-source>/atlas_contribution_app/test/home_consistency_test.dart: record tabs keep selection and open existing Tarot detail
+00:06 +82 ~1: <isolated-source>/atlas_contribution_app/test/home_consistency_test.dart: record tabs keep selection and open existing Tarot detail
+00:06 +83 ~1: <isolated-source>/atlas_contribution_app/test/home_consistency_test.dart: record tabs keep selection and open existing Tarot detail
+00:06 +84 ~1: <isolated-source>/atlas_contribution_app/test/home_consistency_test.dart: record tabs keep selection and open existing Tarot detail
+00:06 +85 ~1: <isolated-source>/atlas_contribution_app/test/tarot_widget_test.dart: select three exact cards then open in order; generation is explicit
+00:06 +86 ~1: <isolated-source>/atlas_contribution_app/test/tarot_widget_test.dart: select three exact cards then open in order; generation is explicit
+00:06 +87 ~1: <isolated-source>/atlas_contribution_app/test/tarot_widget_test.dart: select three exact cards then open in order; generation is explicit
+00:07 +88 ~1: <isolated-source>/atlas_contribution_app/test/tarot_widget_test.dart: select three exact cards then open in order; generation is explicit
+00:07 +89 ~1: <isolated-source>/atlas_contribution_app/test/tarot_widget_test.dart: select three exact cards then open in order; generation is explicit
+00:07 +90 ~1: <isolated-source>/atlas_contribution_app/test/coffee_gallery_start_test.dart: empty camera draft opens gallery, cancellation retries: 360.0 / 1.0
+00:07 +91 ~1: <isolated-source>/atlas_contribution_app/test/coffee_gallery_start_test.dart: empty camera draft opens gallery, cancellation retries: 360.0 / 1.0
+00:07 +92 ~1: <isolated-source>/atlas_contribution_app/test/coffee_gallery_start_test.dart: empty camera draft opens gallery, cancellation retries: 360.0 / 1.0
+00:07 +93 ~1: <isolated-source>/atlas_contribution_app/test/coffee_gallery_start_test.dart: empty camera draft opens gallery, cancellation retries: 360.0 / 1.0
+00:07 +94 ~1: <isolated-source>/atlas_contribution_app/test/coffee_gallery_start_test.dart: empty camera draft opens gallery, cancellation retries: 360.0 / 1.0
+00:08 +95 ~1: <isolated-source>/atlas_contribution_app/test/coffee_gallery_start_test.dart: empty camera draft opens gallery, cancellation retries: 360.0 / 1.0
+00:08 +96 ~1: <isolated-source>/atlas_contribution_app/test/coffee_gallery_start_test.dart: empty camera draft opens gallery, cancellation retries: 360.0 / 1.0
+00:08 +97 ~1: <isolated-source>/atlas_contribution_app/test/coffee_gallery_start_test.dart: empty camera draft opens gallery, cancellation retries: 360.0 / 1.0
+00:08 +98 ~1: <isolated-source>/atlas_contribution_app/test/coffee_gallery_start_test.dart: empty camera draft opens gallery, cancellation retries: 360.0 / 1.0
+00:08 +99 ~1: <isolated-source>/atlas_contribution_app/test/coffee_gallery_start_test.dart: empty camera draft opens gallery, cancellation retries: 360.0 / 1.0
+00:08 +100 ~1: <isolated-source>/atlas_contribution_app/test/coffee_gallery_start_test.dart: empty camera draft opens gallery, cancellation retries: 360.0 / 1.0
+00:08 +101 ~1: <isolated-source>/atlas_contribution_app/test/coffee_gallery_start_test.dart: empty camera draft opens gallery, cancellation retries: 360.0 / 1.0
+00:08 +102 ~1: <isolated-source>/atlas_contribution_app/test/coffee_gallery_start_test.dart: empty camera draft opens gallery, cancellation retries: 360.0 / 1.0
+00:08 +103 ~1: <isolated-source>/atlas_contribution_app/test/atlas_design_test.dart: preview and annotation controls fit at scale 1.8
+00:08 +104 ~1: <isolated-source>/atlas_contribution_app/test/tarot_widget_test.dart: history shows separate stars and reads without producing
+00:08 +105 ~1: <isolated-source>/atlas_contribution_app/test/tarot_widget_test.dart: history shows separate stars and reads without producing
+00:08 +106 ~1: <isolated-source>/atlas_contribution_app/test/tarot_widget_test.dart: history shows separate stars and reads without producing
+00:08 +107 ~1: <isolated-source>/atlas_contribution_app/test/tarot_widget_test.dart: history shows separate stars and reads without producing
+00:08 +108 ~1: <isolated-source>/atlas_contribution_app/test/home_consistency_test.dart: embedded Tarot history preserves unreadable data and retries
+00:08 +109 ~1: <isolated-source>/atlas_contribution_app/test/home_consistency_test.dart: embedded Tarot history preserves unreadable data and retries
+00:08 +110 ~1: <isolated-source>/atlas_contribution_app/test/home_consistency_test.dart: embedded Tarot history preserves unreadable data and retries
+00:08 +111 ~1: <isolated-source>/atlas_contribution_app/test/home_consistency_test.dart: embedded Tarot history preserves unreadable data and retries
+00:09 +112 ~1: <isolated-source>/atlas_contribution_app/test/home_consistency_test.dart: embedded Tarot history preserves unreadable data and retries
+00:09 +113 ~1: <isolated-source>/atlas_contribution_app/test/home_consistency_test.dart: embedded Tarot history preserves unreadable data and retries
+00:09 +114 ~1: <isolated-source>/atlas_contribution_app/test/home_consistency_test.dart: embedded Tarot history preserves unreadable data and retries
+00:09 +115 ~1: <isolated-source>/atlas_contribution_app/test/atlas_landing_redesign_test.dart: reference landing Size(412.0, 700.0) text=1.0 resume=true
+00:09 +116 ~1: <isolated-source>/atlas_contribution_app/test/atlas_landing_redesign_test.dart: reference landing Size(412.0, 700.0) text=1.0 resume=true
+00:09 +117 ~1: <isolated-source>/atlas_contribution_app/test/coffee_gallery_start_test.dart: empty gallery draft opens gallery, cancellation retries: 360.0 / 1.0
+00:09 +118 ~1: <isolated-source>/atlas_contribution_app/test/coffee_gallery_start_test.dart: empty gallery draft opens gallery, cancellation retries: 360.0 / 1.0
+00:10 +119 ~1: <isolated-source>/atlas_contribution_app/test/coffee_gallery_start_test.dart: empty gallery draft opens gallery, cancellation retries: 360.0 / 1.0
+00:10 +120 ~1: <isolated-source>/atlas_contribution_app/test/coffee_gallery_start_test.dart: empty gallery draft opens gallery, cancellation retries: 360.0 / 1.0
+00:10 +121 ~1: <isolated-source>/atlas_contribution_app/test/coffee_gallery_start_test.dart: empty gallery draft opens gallery, cancellation retries: 360.0 / 1.0
+00:10 +122 ~1: <isolated-source>/atlas_contribution_app/test/coffee_gallery_start_test.dart: empty gallery draft opens gallery, cancellation retries: 360.0 / 1.0
+00:10 +123 ~1: <isolated-source>/atlas_contribution_app/test/coffee_gallery_start_test.dart: empty gallery draft opens gallery, cancellation retries: 360.0 / 1.0
+00:10 +124 ~1: <isolated-source>/atlas_contribution_app/test/coffee_gallery_start_test.dart: empty gallery draft opens gallery, cancellation retries: 360.0 / 1.0
+00:10 +125 ~1: <isolated-source>/atlas_contribution_app/test/coffee_gallery_start_test.dart: empty gallery draft opens gallery, cancellation retries: 360.0 / 1.0
+00:10 +126 ~1: <isolated-source>/atlas_contribution_app/test/coffee_gallery_start_test.dart: empty gallery draft opens gallery, cancellation retries: 360.0 / 1.0
+00:10 +127 ~1: <isolated-source>/atlas_contribution_app/test/coffee_gallery_start_test.dart: empty gallery draft opens gallery, cancellation retries: 360.0 / 1.0
+00:10 +128 ~1: <isolated-source>/atlas_contribution_app/test/coffee_gallery_start_test.dart: empty gallery draft opens gallery, cancellation retries: 360.0 / 1.0
+00:10 +129 ~1: <isolated-source>/atlas_contribution_app/test/coffee_gallery_start_test.dart: empty gallery draft opens gallery, cancellation retries: 360.0 / 1.0
+00:10 +130 ~1: <isolated-source>/atlas_contribution_app/test/coffee_gallery_start_test.dart: empty gallery draft opens gallery, cancellation retries: 360.0 / 1.0
+00:10 +131 ~1: <isolated-source>/atlas_contribution_app/test/coffee_gallery_start_test.dart: empty gallery draft opens gallery, cancellation retries: 360.0 / 1.0
+00:10 +132 ~1: <isolated-source>/atlas_contribution_app/test/coffee_gallery_start_test.dart: empty gallery draft opens gallery, cancellation retries: 360.0 / 1.0
+00:10 +133 ~1: <isolated-source>/atlas_contribution_app/test/coffee_gallery_start_test.dart: empty gallery draft opens gallery, cancellation retries: 360.0 / 1.0
+00:10 +134 ~1: <isolated-source>/atlas_contribution_app/test/coffee_gallery_start_test.dart: empty gallery draft opens gallery, cancellation retries: 360.0 / 1.0
+00:10 +135 ~1: <isolated-source>/atlas_contribution_app/test/coffee_gallery_start_test.dart: empty gallery draft opens gallery, cancellation retries: 360.0 / 1.0
+00:11 +136 ~1: <isolated-source>/atlas_contribution_app/test/coffee_gallery_start_test.dart: empty gallery draft opens gallery, cancellation retries: 360.0 / 1.0
+00:11 +137 ~1: <isolated-source>/atlas_contribution_app/test/atlas_landing_redesign_test.dart: reference landing Size(412.0, 700.0) text=2.0 resume=false
+00:11 +138 ~1: <isolated-source>/atlas_contribution_app/test/atlas_landing_redesign_test.dart: reference landing Size(412.0, 700.0) text=2.0 resume=false
+00:11 +139 ~1: <isolated-source>/atlas_contribution_app/test/atlas_landing_redesign_test.dart: reference landing Size(412.0, 700.0) text=2.0 resume=false
+00:11 +140 ~1: <isolated-source>/atlas_contribution_app/test/atlas_atmosphere_preview_test.dart: atmosphere geometry coffee-home 360.0x700.0/1.0
+00:11 +141 ~1: <isolated-source>/atlas_contribution_app/test/atlas_atmosphere_preview_test.dart: atmosphere geometry coffee-home 360.0x700.0/1.0
+00:11 +142 ~1: <isolated-source>/atlas_contribution_app/test/atlas_atmosphere_preview_test.dart: atmosphere geometry coffee-home 360.0x700.0/1.0
+00:11 +143 ~1: <isolated-source>/atlas_contribution_app/test/atlas_atmosphere_preview_test.dart: atmosphere geometry coffee-home 360.0x700.0/1.0
+00:11 +144 ~1: <isolated-source>/atlas_contribution_app/test/atlas_atmosphere_preview_test.dart: atmosphere geometry coffee-home 360.0x700.0/1.0
+00:11 +145 ~1: <isolated-source>/atlas_contribution_app/test/atlas_atmosphere_preview_test.dart: atmosphere geometry coffee-home 360.0x700.0/1.0
+00:11 +146 ~1: <isolated-source>/atlas_contribution_app/test/atlas_atmosphere_preview_test.dart: atmosphere geometry coffee-home 360.0x700.0/1.0
+00:11 +147 ~1: <isolated-source>/atlas_contribution_app/test/atlas_atmosphere_preview_test.dart: atmosphere geometry coffee-home 360.0x700.0/1.0
+00:11 +148 ~1: <isolated-source>/atlas_contribution_app/test/atlas_atmosphere_preview_test.dart: atmosphere geometry coffee-home 360.0x700.0/1.0
+00:11 +149 ~1: <isolated-source>/atlas_contribution_app/test/atlas_atmosphere_preview_test.dart: atmosphere geometry coffee-home 360.0x700.0/1.0
+00:11 +150 ~1: <isolated-source>/atlas_contribution_app/test/coffee_gallery_start_test.dart: empty none draft opens gallery, cancellation retries: 360.0 / 2.0
+00:12 +151 ~1: <isolated-source>/atlas_contribution_app/test/coffee_gallery_start_test.dart: empty none draft opens gallery, cancellation retries: 360.0 / 2.0
+00:12 +152 ~1: <isolated-source>/atlas_contribution_app/test/coffee_gallery_start_test.dart: empty none draft opens gallery, cancellation retries: 360.0 / 2.0
+00:12 +153 ~1: <isolated-source>/atlas_contribution_app/test/coffee_gallery_start_test.dart: empty none draft opens gallery, cancellation retries: 360.0 / 2.0
+00:12 +154 ~1: <isolated-source>/atlas_contribution_app/test/coffee_gallery_start_test.dart: empty none draft opens gallery, cancellation retries: 360.0 / 2.0
+00:12 +155 ~1: <isolated-source>/atlas_contribution_app/test/coffee_gallery_start_test.dart: empty none draft opens gallery, cancellation retries: 360.0 / 2.0
+00:12 +156 ~1: <isolated-source>/atlas_contribution_app/test/coffee_gallery_start_test.dart: empty none draft opens gallery, cancellation retries: 360.0 / 2.0
+00:12 +157 ~1: <isolated-source>/atlas_contribution_app/test/coffee_gallery_start_test.dart: empty none draft opens gallery, cancellation retries: 360.0 / 2.0
+00:12 +158 ~1: <isolated-source>/atlas_contribution_app/test/coffee_gallery_start_test.dart: empty none draft opens gallery, cancellation retries: 360.0 / 2.0
+00:12 +159 ~1: <isolated-source>/atlas_contribution_app/test/coffee_gallery_start_test.dart: empty none draft opens gallery, cancellation retries: 360.0 / 2.0
+00:12 +160 ~1: <isolated-source>/atlas_contribution_app/test/coffee_gallery_start_test.dart: empty none draft opens gallery, cancellation retries: 360.0 / 2.0
+00:13 +161 ~1: <isolated-source>/atlas_contribution_app/test/coffee_gallery_start_test.dart: empty none draft opens gallery, cancellation retries: 360.0 / 2.0
+00:13 +162 ~1: <isolated-source>/atlas_contribution_app/test/coffee_gallery_start_test.dart: empty none draft opens gallery, cancellation retries: 360.0 / 2.0
+00:13 +163 ~1: <isolated-source>/atlas_contribution_app/test/coffee_gallery_start_test.dart: empty none draft opens gallery, cancellation retries: 360.0 / 2.0
+00:13 +164 ~1: <isolated-source>/atlas_contribution_app/test/coffee_gallery_start_test.dart: empty none draft opens gallery, cancellation retries: 360.0 / 2.0
+00:13 +165 ~1: <isolated-source>/atlas_contribution_app/test/coffee_gallery_start_test.dart: empty none draft opens gallery, cancellation retries: 360.0 / 2.0
+00:13 +166 ~1: <isolated-source>/atlas_contribution_app/test/coffee_gallery_start_test.dart: empty none draft opens gallery, cancellation retries: 360.0 / 2.0
+00:13 +167 ~1: <isolated-source>/atlas_contribution_app/test/coffee_gallery_start_test.dart: empty none draft opens gallery, cancellation retries: 360.0 / 2.0
+00:13 +168 ~1: <isolated-source>/atlas_contribution_app/test/coffee_gallery_start_test.dart: empty none draft opens gallery, cancellation retries: 360.0 / 2.0
+00:13 +169 ~1: <isolated-source>/atlas_contribution_app/test/coffee_gallery_start_test.dart: empty none draft opens gallery, cancellation retries: 360.0 / 2.0
+00:13 +170 ~1: <isolated-source>/atlas_contribution_app/test/coffee_gallery_start_test.dart: empty none draft opens gallery, cancellation retries: 360.0 / 2.0
+00:13 +171 ~1: <isolated-source>/atlas_contribution_app/test/coffee_gallery_start_test.dart: empty none draft opens gallery, cancellation retries: 360.0 / 2.0
+00:13 +172 ~1: <isolated-source>/atlas_contribution_app/test/atlas_landing_redesign_test.dart: reference landing Size(412.0, 892.0) text=1.0 resume=false
+00:13 +173 ~1: <isolated-source>/atlas_contribution_app/test/atlas_landing_redesign_test.dart: reference landing Size(412.0, 892.0) text=1.0 resume=false
+00:13 +174 ~1: <isolated-source>/atlas_contribution_app/test/atlas_landing_redesign_test.dart: reference landing Size(412.0, 892.0) text=1.0 resume=false
+00:13 +175 ~1: <isolated-source>/atlas_contribution_app/test/atlas_landing_redesign_test.dart: reference landing Size(412.0, 892.0) text=1.0 resume=false
+00:13 +176 ~1: <isolated-source>/atlas_contribution_app/test/atlas_landing_redesign_test.dart: reference landing Size(412.0, 892.0) text=1.0 resume=false
+00:13 +177 ~1: <isolated-source>/atlas_contribution_app/test/atlas_landing_redesign_test.dart: reference landing Size(412.0, 892.0) text=1.0 resume=false
+00:13 +178 ~1: <isolated-source>/atlas_contribution_app/test/atlas_landing_redesign_test.dart: reference landing Size(412.0, 892.0) text=1.0 resume=false
+00:14 +179 ~1: <isolated-source>/atlas_contribution_app/test/atlas_landing_redesign_test.dart: reference landing Size(412.0, 892.0) text=1.0 resume=false
+00:14 +180 ~1: <isolated-source>/atlas_contribution_app/test/atlas_landing_redesign_test.dart: reference landing Size(412.0, 892.0) text=1.0 resume=false
+00:14 +181 ~1: <isolated-source>/atlas_contribution_app/test/atlas_landing_redesign_test.dart: reference landing Size(412.0, 892.0) text=1.0 resume=false
+00:14 +182 ~1: <isolated-source>/atlas_contribution_app/test/tarot_widget_test.dart: design matrix fits small phones, double text and reduced motion
+00:14 +183 ~1: <isolated-source>/atlas_contribution_app/test/tarot_widget_test.dart: design matrix fits small phones, double text and reduced motion
+00:14 +184 ~1: <isolated-source>/atlas_contribution_app/test/tarot_widget_test.dart: design matrix fits small phones, double text and reduced motion
+00:14 +185 ~1: <isolated-source>/atlas_contribution_app/test/tarot_widget_test.dart: design matrix fits small phones, double text and reduced motion
+00:14 +186 ~1: <isolated-source>/atlas_contribution_app/test/tarot_widget_test.dart: design matrix fits small phones, double text and reduced motion
+00:14 +187 ~1: <isolated-source>/atlas_contribution_app/test/tarot_widget_test.dart: design matrix fits small phones, double text and reduced motion
+00:14 +188 ~1: <isolated-source>/atlas_contribution_app/test/tarot_widget_test.dart: design matrix fits small phones, double text and reduced motion
+00:14 +189 ~1: <isolated-source>/atlas_contribution_app/test/tarot_widget_test.dart: design matrix fits small phones, double text and reduced motion
+00:15 +190 ~1: <isolated-source>/atlas_contribution_app/test/tarot_widget_test.dart: design matrix fits small phones, double text and reduced motion
+00:15 +191 ~1: <isolated-source>/atlas_contribution_app/test/tarot_widget_test.dart: design matrix fits small phones, double text and reduced motion
+00:16 +192 ~1: <isolated-source>/atlas_contribution_app/test/tarot_widget_test.dart: design matrix fits small phones, double text and reduced motion
+00:16 +193 ~1: <isolated-source>/atlas_contribution_app/test/tarot_widget_test.dart: design matrix fits small phones, double text and reduced motion
+00:17 +194 ~1: <isolated-source>/atlas_contribution_app/test/tarot_widget_test.dart: design matrix fits small phones, double text and reduced motion
+00:17 +195 ~1: <isolated-source>/atlas_contribution_app/test/tarot_widget_test.dart: design matrix fits small phones, double text and reduced motion
+00:18 +196 ~1: <isolated-source>/atlas_contribution_app/test/tarot_widget_test.dart: design matrix fits small phones, double text and reduced motion
+00:18 +197 ~1: <isolated-source>/atlas_contribution_app/test/tarot_widget_test.dart: design matrix fits small phones, double text and reduced motion
+00:18 +198 ~1: <isolated-source>/atlas_contribution_app/test/tarot_widget_test.dart: design matrix fits small phones, double text and reduced motion
+00:18 +199 ~1: <isolated-source>/atlas_contribution_app/test/tarot_widget_test.dart: design matrix fits small phones, double text and reduced motion
+00:19 +200 ~1: <isolated-source>/atlas_contribution_app/test/tarot_widget_test.dart: design matrix fits small phones, double text and reduced motion
+00:20 +201 ~1: <isolated-source>/atlas_contribution_app/test/tarot_widget_test.dart: design matrix fits small phones, double text and reduced motion
+00:20 +202 ~1: <isolated-source>/atlas_contribution_app/test/tarot_widget_test.dart: design matrix fits small phones, double text and reduced motion
+00:20 +203 ~1: <isolated-source>/atlas_contribution_app/test/tarot_widget_test.dart: design matrix fits small phones, double text and reduced motion
+00:21 +204 ~1: <isolated-source>/atlas_contribution_app/test/tarot_widget_test.dart: design matrix fits small phones, double text and reduced motion
+00:21 +205 ~1: <isolated-source>/atlas_contribution_app/test/tarot_widget_test.dart: design matrix fits small phones, double text and reduced motion
+00:22 +206 ~1: <isolated-source>/atlas_contribution_app/test/tarot_widget_test.dart: design matrix fits small phones, double text and reduced motion
+00:23 +207 ~1: <isolated-source>/atlas_contribution_app/test/tarot_widget_test.dart: design matrix fits small phones, double text and reduced motion
+00:23 +208 ~1: <isolated-source>/atlas_contribution_app/test/tarot_widget_test.dart: design matrix fits small phones, double text and reduced motion
+00:23 +209 ~1: <isolated-source>/atlas_contribution_app/test/tarot_widget_test.dart: design matrix fits small phones, double text and reduced motion
+00:23 +210 ~1: <isolated-source>/atlas_contribution_app/test/tarot_widget_test.dart: design matrix fits small phones, double text and reduced motion
+00:24 +211 ~1: <isolated-source>/atlas_contribution_app/test/tarot_widget_test.dart: design matrix fits small phones, double text and reduced motion
+00:25 +212 ~1: <isolated-source>/atlas_contribution_app/test/tarot_widget_test.dart: design matrix fits small phones, double text and reduced motion
+00:25 +213 ~1: <isolated-source>/atlas_contribution_app/test/tarot_widget_test.dart: design matrix fits small phones, double text and reduced motion
+00:26 +214 ~1: <isolated-source>/atlas_contribution_app/test/tarot_widget_test.dart: design matrix fits small phones, double text and reduced motion
+00:28 +215 ~1: <isolated-source>/atlas_contribution_app/test/coffee_gallery_start_test.dart: empty none draft opens gallery, cancellation retries: 412.0 / 2.0
+00:28 +216 ~1: <isolated-source>/atlas_contribution_app/test/atlas_atmosphere_preview_test.dart: atmosphere geometry review 412.0x700.0/1.0
+00:28 +217 ~1: <isolated-source>/atlas_contribution_app/test/tarot_widget_test.dart: small home and history scroll without overflow at double text
+00:28 +218 ~1: <isolated-source>/atlas_contribution_app/test/coffee_gallery_start_test.dart: empty camera draft opens gallery, cancellation retries: 412.0 / 2.0
+00:29 +219 ~1: <isolated-source>/atlas_contribution_app/test/coffee_gallery_start_test.dart: empty camera draft opens gallery, cancellation retries: 412.0 / 2.0
+00:29 +220 ~1: <isolated-source>/atlas_contribution_app/test/coffee_gallery_start_test.dart: empty camera draft opens gallery, cancellation retries: 412.0 / 2.0
+00:30 +221 ~1: <isolated-source>/atlas_contribution_app/test/tarot_widget_test.dart: mood toggles, persists on reopen and never generates
+00:30 +222 ~1: <isolated-source>/atlas_contribution_app/test/atlas_atmosphere_preview_test.dart: atmosphere geometry tarot-selection 412.0x700.0/1.0
+00:30 +223 ~1: <isolated-source>/atlas_contribution_app/test/coffee_gallery_start_test.dart: empty gallery draft opens gallery, cancellation retries: 412.0 / 2.0
+00:31 +224 ~1: <isolated-source>/atlas_contribution_app/test/coffee_gallery_start_test.dart: empty gallery draft opens gallery, cancellation retries: 412.0 / 2.0
+00:31 +225 ~1: <isolated-source>/atlas_contribution_app/test/coffee_gallery_start_test.dart: empty gallery draft opens gallery, cancellation retries: 412.0 / 2.0
+00:32 +226 ~1: <isolated-source>/atlas_contribution_app/test/coffee_gallery_start_test.dart: empty gallery draft opens gallery, cancellation retries: 412.0 / 2.0
+00:32 +227 ~1: <isolated-source>/atlas_contribution_app/test/coffee_gallery_start_test.dart: empty gallery draft opens gallery, cancellation retries: 412.0 / 2.0
+00:32 +228 ~1: <isolated-source>/atlas_contribution_app/test/tarot_widget_test.dart: overlap selects the visible top card and used cards absorb taps
+00:33 +229 ~1: <isolated-source>/atlas_contribution_app/test/atlas_atmosphere_preview_test.dart: atmosphere geometry review 412.0x700.0/2.0
+00:33 +230 ~1: <isolated-source>/atlas_contribution_app/test/atlas_atmosphere_preview_test.dart: atmosphere geometry review 412.0x700.0/2.0
+00:34 +231 ~1: <isolated-source>/atlas_contribution_app/test/atlas_atmosphere_preview_test.dart: atmosphere geometry review 412.0x700.0/2.0
+00:34 +232 ~1: <isolated-source>/atlas_contribution_app/test/atlas_atmosphere_preview_test.dart: atmosphere geometry review 412.0x700.0/2.0
+00:34 +233 ~1: <isolated-source>/atlas_contribution_app/test/tarot_widget_test.dart: deck aura is behind cards and touch fades it without selecting during drag
+00:34 +234 ~1: <isolated-source>/atlas_contribution_app/test/coffee_gallery_start_test.dart: photo draft gallery decision: Vazgeç
+00:34 +235 ~1: <isolated-source>/atlas_contribution_app/test/atlas_atmosphere_preview_test.dart: atmosphere geometry annotation 412.0x700.0/2.0
+00:35 +236 ~1: <isolated-source>/atlas_contribution_app/test/atlas_atmosphere_preview_test.dart: atmosphere geometry annotation 412.0x700.0/2.0
+00:35 +237 ~1: <isolated-source>/atlas_contribution_app/test/tarot_widget_test.dart: failed deck selection preserves the draw and allows the same card retry
+00:35 +238 ~1: <isolated-source>/atlas_contribution_app/test/coffee_gallery_start_test.dart: photo draft gallery decision: Taslağı sil ve galeriden başlat
+00:36 +239 ~1: <isolated-source>/atlas_contribution_app/test/coffee_gallery_start_test.dart: photo draft gallery decision: Taslağı sil ve galeriden başlat
+00:36 +240 ~1: <isolated-source>/atlas_contribution_app/test/coffee_gallery_start_test.dart: photo draft gallery decision: Taslağı sil ve galeriden başlat
+00:36 +241 ~1: <isolated-source>/atlas_contribution_app/test/coffee_gallery_start_test.dart: photo draft gallery decision: Taslağı sil ve galeriden başlat
+00:36 +242 ~1: <isolated-source>/atlas_contribution_app/test/atlas_atmosphere_preview_test.dart: atmosphere geometry tarot-selection 412.0x700.0/2.0
+00:36 +243 ~1: <isolated-source>/atlas_contribution_app/test/atlas_atmosphere_preview_test.dart: atmosphere geometry tarot-selection 412.0x700.0/2.0
+00:36 +244 ~1: <isolated-source>/atlas_contribution_app/test/tarot_widget_test.dart: glass replaces tap icon and card remains directly tappable
+00:37 +245 ~1: <isolated-source>/atlas_contribution_app/test/coffee_gallery_start_test.dart: gallery import failure has a working retry; previous photo remains
+00:37 +246 ~1: <isolated-source>/atlas_contribution_app/test/coffee_gallery_start_test.dart: gallery import failure has a working retry; previous photo remains
+00:37 +247 ~1: <isolated-source>/atlas_contribution_app/test/coffee_gallery_start_test.dart: gallery import failure has a working retry; previous photo remains
+00:38 +248 ~1: <isolated-source>/atlas_contribution_app/test/coffee_gallery_start_test.dart: gallery import failure has a working retry; previous photo remains
+00:39 +249 ~1: <isolated-source>/atlas_contribution_app/test/coffee_gallery_start_test.dart: gallery import failure has a working retry; previous photo remains
+00:39 +250 ~1: <isolated-source>/atlas_contribution_app/test/coffee_gallery_start_test.dart: gallery import failure has a working retry; previous photo remains
+00:39 +251 ~1: <isolated-source>/atlas_contribution_app/test/atlas_atmosphere_preview_test.dart: atmosphere geometry review 412.0x892.0/1.0
+00:39 +252 ~1: <isolated-source>/atlas_contribution_app/test/atlas_atmosphere_preview_test.dart: atmosphere geometry review 412.0x892.0/1.0
+00:39 +253 ~1: <isolated-source>/atlas_contribution_app/test/atlas_atmosphere_preview_test.dart: atmosphere geometry review 412.0x892.0/1.0
+00:40 +254 ~1: <isolated-source>/atlas_contribution_app/test/atlas_atmosphere_preview_test.dart: atmosphere geometry review 412.0x892.0/1.0
+00:40 +255 ~1: <isolated-source>/atlas_contribution_app/test/coffee_gallery_start_test.dart: selection cap explains retry without changing draft: 1.0
+00:41 +256 ~1: <isolated-source>/atlas_contribution_app/test/coffee_gallery_start_test.dart: selection cap explains retry without changing draft: 1.0
+00:41 +257 ~1: <isolated-source>/atlas_contribution_app/test/tarot_widget_test.dart: active guidance preserves geometry across phone and text sizes
+00:42 +258 ~1: <isolated-source>/atlas_contribution_app/test/tarot_widget_test.dart: active guidance preserves geometry across phone and text sizes
+00:42 +259 ~1: <isolated-source>/atlas_contribution_app/test/coffee_gallery_start_test.dart: selection cap explains retry without changing draft: 2.0
+00:42 +259 ~1: <isolated-source>/atlas_contribution_app/test/tarot_widget_test.dart: ready tarot fits A56 without scrolling and keeps mood layout
+PHONE_METRICS {"scale":0.9,"scroll":0.0,"buttonBottom":683.0}
+PHONE_METRICS {"scale":1.0,"scroll":0.0,"buttonBottom":720.0}
+00:43 +260 ~1: <isolated-source>/atlas_contribution_app/test/coffee_gallery_start_test.dart: selection cap explains retry without changing draft: 2.0
+00:43 +261 ~1: <isolated-source>/atlas_contribution_app/test/coffee_gallery_start_test.dart: selection cap explains retry without changing draft: 2.0
+00:43 +262 ~1: <isolated-source>/atlas_contribution_app/test/atlas_atmosphere_preview_test.dart: atmosphere geometry coffee-home 412.0x892.0/2.0
+00:44 +263 ~1: <isolated-source>/atlas_contribution_app/test/atlas_atmosphere_preview_test.dart: atmosphere geometry tarot-home 412.0x892.0/2.0
+00:45 +264 ~1: <isolated-source>/atlas_contribution_app/test/atlas_atmosphere_preview_test.dart: atmosphere geometry review 412.0x892.0/2.0
+00:46 +265 ~1: <isolated-source>/atlas_contribution_app/test/atlas_atmosphere_preview_test.dart: atmosphere geometry annotation 412.0x892.0/2.0
+00:47 +266 ~1: <isolated-source>/atlas_contribution_app/test/atlas_atmosphere_preview_test.dart: atmosphere geometry preparation 412.0x892.0/2.0
+00:48 +267 ~1: <isolated-source>/atlas_contribution_app/test/atlas_atmosphere_preview_test.dart: atmosphere geometry tarot-selection 412.0x892.0/2.0
+00:49 +268 ~1: <isolated-source>/atlas_contribution_app/test/atlas_atmosphere_preview_test.dart: (tearDownAll)
+00:49 +268 ~1: All tests passed!

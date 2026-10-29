@@ -1,3 +1,4 @@
+import 'home_action_finder.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -89,6 +90,7 @@ void main() {
     await icons.load();
     for (final font in {
       'Literata': 'Literata',
+      'EB Garamond': 'EBGaramond',
       'Plus Jakarta Sans': 'PlusJakartaSans',
     }.entries) {
       final loader = FontLoader(font.key)
@@ -220,20 +222,27 @@ void main() {
         ),
       );
       await settleIo(tester);
-      expect(find.text('Fincanını Tara'), findsOneWidget);
+      expect(homeAction('Fincanını Tara'), findsOneWidget);
       expect(find.byType(NavigationDestination), findsNWidgets(4));
       await capture(tester, key, '01-coffee-home');
       await tester.runAsync(() => tester.tap(find.text('Tarot')));
       await settleIo(tester);
       expect(find.byKey(const ValueKey('tarot-start-three')), findsOneWidget);
-      expect(find.text('Günün Kartı'), findsOneWidget);
+      expect(homeAction('Günün Kartı'), findsOneWidget);
       await capture(tester, key, '02-tarot-home');
       await tester.runAsync(() => tester.tap(find.text('Kayıtlarım')));
       await settleIo(tester);
       expect(find.text('Tarot Geçmişi'), findsNothing);
-      await tester.runAsync(() => tester.tap(find.text('Ana Sayfa')));
+      await tester.runAsync(
+        () => tester.tap(
+          find.descendant(
+            of: find.byType(NavigationBar),
+            matching: find.text('Kahve'),
+          ),
+        ),
+      );
       await settleIo(tester);
-      expect(find.text('Fincanını Tara'), findsOneWidget);
+      expect(homeAction('Fincanını Tara'), findsOneWidget);
       expect(calls, 0);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox());
@@ -553,13 +562,10 @@ void main() {
             if (entry.key == 'home') {
               final action = find.byKey(const ValueKey('tarot-start-three'));
               expect(
-                tester.getSize(action).width,
-                closeTo(
-                  scale == 1
-                      ? (size.width - 64).clamp(0, 280)
-                      : size.width - 64,
-                  1,
-                ),
+                tester
+                    .getSize(find.byKey(const ValueKey('atlas-primary-image')))
+                    .width,
+                closeTo((size.width - 32) * 288 / 873, .01),
               );
               expect(tester.getSize(action).height, greaterThanOrEqualTo(48));
             }

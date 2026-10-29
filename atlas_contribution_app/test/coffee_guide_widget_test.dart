@@ -1,3 +1,4 @@
+import 'home_action_finder.dart';
 import 'dart:io';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
@@ -66,7 +67,7 @@ Future<void> _next(WidgetTester tester) async {
 }
 
 Future<void> _last(WidgetTester tester) async {
-  for (var i = 0; i < 7; i++) {
+  for (var i = 0; i < coffeeGuideCardCount - 1; i++) {
     await _next(tester);
   }
 }
@@ -281,6 +282,109 @@ void main() {
   );
 
   testWidgets(
+    'capture card explains green scanning lights without claiming symbols or approval',
+    (tester) async {
+      await tester.pumpWidget(_app(CoffeeGuidePage(onComplete: (_) async {})));
+      await _next(tester);
+      await tester.pumpAndSettle();
+      expect(find.text('İlk fotoğrafın'), findsOneWidget);
+      expect(
+        find.text('Yeşil noktalar telve taramasını gösterir.'),
+        findsOneWidget,
+      );
+      final caution = find.text(
+        'Sembol sonucu veya çekim onayı değildir; kamera yönlendirmesini izle.',
+      );
+      await tester.ensureVisible(caution);
+      expect(caution.hitTestable(), findsOneWidget);
+      expect(find.text('Fotoğraf hazır'), findsNothing);
+      expect(
+        find.text('Rehber, 2 / 13'),
+        findsNothing,
+      ); // Progress is a semantic label.
+      expect(find.bySemanticsLabel('Rehber, 2 / 13'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'new guide pages explain current destinations without editing data or following demo actions',
+    (tester) async {
+      final store = _MemoryGuide();
+      await tester.pumpWidget(
+        _app(
+          CoffeeGuideGate(
+            store: store,
+            child: const Scaffold(body: Text('Existing home')),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Açılış videosu · Dokunarak geç'), findsOneWidget);
+      for (var i = 0; i < 7; i++) {
+        await _next(tester);
+      }
+      expect(find.text('Bilgilerim'), findsOneWidget);
+      expect(find.text('Hitap adı · isteğe bağlı'), findsOneWidget);
+      expect(find.text('Burç · isteğe bağlı'), findsOneWidget);
+      expect(find.text('Yaş · isteğe bağlı'), findsOneWidget);
+      expect(find.byType(TextField), findsNothing);
+      await tester.ensureVisible(find.text('Kaydet'));
+      await tester.tap(find.text('Kaydet'));
+      await tester.pump();
+      expect(find.text('Bilgilerim'), findsOneWidget);
+      expect(store.writes.length, 1);
+      await _next(tester);
+      expect(find.text('Kaldığın yerden devam et'), findsOneWidget);
+      expect(
+        find.text('Aynı çalışmaya dönersin; yeni çekim veya açılım başlamaz.'),
+        findsOneWidget,
+      );
+      await _next(tester);
+      for (final label in [
+        'Kahve',
+        'Tarot',
+        'Tümü',
+        'Kayıtlı',
+        'Taslaklar',
+        'Yıldızlılar',
+      ]) {
+        expect(find.text(label), findsOneWidget);
+      }
+      expect(find.text('Yıldızsız kayıtların da saklanır.'), findsOneWidget);
+      await _next(tester);
+      expect(find.text('Tarot’u keşfet'), findsOneWidget);
+      for (final label in [
+        'Günün Kartı',
+        'Üç Kart · Karıştır',
+        'Ruh hâli · isteğe bağlı',
+        'Yorumunu Oluştur',
+      ]) {
+        expect(find.text(label), findsOneWidget);
+      }
+      await _next(tester);
+      for (final label in [
+        'Gizlilik Politikası',
+        'Destek',
+        'Kullanım Rehberi',
+        'İçerik Bildir',
+      ]) {
+        expect(find.text(label), findsOneWidget);
+      }
+      expect(find.text('Gönderim için senin onayın gerekir.'), findsOneWidget);
+      expect(store.writes.length, 1);
+      expect(find.text('Existing home'), findsNothing);
+      await _next(tester);
+      expect(find.text('Devam et'), findsOneWidget);
+      expect(find.text('Bir daha gösterme'), findsNothing);
+      await _next(tester);
+      await tester.pumpAndSettle();
+      expect(find.text('Existing home'), findsOneWidget);
+      expect(store.state.dontShowAgain, false);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
     'animation plays once, replay restarts it, reduced motion stops it',
     (tester) async {
       await tester.pumpWidget(
@@ -308,40 +412,41 @@ void main() {
 
   for (final width in [320.0, 390.0, 430.0]) {
     for (final scale in [1.0, 2.0]) {
-      testWidgets('eight cards fit width=$width text=$scale with safe areas', (
-        tester,
-      ) async {
-        tester.view.devicePixelRatio = 1;
-        tester.view.physicalSize = Size(width, width == 320 ? 568 : 844);
-        addTearDown(tester.view.resetPhysicalSize);
-        addTearDown(tester.view.resetDevicePixelRatio);
-        await tester.pumpWidget(
-          _app(
-            CoffeeGuidePage(allowSuppression: true, onComplete: (_) async {}),
-            scale: scale,
-          ),
-        );
-        for (var card = 0; card < 8; card++) {
-          await tester.pumpAndSettle();
-          expect(tester.takeException(), isNull, reason: 'card ${card + 1}');
-          final button = tester.getRect(
-            find.byKey(const ValueKey('guide-next')),
+      testWidgets(
+        'all guide cards fit width=$width text=$scale with safe areas',
+        (tester) async {
+          tester.view.devicePixelRatio = 1;
+          tester.view.physicalSize = Size(width, width == 320 ? 568 : 844);
+          addTearDown(tester.view.resetPhysicalSize);
+          addTearDown(tester.view.resetDevicePixelRatio);
+          await tester.pumpWidget(
+            _app(
+              CoffeeGuidePage(allowSuppression: true, onComplete: (_) async {}),
+              scale: scale,
+            ),
           );
-          expect(button.height, greaterThanOrEqualTo(48));
-          expect(
-            button.bottom,
-            lessThanOrEqualTo(tester.view.physicalSize.height - 24),
-          );
-          expect(button.width, greaterThanOrEqualTo(48));
-          await tester.drag(
-            find.byKey(const ValueKey('coffee-guide-scroll')),
-            const Offset(0, -2000),
-          );
-          await tester.pump();
-          expect(tester.takeException(), isNull);
-          if (card < 7) await _next(tester);
-        }
-      });
+          for (var card = 0; card < coffeeGuideCardCount; card++) {
+            await tester.pumpAndSettle();
+            expect(tester.takeException(), isNull, reason: 'card ${card + 1}');
+            final button = tester.getRect(
+              find.byKey(const ValueKey('guide-next')),
+            );
+            expect(button.height, greaterThanOrEqualTo(48));
+            expect(
+              button.bottom,
+              lessThanOrEqualTo(tester.view.physicalSize.height - 24),
+            );
+            expect(button.width, greaterThanOrEqualTo(48));
+            await tester.drag(
+              find.byKey(const ValueKey('coffee-guide-scroll')),
+              const Offset(0, -2000),
+            );
+            await tester.pump();
+            expect(tester.takeException(), isNull);
+            if (card < coffeeGuideCardCount - 1) await _next(tester);
+          }
+        },
+      );
     }
   }
 
@@ -391,7 +496,7 @@ void main() {
       await _last(tester);
       await _next(tester);
       await tester.pumpAndSettle();
-      expect(find.text('Fincanını Tara'), findsOneWidget);
+      expect(homeAction('Fincanını Tara'), findsOneWidget);
       expect(store.writes, 0);
       await tester.tap(find.text('Ayarlar'));
       await tester.pumpAndSettle();
@@ -424,7 +529,7 @@ void main() {
         capture: key,
       ),
     );
-    for (var card = 0; card < 8; card++) {
+    for (var card = 0; card < coffeeGuideCardCount; card++) {
       await tester.pumpAndSettle();
       await tester.runAsync(() async {
         await precacheImage(
@@ -433,6 +538,14 @@ void main() {
         );
         await precacheImage(
           const AssetImage('assets/brand/atlas-logo.png'),
+          key.currentContext!,
+        );
+        await precacheImage(
+          ResizeImage.resizeIfNeeded(
+            156,
+            null,
+            const AssetImage('assets/tarot/KART_ARKASI.webp'),
+          ),
           key.currentContext!,
         );
       });
@@ -449,7 +562,7 @@ void main() {
         ).writeAsBytes(bytes!.buffer.asUint8List());
         image.dispose();
       });
-      if (card < 7) await _next(tester);
+      if (card < coffeeGuideCardCount - 1) await _next(tester);
     }
     expect(tester.takeException(), isNull);
   });

@@ -14,7 +14,7 @@ enum AtlasAtmosphereScene {
   tarotSelection,
 }
 
-enum AtlasAtmosphereRegionKind { protected, hero, steam }
+enum AtlasAtmosphereRegionKind { protected, hero, steam, heading }
 
 /// A layout-transparent marker. It never changes its child's constraints.
 class AtlasAtmosphereRegion extends SingleChildRenderObjectWidget {
@@ -49,12 +49,14 @@ class AtlasAtmosphereGeometry {
     this.photo,
     this.artwork,
     this.artworkHalfWidth,
+    this.heading,
   });
   final bool ready;
   final List<Rect> protected, text;
   final Rect? hero, steam, photo;
   final Rect? artwork;
   final double? artworkHalfWidth;
+  final Rect? heading;
   @override
   bool operator ==(Object other) =>
       other is AtlasAtmosphereGeometry &&
@@ -65,7 +67,8 @@ class AtlasAtmosphereGeometry {
       steam == other.steam &&
       photo == other.photo &&
       artwork == other.artwork &&
-      artworkHalfWidth == other.artworkHalfWidth;
+      artworkHalfWidth == other.artworkHalfWidth &&
+      heading == other.heading;
   @override
   int get hashCode => Object.hash(
     ready,
@@ -76,6 +79,7 @@ class AtlasAtmosphereGeometry {
     photo,
     artwork,
     artworkHalfWidth,
+    heading,
   );
 }
 
@@ -130,7 +134,7 @@ class _AtlasAtmosphereSurfaceState extends State<AtlasAtmosphereSurface> {
       if (root is! RenderBox || !root.hasSize || content == null) return;
       final bounds = Offset.zero & root.size;
       final protected = <Rect>[], text = <Rect>[];
-      Rect? hero, steam, photo;
+      Rect? hero, steam, photo, heading;
       Rect? artwork;
       final artQuads = <List<Offset>>[];
       final home =
@@ -148,6 +152,9 @@ class _AtlasAtmosphereSurfaceState extends State<AtlasAtmosphereSurface> {
           final area = rect(object);
           if (!area.overlaps(bounds)) return;
           if (object is _RegionBox) {
+            if (object.kind == AtlasAtmosphereRegionKind.heading) {
+              heading = area;
+            }
             if (object.kind == AtlasAtmosphereRegionKind.hero) {
               hero = area;
               inHero = true;
@@ -169,7 +176,8 @@ class _AtlasAtmosphereSurfaceState extends State<AtlasAtmosphereSurface> {
                     widget.scene == AtlasAtmosphereScene.coffeePreparation)) {
               photo ??= area;
             }
-            if (object.kind != AtlasAtmosphereRegionKind.hero) {
+            if (object.kind != AtlasAtmosphereRegionKind.hero &&
+                object.kind != AtlasAtmosphereRegionKind.heading) {
               protected.add(area.inflate(8));
             }
           }
@@ -248,6 +256,7 @@ class _AtlasAtmosphereSurfaceState extends State<AtlasAtmosphereSurface> {
         photo: photo,
         artwork: artwork,
         artworkHalfWidth: artworkHalfWidth,
+        heading: heading,
       );
       if (_geometry.value != next) _geometry.value = next;
     });
@@ -517,13 +526,14 @@ class _AtmospherePainter extends CustomPainter {
   }
 
   List<Offset> _homeAccents(Size size, {required bool mirrored}) {
-    final hero = geometry.hero;
-    if (hero == null) return const [];
-    final left = size.width * .18, right = size.width * .82;
+    final heading = geometry.heading;
+    if (heading == null) return const [];
+    const left = 24.0;
+    final right = size.width - 24;
     return [
-      Offset(mirrored ? right : left, hero.top - 48),
-      Offset(mirrored ? left : right, hero.center.dy),
-      Offset(mirrored ? right : left, hero.bottom - 4),
+      Offset(mirrored ? right : left, heading.top - 16),
+      Offset(mirrored ? left : right, heading.center.dy),
+      Offset(mirrored ? right : left, heading.bottom + 16),
     ];
   }
 
@@ -579,6 +589,11 @@ class _AtmospherePainter extends CustomPainter {
   }
 
   void _softLight(Canvas canvas, Size size, double seconds) {
+    // The illustrated home buttons already include their own relief and shadow.
+    if (scene == AtlasAtmosphereScene.coffeeHome ||
+        scene == AtlasAtmosphereScene.tarotHome) {
+      return;
+    }
     final hero = geometry.hero;
     if (hero == null || !hero.overlaps(Offset.zero & size)) return;
     final home =

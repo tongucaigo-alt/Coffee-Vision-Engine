@@ -529,7 +529,7 @@ extension _AtlasHomePresentation on _ContributionHomeState {
                               const NavigationDestination(
                                 icon: Icon(Icons.home_outlined),
                                 selectedIcon: Icon(Icons.home),
-                                label: 'Ana Sayfa',
+                                label: 'Kahve',
                               ),
                               if (_hasTarot)
                                 const NavigationDestination(
@@ -617,6 +617,7 @@ extension _AtlasHomePresentation on _ContributionHomeState {
   }
 
   Widget _atlasLanding() => AtlasLandingLayout(
+    hintsEnabled: !_atlasBusy && _error == null,
     frame: const CustomPaint(
       key: ValueKey('atlas-home-frame'),
       painter: AtlasHomeFramePainter(),
@@ -625,24 +626,18 @@ extension _AtlasHomePresentation on _ContributionHomeState {
       children: [
         if (_error != null) AtlasNotice(_error!),
         AtlasLandingContent(
-          hero: _atlasLandingHero(false),
-          kicker: const Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.camera_alt_outlined, size: 13, color: atlasSageInk),
-              SizedBox(width: 5),
-              Text('3 Açılı Çekim', style: AtlasLandingContent.kickerStyle),
-            ],
+          kicker: const Text(
+            '3 AÇILI ÇEKİM',
+            textAlign: TextAlign.center,
+            style: AtlasLandingContent.kickerStyle,
           ),
           title: 'Fincanını Keşfet',
-          description: widget.onReadFortune == null
-              ? 'Fincanının fotoğrafını çek, gözlemlerini keşfet.'
-              : 'Fincanının fotoğrafını çek, kahvenin hikâyesini birlikte okuyalım.',
+          description: 'Hikâyene bir fincanla başla',
         ),
       ],
     ),
     secondary: _atlasLandingGalleryButton(),
-    primary: _atlasLandingScanButton(false),
+    primary: _atlasLandingScanButton(),
     resume: _draft != null && !_draft!.queued
         ? IconButton(
             key: const ValueKey('coffee-resume'),
@@ -695,50 +690,19 @@ extension _AtlasHomePresentation on _ContributionHomeState {
     );
   }
 
-  Widget _atlasLandingHero(bool compact) {
-    final emblem = SizedBox(
-      width: compact ? 56 : 136,
-      height: compact ? 56 : 136,
-      child: DecoratedBox(
-        decoration: const BoxDecoration(
-          shape: BoxShape.circle,
-          gradient: RadialGradient(colors: [Color(0xffeee1d2), atlasCream]),
-        ),
-        child: Center(
-          child: AtlasBrand(size: compact ? 52 : 128, showName: false),
-        ),
-      ),
-    );
-    return AtlasHomeHalo(child: emblem);
-  }
-
-  Widget _atlasLandingGalleryButton() => SizedBox(
-    width: double.infinity,
-    child: TextButton(
-      onPressed: _atlasBusy ? null : _atlasGallery,
-      style: TextButton.styleFrom(
-        minimumSize: const Size(48, 48),
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
-        foregroundColor: atlasCopperInk,
-        textStyle: const TextStyle(
-          fontFamily: 'Plus Jakarta Sans',
-          fontSize: 13,
-          fontWeight: FontWeight.w500,
-          decoration: TextDecoration.underline,
-        ),
-      ),
-      child: const Text('Galeriden Seç', textAlign: TextAlign.center),
-    ),
+  Widget _atlasLandingGalleryButton() => AtlasLandingImageButton(
+    key: const ValueKey('coffee-start-gallery'),
+    asset: 'atlas_gallery_button.webp',
+    label: 'Galeriden Seç',
+    onPressed: _atlasBusy ? null : _atlasGallery,
   );
 
-  Widget _atlasLandingScanButton(bool compact) => SizedBox(
-    width: double.infinity,
-    child: AtlasPrimaryButton.icon(
-      onPressed: _atlasBusy || _error != null ? null : _startNewCamera,
-      style: AtlasLandingLayout.primaryStyle(),
-      icon: const Icon(Icons.camera_alt, size: 20, color: atlasCard),
-      label: const Text('Fincanını Tara', textAlign: TextAlign.center),
-    ),
+  Widget _atlasLandingScanButton() => AtlasLandingImageButton(
+    key: const ValueKey('coffee-start-camera'),
+    asset: 'atlas_camera_button.webp',
+    label: 'Fincanını Tara',
+    primary: true,
+    onPressed: _atlasBusy || _error != null ? null : _startNewCamera,
   );
 
   Widget _atlasSettings() => PageBody(
@@ -752,6 +716,8 @@ extension _AtlasHomePresentation on _ContributionHomeState {
         'Fotoğrafların ve gözlemlerin bu telefonda saklanır. Fal hizmetine yalnız metinsel özet gönderilir. Yıldızsız kayıtlar da otomatik silinmez.',
       ),
       const SizedBox(height: 20),
+      AtlasHomeHintSettings(enabled: !_atlasBusy),
+      const SizedBox(height: 8),
       if (widget.onOpenGuide != null) ...[
         _atlasSettingsItem(
           onPressed: _atlasBusy ? null : widget.onOpenGuide,

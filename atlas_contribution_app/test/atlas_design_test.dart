@@ -1,3 +1,4 @@
+import 'home_action_finder.dart';
 import 'dart:io';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
@@ -105,6 +106,9 @@ void main() {
       'Literata',
     )..addFont(rootBundle.load('assets/brand/Literata.ttf'))).load();
     await (FontLoader(
+      'EB Garamond',
+    )..addFont(rootBundle.load('assets/brand/EBGaramond.ttf'))).load();
+    await (FontLoader(
       'MaterialIcons',
     )..addFont(rootBundle.load('fonts/MaterialIcons-Regular.otf'))).load();
     await (FontLoader('packages/lucide_icons_flutter/Lucide')..addFont(
@@ -163,9 +167,9 @@ void main() {
           expect(bounds.top, greaterThanOrEqualTo(viewport.top));
           expect(bounds.bottom, lessThanOrEqualTo(viewport.bottom));
           for (final text in ['Galeriden Seç', 'Fincanını Tara']) {
-            await tester.ensureVisible(find.text(text));
+            await tester.ensureVisible(homeAction(text));
             await tester.pumpAndSettle();
-            expect(find.text(text).hitTestable(), findsOneWidget);
+            expect(homeAction(text).hitTestable(), findsOneWidget);
           }
           expect(tester.takeException(), isNull);
         },
@@ -230,7 +234,7 @@ void main() {
       expect(find.text('Hitap adı (isteğe bağlı)'), findsOneWidget);
       await tester.pageBack();
       await tester.pumpAndSettle();
-      final galleryButton = find.widgetWithText(TextButton, 'Galeriden Seç');
+      final galleryButton = homeAction('Galeriden Seç');
       expect(tester.widget<TextButton>(galleryButton).onPressed, isNotNull);
       expect(tester.getSize(galleryButton).height, greaterThanOrEqualTo(48));
       expect(
@@ -239,9 +243,9 @@ void main() {
             .style!
             .foregroundColor!
             .resolve({}),
-        atlasCopperInk,
+        atlasCoffee,
       );
-      final captureLabel = tester.getRect(find.text('3 Açılı Çekim'));
+      final captureLabel = tester.getRect(find.text('3 AÇILI ÇEKİM'));
       expect(captureLabel.left, greaterThanOrEqualTo(24));
       expect(
         captureLabel.right,
@@ -253,11 +257,7 @@ void main() {
       if (size.height >= 800) {
         expect(find.text('Fincanını Keşfet').hitTestable(), findsOneWidget);
         expect(
-          find
-              .text(
-                'Fincanının fotoğrafını çek, kahvenin hikâyesini birlikte okuyalım.',
-              )
-              .hitTestable(),
+          find.text('Hikâyene bir fincanla başla').hitTestable(),
           findsOneWidget,
         );
       }
@@ -269,16 +269,16 @@ void main() {
       );
       final suffix = '${size.width.toInt()}-${size.height.toInt()}-$scale';
       await _snapshot(tester, 'home-$suffix');
-      final scanButton = find.widgetWithText(FilledButton, 'Fincanını Tara');
+      final scanButton = homeAction('Fincanını Tara');
       await tester.ensureVisible(scanButton);
       await tester.pumpAndSettle();
       frameBounds = tester.getRect(frame);
-      expect(tester.widget<FilledButton>(scanButton).onPressed, isNotNull);
+      expect(tester.widget<TextButton>(scanButton).onPressed, isNotNull);
       expect(
         tester
-            .widget<FilledButton>(scanButton)
+            .widget<TextButton>(scanButton)
             .style!
-            .backgroundColor!
+            .foregroundColor!
             .resolve({}),
         atlasCoffee,
       );
@@ -293,10 +293,15 @@ void main() {
       }
       expect(scanButton.hitTestable(), findsOneWidget);
       if (scale == 1 && size.width >= 360) {
-        expect(tester.getSize(scanButton).width, 280);
+        expect(
+          tester
+              .getSize(find.byKey(const ValueKey('atlas-primary-image')))
+              .width,
+          closeTo(frameBounds.width * 288 / 873, .01),
+        );
         expect(
           tester.getSize(scanButton).width,
-          lessThan(frameBounds.width - 32),
+          lessThanOrEqualTo(frameBounds.width - 32),
         );
       }
       expect(
@@ -315,8 +320,8 @@ void main() {
       );
       if (scale == 1) {
         expect(
-          tester.getRect(scanButton).center.dy,
-          greaterThanOrEqualTo(frameBounds.top + frameBounds.height * .7),
+          tester.getRect(find.byKey(const ValueKey('atlas-primary-image'))).top,
+          greaterThan(tester.getRect(galleryButton).bottom),
         );
       }
       await tester.tap(find.text('Ayarlar'));

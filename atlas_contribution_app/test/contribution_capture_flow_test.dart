@@ -1,3 +1,4 @@
+import 'home_action_finder.dart';
 import 'suitability_fixture.dart';
 import 'dart:io';
 import 'dart:async';
@@ -292,7 +293,7 @@ void main() {
         final store = _CaptureStore(temp, original)..accepted = true;
         final camera = _FakeCamera([null]);
         await _mount(tester, store, camera, modern: true);
-        final start = find.text('Fincanını Tara');
+        final start = homeAction('Fincanını Tara');
         expect(start, findsOneWidget);
         await tester.ensureVisible(start);
         await tester.tap(start);

@@ -8,6 +8,7 @@ import 'src/local_store.dart';
 import 'src/offline_contribution.dart';
 import 'src/atlas_design.dart';
 import 'src/atlas_intro.dart';
+import 'src/atlas_home_hints.dart';
 import 'src/coffee_guide_gate.dart';
 import 'src/coffee_guide_page.dart';
 import 'src/coffee_guide_store.dart';
@@ -140,7 +141,10 @@ class _OfflineStartupAppState extends State<OfflineStartupApp> {
           onPopInvokedWithResult: (didPop, _) {
             if (!didPop) intro.finish(immediate: true);
           },
-          child: Scaffold(body: AtlasIntroView(controller: intro)),
+          child: Scaffold(
+            backgroundColor: intro.closing ? atlasCream : atlasIntroBackground,
+            body: AtlasIntroView(controller: intro),
+          ),
         ),
       );
     }
@@ -197,9 +201,12 @@ class OfflineContributionApp extends StatelessWidget {
     title: 'Atlas',
     debugShowCheckedModeBanner: false,
     theme: atlasTheme(),
-    builder: (context, child) => ai == null
-        ? child!
-        : FortunePreparationHost(controller: ai!.preparation, child: child!),
+    builder: (context, child) => AtlasHomeHintScope(
+      directory: Directory('${store.directory.parent.path}/home-action-hints'),
+      child: ai == null
+          ? child!
+          : FortunePreparationHost(controller: ai!.preparation, child: child!),
+    ),
     home: Builder(
       builder: (context) => CoffeeGuideGate(
         store:

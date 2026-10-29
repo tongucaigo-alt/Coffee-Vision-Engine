@@ -10,7 +10,7 @@ void main() {
     AtlasAtmosphereScene.coffeeHome,
     AtlasAtmosphereScene.tarotHome,
   ]) {
-    testWidgets('resume control does not crop or shift the home halo: $scene', (
+    testWidgets('resume control does not crop or shift home accents: $scene', (
       t,
     ) async {
       t.view.physicalSize = const Size(360, 700);
@@ -27,7 +27,7 @@ void main() {
       picture.dispose();
       addTearDown(image.dispose);
       final boundary = GlobalKey();
-      Widget page(bool resume) => MaterialApp(
+      Widget page(bool resume, {bool markArtwork = true}) => MaterialApp(
         theme: atlasTheme(),
         home: MediaQuery(
           data: const MediaQueryData(
@@ -47,7 +47,9 @@ void main() {
                       width: 320,
                       height: 152,
                       child: AtlasAtmosphereRegion(
-                        kind: AtlasAtmosphereRegionKind.hero,
+                        kind: markArtwork
+                            ? AtlasAtmosphereRegionKind.hero
+                            : AtlasAtmosphereRegionKind.protected,
                         child: Center(
                           child: RawImage(
                             image: image,
@@ -74,14 +76,14 @@ void main() {
           ),
         ),
       );
-      Future<List<int>> haloPixels() async {
+      Future<List<int>> backgroundPixels() async {
         final shot =
             await (boundary.currentContext!.findRenderObject()!
                     as RenderRepaintBoundary)
                 .toImage();
         final bytes = await shot.toByteData(format: ui.ImageByteFormat.rawRgba);
         final result = <int>[];
-        // Upper and side glow, excluding the control and the opaque artwork.
+        // Background and accents, excluding the control and opaque artwork.
         for (var y = 64; y < 260; y++) {
           for (var x = 40; x < 320; x++) {
             if (y >= 108 && y < 236 && x >= 116 && x < 244) continue;
@@ -94,10 +96,23 @@ void main() {
         return result;
       }
 
+      Future<List<int>> paperPixel() async {
+        final shot =
+            await (boundary.currentContext!.findRenderObject()!
+                    as RenderRepaintBoundary)
+                .toImage();
+        final bytes = await shot.toByteData(format: ui.ImageByteFormat.rawRgba);
+        final pixel = bytes!.buffer
+            .asUint8List((170 * shot.width + 90) * 4, 4)
+            .toList();
+        shot.dispose();
+        return pixel;
+      }
+
       await t.pumpWidget(page(false));
       await t.pump();
       await t.pump();
-      final before = (await t.runAsync(haloPixels))!;
+      final before = (await t.runAsync(backgroundPixels))!;
       final beforeArt = t.getRect(find.byType(RawImage));
       await t.pumpWidget(page(true));
       await t.pump();
@@ -108,15 +123,24 @@ void main() {
         const Size(48, 48),
       );
       expect(
-        (await t.runAsync(haloPixels))!,
+        (await t.runAsync(backgroundPixels))!,
         before,
-        reason: 'A draft/resume button must not change light around the image',
+        reason: 'A draft/resume button must not change background accents',
       );
       final geometry = t
           .widget<AtlasHomeAtmosphere>(find.byType(AtlasHomeAtmosphere))
           .geometry;
       expect(geometry.artwork, beforeArt);
       expect(geometry.artworkHalfWidth, 64);
+      final withArtworkAnchor = (await t.runAsync(paperPixel))!;
+      await t.pumpWidget(page(false, markArtwork: false));
+      await t.pump();
+      await t.pump();
+      expect(
+        (await t.runAsync(paperPixel))!,
+        withArtworkAnchor,
+        reason: 'Home artwork must not brighten the paper with a halo',
+      );
       await t.pumpWidget(const SizedBox());
     });
   }

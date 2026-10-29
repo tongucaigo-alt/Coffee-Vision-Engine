@@ -1,3 +1,4 @@
+import 'home_action_finder.dart';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:ui' as ui;
@@ -23,6 +24,7 @@ void main() {
   setUpAll(() async {
     for (final entry in {
       'Literata': 'assets/brand/Literata.ttf',
+      'EB Garamond': 'assets/brand/EBGaramond.ttf',
       'Plus Jakarta Sans': 'assets/brand/PlusJakartaSans.ttf',
       'MaterialIcons': 'fonts/MaterialIcons-Regular.otf',
     }.entries) {
@@ -150,11 +152,8 @@ void main() {
         final coffeeFrame = tester.getRect(
           find.byKey(const ValueKey('atlas-home-frame')),
         );
-        final coffeeAction = tester.getRect(
-          find.widgetWithText(FilledButton, 'Fincanını Tara'),
-        );
-        final coffeeHero = tester.getRect(
-          find.byKey(const ValueKey('atlas-landing-hero-slot')),
+        final coffeeArtwork = tester.getSize(
+          find.byKey(const ValueKey('atlas-primary-image')),
         );
         final coffeeTitle = tester.getRect(
           find.byKey(const ValueKey('atlas-landing-title')),
@@ -164,15 +163,15 @@ void main() {
             .style;
         expect(find.text('Gizlilik Politikası'), findsNothing);
         if (scale == 1) {
-          expect(coffeeAction.width, 280);
-          expect(find.text('Fincanını Tara').hitTestable(), findsOneWidget);
+          expect(coffeeArtwork.width, closeTo((width - 32) * 288 / 873, .01));
+          expect(homeAction('Fincanını Tara').hitTestable(), findsOneWidget);
           for (final scrollable in tester.stateList<ScrollableState>(
             find.byType(Scrollable),
           )) {
             expect(scrollable.position.maxScrollExtent, 0);
           }
         } else {
-          await tester.ensureVisible(find.text('Fincanını Tara'));
+          await tester.ensureVisible(homeAction('Fincanını Tara'));
         }
         await capture(tester, key, 'coffee-${width.toInt()}-${scale.toInt()}x');
         await mainTab(tester, 'Tarot');
@@ -188,10 +187,8 @@ void main() {
         );
         if (scale == 1) {
           expect(
-            tester.getRect(
-              find.byKey(const ValueKey('atlas-landing-hero-slot')),
-            ),
-            coffeeHero,
+            tester.getSize(find.byKey(const ValueKey('atlas-primary-image'))),
+            coffeeArtwork,
           );
           expect(
             tester
@@ -204,17 +201,16 @@ void main() {
             coffeeFrame,
           );
           expect(
-            tester.getRect(find.byKey(const ValueKey('tarot-start-three'))),
-            coffeeAction,
+            homeAction('Üç Kart · Karıştır').hitTestable(),
+            findsOneWidget,
           );
-          expect(find.text('Üç Kart · Karıştır').hitTestable(), findsOneWidget);
           for (final scrollable in tester.stateList<ScrollableState>(
             find.byType(Scrollable),
           )) {
             expect(scrollable.position.maxScrollExtent, 0);
           }
         } else {
-          await tester.ensureVisible(find.text('Üç Kart · Karıştır'));
+          await tester.ensureVisible(homeAction('Üç Kart · Karıştır'));
         }
         await capture(tester, key, 'tarot-${width.toInt()}-${scale.toInt()}x');
         expect(tester.takeException(), isNull);
@@ -251,7 +247,7 @@ void main() {
     await tester.pageBack();
     await settle(tester);
     expect(tester.widget<SegmentedButton<int>>(tabs).selected, {1});
-    await mainTab(tester, 'Ana Sayfa');
+    await mainTab(tester, 'Kahve');
     await mainTab(tester, 'Kayıtlarım');
     expect(tester.widget<SegmentedButton<int>>(tabs).selected, {1});
     expect(calls, 0);

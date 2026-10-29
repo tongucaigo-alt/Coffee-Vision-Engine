@@ -112,13 +112,13 @@ class _TarotHomePageState extends State<TarotHomePage> {
       content: Column(
         children: [
           const AtlasLandingContent(
-            hero: AtlasHomeHalo(child: _TarotHomeCards()),
             kicker: Text(
-              'Geçmiş · Şimdi · Olası Yön',
+              'GEÇMİŞ · ŞİMDİ · OLASI YÖN',
+              textAlign: TextAlign.center,
               style: AtlasLandingContent.kickerStyle,
             ),
-            title: 'Kartların hikâyesi',
-            description: 'Kartlarını kendin seç.',
+            title: 'Kartların Hikâyesi',
+            description: 'Hikâyeni üç kartla keşfet',
           ),
           if (_draws == null && _error == null)
             const SizedBox(
@@ -134,26 +134,24 @@ class _TarotHomePageState extends State<TarotHomePage> {
           ],
         ],
       ),
-      secondary: TextButton.icon(
+      secondary: AtlasLandingImageButton(
         key: const ValueKey('tarot-start-daily'),
+        asset: 'tarot_daily_button.webp',
+        label: 'Günün Kartı',
         onPressed: _busy || _draws == null
             ? null
             : () => _open(TarotSpread.daily),
-        icon: const Icon(Icons.wb_twilight_outlined, size: 20),
-        label: const Text('Günün Kartı'),
       ),
-      primary: AtlasActionWidth(
-        child: FilledButton.icon(
-          key: const ValueKey('tarot-start-three'),
-          onPressed: _busy || _draws == null
-              ? null
-              : () => _open(TarotSpread.three),
-          style: AtlasLandingLayout.primaryStyle(),
-          icon: const Icon(Icons.style_outlined, size: 20),
-          label: const Text('Üç Kart · Karıştır', textAlign: TextAlign.center),
-        ),
+      primary: AtlasLandingImageButton(
+        key: const ValueKey('tarot-start-three'),
+        asset: 'tarot_shuffle_button.webp',
+        label: 'Üç Kart · Karıştır',
+        primary: true,
+        onPressed: _busy || _draws == null
+            ? null
+            : () => _open(TarotSpread.three),
       ),
-      notice: true,
+      hintsEnabled: !_busy && _draws != null && _error == null,
       resume: pending == null
           ? null
           : IconButton(

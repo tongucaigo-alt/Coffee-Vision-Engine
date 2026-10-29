@@ -85,6 +85,7 @@ flutter:
     - assets/intro/
     - assets/animations/
     - assets/brand/
+    - assets/buttons/
     - assets/guide/
     - assets/contribution-labels-v1.json
     - assets/fortune-prompt-v1.json
@@ -98,6 +99,9 @@ flutter:
   # the material Icons class.
   uses-material-design: true
   fonts:
+    - family: EB Garamond
+      fonts:
+        - asset: assets/brand/EBGaramond.ttf
     - family: Plus Jakarta Sans
       fonts:
         - asset: assets/brand/PlusJakartaSans.ttf
