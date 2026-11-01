@@ -1,0 +1,20 @@
+{
+  "originalSource": "C:\\Users\\exzau\\Documents\\Codex\\2026-10-25\\atlas-tarot-effects-v101",
+  "sourceManifestHead": "2cc33082f03885606cd72ba619de083fc5e2b25f",
+  "isolatedSource": "C:\\Users\\exzau\\Documents\\Codex\\2026-10-30\\atlas-kalibrasyon-hiz",
+  "baselineAppCommit": "9d99a547fccccaaa66b14a92ffc45051353d8571",
+  "manifestEntries": 79,
+  "matchingEntries": 78,
+  "differentEntries": [
+    "ACILIS_ANA_EKRAN_INCE_AYAR_NOTLARI.md"
+  ],
+  "package": "com.coffeeplatform.atlas_contribution_app.diagnostic",
+  "versionCode": 118,
+  "versionName": "1.0.0-kimi-test.118",
+  "apkSha256Verified": "39f79182832861c525af9f27058b0291dbdc49c7255037761687e59204e6b75f",
+  "originalSourceModifiedByThisTask": false,
+  "uiBackupUsedAsLogicBase": false,
+  "privateConfigurationValuesRecorded": false,
+  "phoneInstalled": false,
+  "paidCalls": 0
+}

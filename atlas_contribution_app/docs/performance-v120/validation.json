@@ -1,0 +1,39 @@
+{
+  "versionCode": 120,
+  "package": "com.coffeeplatform.atlas_contribution_app.diagnostic",
+  "sourceCommit": "449afb9",
+  "installed": true,
+  "debugMode": true,
+  "appTestsPassed": 226,
+  "gatewayTestsPassed": 40,
+  "analyze": "clean",
+  "providerCallsPerformedByAgent": 0,
+  "coreDataHashesUnchanged": true,
+  "counts": {
+    "pendingDeletes": 0,
+    "coffeeReceipts": 41,
+    "aiResults": 44,
+    "aiCompleted": 33,
+    "aiStars": 6,
+    "tarotDraws": 48,
+    "tarotStars": 4,
+    "reviewRevisionFiles": 263,
+    "photoFiles": 146
+  },
+  "phoneLocalProbe": {
+    "version": 1,
+    "providerCalls": 0,
+    "status": "measured",
+    "sourceCurrentUs": [
+      247794,
+      190411,
+      179477
+    ]
+  },
+  "recordsRevisitPassed": true,
+  "leftOnCoffeeHome": true,
+  "liveFortuneTotalTimeMeasured": false,
+  "liveQualityRejectionRateMeasured": false,
+  "productionGatewayDeployed": false,
+  "photoFilterChanged": false
+}

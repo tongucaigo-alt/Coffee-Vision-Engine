@@ -427,15 +427,11 @@ class _AiFortunePageState extends State<AiFortunePage> {
 
   Future<void> _load() async {
     try {
-      final profiles = await widget.runtime.store.profiles();
-      final focus = await widget.runtime.store.readingFocus(session.id);
-      final stars = await widget.runtime.store.starredIds();
-      final results = await widget.runtime.store.results(session.id);
-      for (final result in results) {
-        if ((result['answers'] as List).isNotEmpty) {
-          await widget.runtime.store.expose(result);
-        }
-      }
+      final snapshot = await widget.runtime.store.readingSnapshot(session.id);
+      final profiles = snapshot.profiles;
+      final focus = snapshot.focus;
+      final stars = snapshot.stars;
+      final results = snapshot.results;
       if (mounted) {
         setState(() {
           _focus = focus;
@@ -622,7 +618,18 @@ class _AiFortunePageState extends State<AiFortunePage> {
   }
 
   Future<void> _generate() async {
-    await _load();
+    final operationWatch = Stopwatch()..start();
+    final stages = <String, int>{};
+    Future<T> measure<T>(String stage, Future<T> Function() action) async {
+      final watch = Stopwatch()..start();
+      try {
+        return await action();
+      } finally {
+        stages[stage] = (stages[stage] ?? 0) + watch.elapsedMilliseconds;
+      }
+    }
+
+    await measure('readingLoad', _load);
     // Simple reading actions reuse the saved answer. Explicit laboratory A/B
     // comparisons remain available and do not count the same request twice.
     if (widget.simple &&
@@ -635,7 +642,12 @@ class _AiFortunePageState extends State<AiFortunePage> {
     if (presentation.cancelled && presentation.active) {
       throw const AiFailure('İşlem durduruldu; kaydın korunuyor.');
     }
-    if (!await _checkPhotos(retry: _photoFailure?.technical == true)) return;
+    if (!await measure(
+      'photoSuitability',
+      () => _checkPhotos(retry: _photoFailure?.technical == true),
+    )) {
+      return;
+    }
     _photoFailure = null;
     if (_generationCancelled ||
         (presentation.active && presentation.cancelled)) {
@@ -675,15 +687,17 @@ class _AiFortunePageState extends State<AiFortunePage> {
     // Paint the preparation screen before beginning local analysis work.
     await WidgetsBinding.instance.endOfFrame;
     if (!mounted) return;
-    if (!await widget.runtime.bridge.isCurrent(session)) {
+    if (!await measure(
+      'sourceValidation',
+      () => widget.runtime.bridge.isCurrent(session),
+    )) {
       throw const AiFailure(
         'Kaynak kayıt değişti. Ekranı kapatıp güncel kaydı aç.',
       );
     }
     final phaseWatch = Stopwatch()..start();
-    final stages = <String, int>{};
     if (session.currentInitialObservation != null) presentation.permitDisplay();
-    final traceWork = _loadTraces(preparing: true);
+    final traceWork = measure('traces', () => _loadTraces(preparing: true));
     await _controller.analyze(
       enrich: true,
       isCancelled: () => _generationCancelled,
@@ -701,12 +715,16 @@ class _AiFortunePageState extends State<AiFortunePage> {
     stages['preparationTotal'] = phaseWatch.elapsedMilliseconds;
     checkCancelled();
     if (!mounted) return;
-    if (!await widget.runtime.bridge.isCurrent(session)) {
+    if (!await measure(
+      'sourceValidation',
+      () => widget.runtime.bridge.isCurrent(session),
+    )) {
       throw const AiFailure('Kaynak kayıt değişti; işlem durduruldu.');
     }
     widget.runtime.progress.value = const FortuneProgress(
       FortunePhase.generating,
     );
+    final contextWatch = Stopwatch()..start();
     final recent = await widget.runtime.store.recentSuccessfulResults();
     final focus = await widget.runtime.store.readingFocus(session.id);
     final readingKey = readingRequestKey(
@@ -764,7 +782,9 @@ class _AiFortunePageState extends State<AiFortunePage> {
         'pastReadingExcerpt': memoryCandidate.excerpt,
       });
     }
+    stages['context'] = contextWatch.elapsedMilliseconds;
     checkCancelled();
+    if (!mounted) return;
     final selected = [
       _profiles.firstWhere((p) => p.id == _first),
       if (_compare) _profiles.firstWhere((p) => p.id == _second),
@@ -809,7 +829,10 @@ class _AiFortunePageState extends State<AiFortunePage> {
           beforeRequest: () async {
             checkCancelled();
             if (await widget.runtime.store.readingFocus(session.id) != focus ||
-                !await widget.runtime.bridge.isCurrent(snapshot)) {
+                !await measure(
+                  'sourceValidation',
+                  () => widget.runtime.bridge.isCurrent(snapshot),
+                )) {
               throw const AiFailure(
                 'Fal konusu veya kayıt değişti; işlem durduruldu.',
               );
@@ -843,6 +866,8 @@ class _AiFortunePageState extends State<AiFortunePage> {
             }
           },
           onProgress: (p) => widget.runtime.progress.value = p,
+          onStage: (stage, elapsed) =>
+              stages[stage] = (stages[stage] ?? 0) + elapsed,
           previousTexts: [
             for (final r in recent)
               for (final a in r['answers'] as List) a['text'] as String,
@@ -854,7 +879,10 @@ class _AiFortunePageState extends State<AiFortunePage> {
         _cancel!.check();
         checkCancelled();
         if (!mounted ||
-            !await widget.runtime.bridge.isCurrent(snapshot) ||
+            !await measure(
+              'sourceValidation',
+              () => widget.runtime.bridge.isCurrent(snapshot),
+            ) ||
             await widget.runtime.store.readingFocus(session.id) != focus) {
           throw const AiFailure(
             'Kayıt değişti; bu yanıt güncel fal olarak gösterilmedi.',
@@ -882,6 +910,7 @@ class _AiFortunePageState extends State<AiFortunePage> {
         'code': 'completed',
         'stageMs': {...presentation.stageDurations, ...stages},
         'durationMs': phaseWatch.elapsedMilliseconds,
+        'operationMs': operationWatch.elapsedMilliseconds,
       };
       widget.runtime.progress.value = const FortuneProgress(
         FortunePhase.completed,

@@ -9,6 +9,7 @@ import 'package:atlas_contribution_app/src/offline_contribution.dart';
 import 'package:atlas_contribution_app/src/record_summary.dart';
 import 'contribution_save_status_test.dart' show MemoryStore;
 import 'fixtures.dart';
+import 'package:atlas_contribution_app/src/local_revision_cache.dart';
 
 class HistoryStore extends MemoryStore {
   HistoryStore() : super(Directory('unused-record-summary-fixture'), null);
@@ -82,15 +83,16 @@ void main() {
       expect(find.text('★ · Fal hazır'), findsOneWidget);
       await tester.tap(find.text('Fincanın Hikâyesi'));
       await tester.pumpAndSettle();
-      expect(batches, 2);
+      expect(batches, 1);
       await tester.tap(find.text('Falını Oku'));
       await tester.pumpAndSettle();
       expect(reads, 1);
       expect(generations, 0);
       state = 'Önceki kayda ait fal';
+      markLocalDataChanged();
       await tester.pageBack();
       await tester.pumpAndSettle();
-      expect(batches, 3);
+      expect(batches, 2);
       expect(find.text('★ · Önceki kayda ait fal'), findsOneWidget);
       await tester.ensureVisible(find.text('Yıldızlılar'));
       await tester.tap(find.text('Yıldızlılar'));

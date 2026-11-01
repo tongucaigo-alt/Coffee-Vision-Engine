@@ -1,4 +1,6 @@
 import 'dart:io';
+import 'dart:convert';
+import '../local_revision_cache.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:uuid/uuid.dart';
@@ -21,6 +23,12 @@ class TarotRuntime extends ChangeNotifier {
     this.reportingRuntime,
   });
   final TarotStore store;
+  final historyCache = LocalRevisionCache<List<TarotDraw>>(
+    canRetain: (draws) =>
+        draws.length <= 200 &&
+        utf8.encode(jsonEncode(draws.map((d) => d.toJson()).toList())).length <=
+            4 * 1024 * 1024,
+  );
   final List<TarotCard> catalog;
   final TarotGenerate generateReading;
   final String promptVersion, promptHash;

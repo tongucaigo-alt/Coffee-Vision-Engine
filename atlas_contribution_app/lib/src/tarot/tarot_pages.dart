@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../local_revision_cache.dart';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
@@ -934,27 +935,87 @@ class TarotHistoryPage extends StatefulWidget {
   State<TarotHistoryPage> createState() => _TarotHistoryPageState();
 }
 
-class _TarotHistoryPageState extends State<TarotHistoryPage> {
+class _TarotHistoryPageState extends State<TarotHistoryPage>
+    with WidgetsBindingObserver {
   List<TarotDraw>? _draws;
   bool _starredOnly = false, _busy = false;
   String? _error;
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _draws = widget.runtime.historyCache.value;
     _load();
   }
 
+  int _loadRun = 0;
+  @override
+  void didUpdateWidget(covariant TarotHistoryPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.runtime, widget.runtime)) {
+      _loadRun++;
+      _draws = widget.runtime.historyCache.value;
+      _error = null;
+      _busy = false;
+      _starredOnly = false;
+      PageStorage.maybeOf(
+        context,
+      )?.writeState(context, false, identifier: 'tarot-history-filter');
+      _load();
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _loadRun++;
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      markLocalDataChanged();
+      _load();
+    }
+  }
+
+  bool _restoredFilter = false;
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_restoredFilter) return;
+    _restoredFilter = true;
+    _starredOnly =
+        PageStorage.maybeOf(
+              context,
+            )?.readState(context, identifier: 'tarot-history-filter')
+            as bool? ??
+        false;
+  }
+
+  void _filter(bool starred) {
+    setState(() => _starredOnly = starred);
+    PageStorage.maybeOf(
+      context,
+    )?.writeState(context, starred, identifier: 'tarot-history-filter');
+  }
+
   Future<void> _load() async {
+    final run = ++_loadRun;
+    final runtime = widget.runtime;
     try {
-      final draws = await widget.runtime.store.draws();
-      if (mounted) {
+      final draws = await runtime.historyCache.load(runtime.store.draws);
+      if (mounted && run == _loadRun && identical(runtime, widget.runtime)) {
         setState(() {
           _draws = draws;
           _error = null;
         });
       }
     } catch (e) {
-      if (mounted) setState(() => _error = _errorText(e));
+      if (mounted && run == _loadRun && identical(runtime, widget.runtime)) {
+        setState(() => _error = _errorText(e));
+      }
     }
   }
 
@@ -998,6 +1059,7 @@ class _TarotHistoryPageState extends State<TarotHistoryPage> {
     final rows = _draws?.where((d) => !_starredOnly || d.starred).toList();
     final content = SafeArea(
       child: SingleChildScrollView(
+        key: const PageStorageKey('atlas-tarot-history-scroll'),
         padding: const EdgeInsets.all(20),
         child: Center(
           child: ConstrainedBox(
@@ -1011,14 +1073,14 @@ class _TarotHistoryPageState extends State<TarotHistoryPage> {
                     ChoiceChip(
                       label: const Text('Tümü'),
                       selected: !_starredOnly,
-                      onSelected: (_) => setState(() => _starredOnly = false),
+                      onSelected: (_) => _filter(false),
                     ),
                     ChoiceChip(
                       label: Text(
                         'Yıldızlılar · ${_draws?.where((d) => d.starred).length ?? 0}/20',
                       ),
                       selected: _starredOnly,
-                      onSelected: (_) => setState(() => _starredOnly = true),
+                      onSelected: (_) => _filter(true),
                     ),
                   ],
                 ),

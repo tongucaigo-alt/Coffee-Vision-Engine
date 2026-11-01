@@ -86,8 +86,12 @@ Debug derlemede üst çubuktaki hata ayıklama simgesi analiz panelini açar. �
 analizini kullan” etkinleştirildikten sonra fincan, merkez, boyut, ışık, netlik,
 sabitlik ve açı durumları elle değiştirilebilir. Bütün koşullar uygunsa otomatik
 çekim yeni analiz karelerinde biriken 1,2 saniyelik uygunluk süresinden sonra çalışır.
-Tek bir kısa kadraj/açı uygunsuzluğu süreyi duraklatır; ikinci uygunsuzluk
-sıfırlar. Netlik, ışık, hareket veya güncel fincan/telve kaybı hemen sıfırlar.
+Kısa hareket, kadraj/açı veya eşik yakınındaki ışık/netlik dalgalanmasında
+bekleme en fazla 500 ms duraklar. Bu aralık ve normale dönen ilk kareye kadar
+geçen süre birikime eklenmez. Daha uzun kesinti, belirgin netlik/ışık bozulması,
+ekran kenarında kesilme veya güncel fincan/telve kaybı beklemeyi sıfırlar.
+Çekim anında bütün normal kalite koşulları yine sağlanmalıdır; yalnız duraklama
+sınıflandırmasında ışık/netlik eşiğinin %90'ına kadar tolerans vardır.
 750 ms üzerindeki analiz boşluğundan veya yalnız arayüz güncellemesinden
 otomatik çekim üretilmez.
 

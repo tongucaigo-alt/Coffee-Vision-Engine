@@ -304,7 +304,7 @@ void main() {
     );
   }
 
-  for (final failure in ['motion', 'blur', 'dark', 'no cup']) {
+  for (final failure in ['blur', 'dark', 'no cup']) {
     test('fresh $failure frame resets automatic accumulation', () async {
       final service = _FakeCameraService(capturePath: 'unused');
       final controller = CoffeeCameraController(
@@ -345,6 +345,91 @@ void main() {
       expect(service.takePictureCalls, 0);
       await controller.close();
     });
+  }
+
+  for (final prolonged in [false, true]) {
+    test(
+      'real dense analysis ${prolonged ? 'resets prolonged' : 'pauses brief'} motion without capturing it',
+      () async {
+        final file = await _createCaptureFile('motion-interruption');
+        final service = _FakeCameraService(capturePath: file.path);
+        final motion = _FakeMotionService();
+        final controller = CoffeeCameraController(
+          config: const CoffeeCameraConfig(
+            analysisInterval: Duration.zero,
+            coffeeActivationFrames: 1,
+            autoCaptureStableDuration: Duration(milliseconds: 200),
+          ),
+          cameraService: service,
+          motionService: motion,
+        );
+        final frame = _cameraImageFromFrame(denseCoffeeScene());
+        await controller.initialize();
+        controller.setViewportSize(const Size(360, 800));
+        var emitted = 0;
+        Future<void> emit() async {
+          emitted++;
+          // Distinct frames need distinct wall-clock timestamps, including
+          // platforms where DateTime.now has millisecond precision.
+          await Future<void>.delayed(const Duration(milliseconds: 2));
+          final previous = controller.analysis.timestamp;
+          service.emitFrame(frame);
+          for (var attempt = 0; attempt < 100; attempt++) {
+            if (controller.analysis.timestamp.isAfter(previous)) return;
+            await Future<void>.delayed(const Duration(milliseconds: 2));
+          }
+          fail(
+            'Frame $emitted missing: phase=${controller.phase}, '
+            'stable=${controller.assessment.stable}, progress=${controller.autoUpdate.progress}, '
+            'captures=${service.takePictureCalls}',
+          );
+        }
+
+        await emit();
+        await Future<void>.delayed(const Duration(milliseconds: 30));
+        await emit();
+        final saved = controller.autoUpdate.progress;
+        expect(saved, greaterThan(0));
+        motion.value = const MotionSnapshot(
+          isAvailable: true,
+          angleDegrees: 0,
+          isStable: false,
+        );
+        await emit();
+        expect(controller.autoUpdate.progress, saved);
+        expect(controller.captureReady, false);
+        await controller.capture(CameraCaptureMode.automatic);
+        expect(service.takePictureCalls, 0);
+        await Future<void>.delayed(
+          Duration(milliseconds: prolonged ? 550 : 40),
+        );
+        await emit();
+        expect(controller.autoUpdate.progress, prolonged ? 0 : saved);
+        expect(service.takePictureCalls, 0);
+        motion.value = const MotionSnapshot(
+          isAvailable: true,
+          angleDegrees: 0,
+          isStable: true,
+        );
+        await emit();
+        expect(controller.autoUpdate.progress, prolonged ? 0 : saved);
+        expect(
+          service.takePictureCalls,
+          0,
+          reason: 'First recovered frame cannot count the bad interval',
+        );
+        if (!prolonged) {
+          await Future<void>.delayed(const Duration(milliseconds: 210));
+          await emit();
+          await _waitForPhase(controller, CameraExperiencePhase.reviewing);
+          expect(service.takePictureCalls, 1);
+          expect(controller.draftResult!.mode, CameraCaptureMode.automatic);
+          expect(controller.draftResult!.requiresStrictPhotoVerification, true);
+        }
+        await controller.close();
+        await _deleteIfExists(file.path);
+      },
+    );
   }
 
   test(
@@ -673,9 +758,14 @@ Future<void> _waitForCondition(bool Function() condition) async {
 }
 
 class _FakeMotionService extends DeviceMotionService {
+  MotionSnapshot value = const MotionSnapshot(
+    isAvailable: true,
+    angleDegrees: 0,
+    isStable: true,
+  );
+
   @override
-  MotionSnapshot get snapshot =>
-      const MotionSnapshot(isAvailable: true, angleDegrees: 0, isStable: true);
+  MotionSnapshot get snapshot => value;
 
   @override
   void start() {}

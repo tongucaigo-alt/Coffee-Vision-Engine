@@ -17,12 +17,13 @@ class AutoCaptureController {
   AutoCaptureController({required this.stableDuration, this.enabled = true});
 
   static const maximumFrameGap = Duration(milliseconds: 750);
+  static const maximumSoftInterruption = Duration(milliseconds: 500);
   final Duration stableDuration;
   bool enabled;
   DateTime? _lastFrameAt;
   Duration _readyDuration = Duration.zero;
   bool _previousReady = false;
-  int _softFailures = 0;
+  DateTime? _softFailureStartedAt;
   bool _triggered = false;
 
   void setEnabled(bool value) {
@@ -49,8 +50,9 @@ class AutoCaptureController {
     if (_triggered) return _snapshot();
 
     if (!ready) {
-      _softFailures++;
-      if (hardFailure || _softFailures >= 2) {
+      _softFailureStartedAt ??= now;
+      if (hardFailure ||
+          now.difference(_softFailureStartedAt!) > maximumSoftInterruption) {
         reset();
         _lastFrameAt = now;
       } else {
@@ -58,9 +60,16 @@ class AutoCaptureController {
       }
       return _snapshot();
     }
+    // Recovery must arrive promptly too, even if no second bad frame arrived.
+    final interruption = _softFailureStartedAt;
+    if (interruption != null &&
+        now.difference(interruption) > maximumSoftInterruption) {
+      reset();
+      _lastFrameAt = now;
+    }
     if (_previousReady && gap <= maximumFrameGap) _readyDuration += gap;
     _previousReady = true;
-    _softFailures = 0;
+    _softFailureStartedAt = null;
     if (_readyDuration >= stableDuration) {
       _triggered = true;
       return _snapshot(shouldCapture: true);
@@ -72,7 +81,7 @@ class AutoCaptureController {
       AutoCaptureUpdate(
         phase: _triggered
             ? AutoCapturePhase.triggered
-            : _previousReady || _softFailures > 0
+            : _previousReady || _softFailureStartedAt != null
             ? AutoCapturePhase.stabilizing
             : AutoCapturePhase.idle,
         progress:
@@ -85,7 +94,7 @@ class AutoCaptureController {
     _lastFrameAt = null;
     _readyDuration = Duration.zero;
     _previousReady = false;
-    _softFailures = 0;
+    _softFailureStartedAt = null;
     _triggered = false;
   }
 }

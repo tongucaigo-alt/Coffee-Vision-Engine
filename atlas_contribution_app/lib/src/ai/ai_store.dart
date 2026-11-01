@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import '../local_revision_cache.dart';
 import 'ai_contract.dart';
 import 'fortune_personalization.dart';
 import 'fortune_memory.dart';
@@ -37,14 +38,24 @@ class AiStore {
     return value;
   }
 
-  Future<void> change(void Function(Map<String, dynamic>) operation) {
+  Future<void> change(void Function(Map<String, dynamic>) operation) =>
+      _update((data) {
+        operation(data);
+        return true;
+      });
+
+  Future<void> _update(bool Function(Map<String, dynamic>) operation) {
     final next = _tail.then((_) async {
-      await directory.create(recursive: true);
       final data = await _read();
-      operation(data);
-      final file = File('${directory.path}/state.pending');
-      await file.writeAsString(jsonEncode(data), flush: true);
-      await file.rename('${directory.path}/state.json');
+      if (!operation(data)) return;
+      try {
+        await directory.create(recursive: true);
+        final file = File('${directory.path}/state.pending');
+        await file.writeAsString(jsonEncode(data), flush: true);
+        await file.rename('${directory.path}/state.json');
+      } finally {
+        markLocalDataChanged();
+      }
     });
     _tail = next.then<void>((_) {}, onError: (Object _, StackTrace _) {});
     return next;
@@ -220,21 +231,64 @@ class AiStore {
       if (result['state'] == 'running') result['state'] = 'interrupted';
     }
   });
-  Future<void> expose(Map<String, dynamic> result) => change((d) {
-    if ((d['deleted'] as List).contains(result['sessionId'])) {
-      throw const AiFailure('Bu kayıt silindi.');
-    }
-    final list = d['exposures'] as List;
-    if (!list.any((r) => r['resultId'] == result['id'])) {
-      list.add({
-        'kind': 'aiNarrative',
-        'resultId': result['id'],
-        'sessionId': result['sessionId'],
-        'groupId': result['groupId'],
-        'exposedAtUtc': DateTime.now().toUtc().toIso8601String(),
+
+  /// One verified snapshot for opening a reading; no long-lived AI data cache.
+  Future<AiReadingSnapshot> readingSnapshot(String sessionId) async {
+    final data = await read();
+    final results = (data['results'] as List)
+        .where((r) => r['sessionId'] == sessionId)
+        .map((r) => Map<String, dynamic>.from(r as Map))
+        .toList();
+    final exposed = (data['exposures'] as List? ?? const [])
+        .map((r) => r['resultId'])
+        .toSet();
+    final pending = results
+        .where(
+          (r) =>
+              (r['answers'] as List).isNotEmpty && !exposed.contains(r['id']),
+        )
+        .toList();
+    final preference = (data['readingPreferences'] as Map?)?[sessionId];
+    final focus = preference is Map ? preference['focus'] : null;
+    final snapshot = AiReadingSnapshot(
+      profiles: (data['profiles'] as List)
+          .map((p) => AiProfile.fromJson(Map<String, dynamic>.from(p as Map)))
+          .toList(),
+      results: results,
+      stars: Set<String>.from(data['starredResultIds'] as List? ?? []),
+      focus: readingFocusValues.contains(focus) ? focus as String : 'general',
+    );
+    // Validate all presentation metadata before any exposure write. A corrupt
+    // profile/preferences registry must remain available for read-only recovery.
+    if (pending.isNotEmpty) await exposeResults(pending);
+    return snapshot;
+  }
+
+  Future<void> expose(Map<String, dynamic> result) => exposeResults([result]);
+
+  Future<void> exposeResults(List<Map<String, dynamic>> results) =>
+      _update((d) {
+        final list = d['exposures'] as List;
+        final exposed = list.map((r) => r['resultId']).toSet();
+        var changed = false;
+        for (final result in results) {
+          if ((d['deleted'] as List).contains(result['sessionId'])) {
+            throw const AiFailure('Bu kayıt silindi.');
+          }
+          if (exposed.add(result['id'])) {
+            list.add({
+              'kind': 'aiNarrative',
+              'resultId': result['id'],
+              'sessionId': result['sessionId'],
+              'groupId': result['groupId'],
+              'exposedAtUtc': DateTime.now().toUtc().toIso8601String(),
+            });
+            changed = true;
+          }
+        }
+        return changed;
       });
-    }
-  });
+
   Future<void> exposeTraceAid({
     required String sessionId,
     required String groupId,
@@ -300,4 +354,17 @@ class AiStore {
   });
   Future<bool> isDeleted(String id) async =>
       ((await read())['deleted'] as List).contains(id);
+}
+
+class AiReadingSnapshot {
+  const AiReadingSnapshot({
+    required this.profiles,
+    required this.results,
+    required this.stars,
+    required this.focus,
+  });
+  final List<AiProfile> profiles;
+  final List<Map<String, dynamic>> results;
+  final Set<String> stars;
+  final String focus;
 }

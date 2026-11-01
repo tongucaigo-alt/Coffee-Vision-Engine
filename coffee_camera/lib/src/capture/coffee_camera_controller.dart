@@ -28,6 +28,7 @@ import '../quality/quality_checker.dart';
 import '../quality/saucer_quality_checker.dart';
 import '../quality/saucer_ready_stabilizer.dart';
 import 'auto_capture_controller.dart';
+import 'auto_capture_readiness.dart';
 import 'captured_image_processor.dart';
 
 enum CameraExperiencePhase {
@@ -370,14 +371,12 @@ class CoffeeCameraController extends ChangeNotifier {
       _autoUpdate = _autoCapture.update(
         ready: captureReady,
         now: now,
-        hardFailure:
-            !_assessment.cupDetected ||
-            !_assessment.notClipped ||
-            !_assessment.lightEnough ||
-            !_assessment.sharpEnough ||
-            !_assessment.stable ||
-            !_currentCoffeeValid ||
-            !effective.coffeeDetected,
+        hardFailure: requiresAutoCaptureReset(
+          analysis: effective,
+          assessment: _assessment,
+          config: config,
+          currentCoffeeValid: _currentCoffeeValid,
+        ),
       );
       if (_autoUpdate.shouldCapture) {
         unawaited(capture(CameraCaptureMode.automatic));

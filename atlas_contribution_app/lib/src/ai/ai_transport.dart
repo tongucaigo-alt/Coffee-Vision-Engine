@@ -87,6 +87,14 @@ class AiTransport {
         code: 'connection',
         stage: 'transport',
       );
+    } on HttpException {
+      // A connection closing after request submission is not a fresh generation
+      // opportunity. Classify it, close the client, and leave retries explicit.
+      throw const AiFailure(
+        'AI bağlantısı kurulamadı. Kaydın korunuyor; yeniden deneyebilirsin.',
+        code: 'connection',
+        stage: 'transport',
+      );
     } on HandshakeException {
       throw const AiFailure(
         'AI ile güvenli bağlantı kurulamadı. Kaydın korunuyor; yeniden deneyebilirsin.',

@@ -1,0 +1,36 @@
+{
+  "regressionTestsPassed": 207,
+  "flutterAnalyze": "No issues found",
+  "gitDiffCheck": "clean",
+  "publicDefines": {
+    "ATLAS_AI_LAB": true,
+    "ATLAS_DIAGNOSTIC": true,
+    "ATLAS_IMAGE_SCREEN": true
+  },
+  "liveProbe": "compiled, disabled/skipped; no provider call",
+  "testFiles": [
+    "test/ai_widget_test.dart",
+    "test/reading_focus_generation_test.dart",
+    "test/photo_generation_gate_test.dart",
+    "test/ai_transport_test.dart",
+    "test/fortune_v4_contract_test.dart",
+    "test/ai_startup_recovery_test.dart",
+    "test/receipt_recovery_test.dart",
+    "test/mvp_review_test.dart",
+    "test/mvp_review_widget_test.dart",
+    "test/review_preparation_test.dart",
+    "test/tarot_test.dart",
+    "test/tarot_widget_test.dart",
+    "test/record_summaries_test.dart",
+    "test/record_summaries_widget_test.dart",
+    "test/records_revisit_test.dart",
+    "test/local_revision_cache_test.dart",
+    "test/reading_snapshot_test.dart",
+    "test/verified_review_cache_test.dart",
+    "test/generation_timing_test.dart",
+    "test/atlas_design_test.dart",
+    "test/home_consistency_test.dart",
+    "test/coffee_ui_flow_test.dart"
+  ],
+  "testInvocation": "flutter test --no-pub --dart-define=ATLAS_AI_LAB=true --dart-define=ATLAS_DIAGNOSTIC=true --dart-define=ATLAS_IMAGE_SCREEN=true <testFiles> --reporter expanded"
+}

@@ -15,6 +15,7 @@ import 'ai_client.dart';
 import 'ai_contract.dart';
 import 'ai_store.dart';
 import 'ai_bundled.dart';
+import 'local_performance_probe.dart';
 import '../user_profile_store.dart';
 
 class AiRuntime {
@@ -98,6 +99,12 @@ class AiRuntime {
       await traces.deleteOwner(bridge.sessionId(root));
       await bridge.deleteRoot(root);
     };
+    if (kDebugMode &&
+        aiLabEnabled &&
+        const bool.fromEnvironment('ATLAS_DIAGNOSTIC')) {
+      // Measurement failures cannot change startup/recovery behavior.
+      await runRequestedLocalPerformanceProbe(bridge).catchError((Object _) {});
+    }
     return runtime;
   }
 

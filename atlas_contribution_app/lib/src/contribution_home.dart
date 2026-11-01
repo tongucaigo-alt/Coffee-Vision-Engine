@@ -29,6 +29,7 @@ import 'opencv_traces.dart';
 import 'user_profile_page.dart';
 import 'user_profile_store.dart';
 import 'record_summary.dart';
+import 'local_revision_cache.dart';
 import 'privacy_support.dart';
 
 part 'contribution_design.dart';
@@ -137,6 +138,10 @@ class ContributionHome extends StatefulWidget {
 class _ContributionHomeState extends State<ContributionHome>
     with WidgetsBindingObserver {
   int _recordsSection = 0;
+  var _recordsBucket = PageStorageBucket();
+  final _recordsCache = RecordHistoryCache(
+    canRetain: (snapshot) => snapshot.canRetain,
+  );
   ContributionDraft? _draft;
   bool _loading = true, _busy = false, _resumePrompt = false;
   bool _fortuneWorkflow = false, _startChoiceOpen = false;
@@ -283,7 +288,22 @@ class _ContributionHomeState extends State<ContributionHome>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed && !_busy && !_loading) _sync();
+    if (state == AppLifecycleState.resumed) {
+      // Also covers restoration or changes outside the active route.
+      markLocalDataChanged();
+      if (!_busy && !_loading) _sync();
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant ContributionHome oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.store, widget.store) ||
+        !identical(oldWidget.service, widget.service)) {
+      _recordsCache.invalidate();
+      _recordsBucket = PageStorageBucket();
+      _recordsSection = 0;
+    }
   }
 
   Future<void> _load() async {
@@ -1234,6 +1254,7 @@ class ContributionHistory extends StatefulWidget {
     this.recordState,
     this.recordStarred,
     this.loadRecordSummaries,
+    this.historyCache,
     super.key,
   });
   final DraftStore store;
@@ -1250,14 +1271,36 @@ class ContributionHistory extends StatefulWidget {
   final Future<String> Function(Map<String, dynamic>)? recordState;
   final Future<bool> Function(Map<String, dynamic>)? recordStarred;
   final RecordSummaryLoader? loadRecordSummaries;
+  final RecordHistoryCache? historyCache;
   @override
   State<ContributionHistory> createState() => _ContributionHistoryState();
 }
 
-class _ContributionHistoryState extends State<ContributionHistory> {
+class _ContributionHistoryState extends State<ContributionHistory>
+    with WidgetsBindingObserver {
   int _filter = 0;
   final Map<String, String> _recordStates = {};
-  void _changeFilter(int filter) => setState(() => _filter = filter);
+  void _changeFilter(int filter) {
+    setState(() => _filter = filter);
+    PageStorage.maybeOf(
+      context,
+    )?.writeState(context, filter, identifier: 'coffee-history-filter');
+  }
+
+  bool _restoredFilter = false;
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_restoredFilter || widget.onlyRoot != null) return;
+    _restoredFilter = true;
+    _filter =
+        PageStorage.maybeOf(
+              context,
+            )?.readState(context, identifier: 'coffee-history-filter')
+            as int? ??
+        0;
+  }
+
   List<Map<String, dynamic>> _rows = [];
   bool _busy = false;
   String? _message;
@@ -1265,7 +1308,41 @@ class _ContributionHistoryState extends State<ContributionHistory> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _refresh();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _refreshRun++;
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      markLocalDataChanged();
+      _refresh();
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant ContributionHistory oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.store, widget.store) ||
+        !identical(oldWidget.service, widget.service) ||
+        !identical(oldWidget.historyCache, widget.historyCache) ||
+        oldWidget.onlyRoot != widget.onlyRoot) {
+      _refreshRun++;
+      _refreshing = null;
+      _rows = [];
+      _recordStates.clear();
+      _starredRoots.clear();
+      _message = null;
+      _filter = 0;
+      _refresh();
+    }
   }
 
   Future<void> _openFortune(Map<String, dynamic> row) async {
@@ -1295,27 +1372,73 @@ class _ContributionHistoryState extends State<ContributionHistory> {
         )
       : const SizedBox.shrink();
   final Set<String> _starredRoots = {};
-  Future<void> _refresh() async {
+  Future<void>? _refreshing;
+  Future<void> _refresh({bool force = false}) {
+    if (force) widget.historyCache?.invalidate();
+    if (_refreshing != null) return _refreshing!;
+    late final Future<void> work;
+    work = _refreshHistory().whenComplete(() {
+      if (identical(_refreshing, work)) _refreshing = null;
+    });
+    _refreshing = work;
+    return work;
+  }
+
+  Future<void> _refreshHistory() async {
     final run = ++_refreshRun;
+    final cached = widget.historyCache?.value;
+    if (cached != null) {
+      _applyHistory(cached);
+      return;
+    }
     setState(() => _busy = true);
+    final snapshot = widget.historyCache == null
+        ? await _readHistory()
+        : await widget.historyCache!.load(_readHistory);
+    if (!mounted || run != _refreshRun) return;
+    _applyHistory(snapshot);
+  }
+
+  void _applyHistory(RecordHistorySnapshot snapshot) {
+    if (!mounted) return;
+    setState(() {
+      _rows = snapshot.rows
+          .where(
+            (row) =>
+                widget.onlyRoot == null || row['root_id'] == widget.onlyRoot,
+          )
+          .toList();
+      _message = snapshot.message;
+      _recordStates
+        ..clear()
+        ..addAll(snapshot.states);
+      _starredRoots
+        ..clear()
+        ..addAll(snapshot.stars);
+      _busy = false;
+    });
+  }
+
+  Future<RecordHistorySnapshot> _readHistory() async {
+    final source = widget;
     var rows = <Map<String, dynamic>>[];
     final stars = <String>{};
     final states = <String, String>{};
     String? message;
     try {
       try {
-        rows = await widget.service.list();
+        rows = await source.service.list();
       } catch (_) {
-        rows = await widget.store.receipts();
+        rows = await source.store.receipts();
         message = 'Bağlantı yok. Telefonda kayıtlı gönderimler gösteriliyor.';
       }
-      final deleted = (await widget.store.pendingDeletes()).toSet();
+      final deleted = (await source.store.pendingDeletes()).toSet();
       rows = rows.where((r) => !deleted.contains(r['root_id'])).toList();
-      if (widget.onlyRoot != null) {
-        rows = rows.where((r) => r['root_id'] == widget.onlyRoot).toList();
+      if (source.historyCache == null && source.onlyRoot != null) {
+        rows = rows.where((r) => r['root_id'] == source.onlyRoot).toList();
       }
-      if (widget.loadRecordSummaries != null) {
-        final summaries = await widget.loadRecordSummaries!(rows);
+      if (source.loadRecordSummaries != null) {
+        final summaries = await source.loadRecordSummaries!(rows);
         for (final row in rows) {
           final root = row['root_id'] as String;
           final summary = summaries[root];
@@ -1325,10 +1448,10 @@ class _ContributionHistoryState extends State<ContributionHistory> {
       } else {
         for (final row in rows) {
           final root = row['root_id'] as String;
-          if (await widget.recordStarred?.call(row) == true) stars.add(root);
-          if (widget.recordState != null) {
+          if (await source.recordStarred?.call(row) == true) stars.add(root);
+          if (source.recordState != null) {
             try {
-              states[root] = await widget.recordState!(row);
+              states[root] = await source.recordState!(row);
             } catch (_) {
               states[root] = RecordSummary.unreadable;
             }
@@ -1343,18 +1466,12 @@ class _ContributionHistoryState extends State<ContributionHistory> {
         states[row['root_id'] as String] = RecordSummary.unreadable;
       }
     }
-    if (!mounted || run != _refreshRun) return;
-    setState(() {
-      _rows = rows;
-      _message = message;
-      _recordStates
-        ..clear()
-        ..addAll(states);
-      _starredRoots
-        ..clear()
-        ..addAll(stars);
-      _busy = false;
-    });
+    return RecordHistorySnapshot(
+      rows: rows,
+      states: states,
+      stars: stars,
+      message: message,
+    );
   }
 
   Future<void> _remove(Map<String, dynamic> row) async {
@@ -1401,6 +1518,7 @@ class _ContributionHistoryState extends State<ContributionHistory> {
     setState(() => _busy = true);
     try {
       await operation();
+      if (mounted) await _refresh();
     } catch (_) {
       if (mounted) {
         showNotice(context, 'İşlem tamamlanamadı. Bağlantını kontrol et.');
@@ -1426,7 +1544,7 @@ class _ContributionHistoryState extends State<ContributionHistory> {
             actions: [
               IconButton(
                 tooltip: 'Yenile',
-                onPressed: _busy ? null : _refresh,
+                onPressed: _busy ? null : () => _refresh(force: true),
                 icon: const Icon(LucideIcons.refreshCw),
               ),
             ],

@@ -558,7 +558,7 @@ extension _AtlasHomePresentation on _ContributionHomeState {
                 : _hasTarot && _tab == 1
                 ? widget.tarotPage!
                 : _tab == _historyTab
-                ? _atlasRecords()
+                ? PageStorage(bucket: _recordsBucket, child: _atlasRecords())
                 : _tab == _settingsTab
                 ? _atlasSettings()
                 : _atlasLanding(),
@@ -570,7 +570,8 @@ extension _AtlasHomePresentation on _ContributionHomeState {
 
   Widget _atlasRecords() {
     final coffee = ContributionHistory(
-      key: ValueKey(_draft?.id),
+      key: const PageStorageKey('atlas-coffee-history'),
+      historyCache: widget.service.isOffline ? _recordsCache : null,
       store: widget.store,
       service: widget.service,
       canStart: _draft == null,
@@ -920,8 +921,9 @@ extension _AtlasHistoryPresentation on _ContributionHistoryState {
       ),
       Expanded(
         child: RefreshIndicator(
-          onRefresh: _refresh,
+          onRefresh: () => _refresh(force: true),
           child: ListView(
+            key: const PageStorageKey('atlas-coffee-history-scroll'),
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
             children: [
@@ -1056,6 +1058,7 @@ extension _AtlasHistoryPresentation on _ContributionHistoryState {
                   context,
                   MaterialPageRoute<void>(
                     builder: (_) => ContributionHistory(
+                      historyCache: widget.historyCache,
                       store: widget.store,
                       service: widget.service,
                       canStart: widget.canStart,

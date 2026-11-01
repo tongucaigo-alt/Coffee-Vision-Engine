@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import '../local_revision_cache.dart';
 import 'package:uuid/uuid.dart';
 import 'tarot_models.dart';
 
@@ -38,8 +39,12 @@ class TarotStore {
       final value = action(data);
       await directory.create(recursive: true);
       final pending = File('${directory.path}/state.pending');
-      await pending.writeAsString(jsonEncode(data), flush: true);
-      await pending.rename('${directory.path}/state.json');
+      try {
+        await pending.writeAsString(jsonEncode(data), flush: true);
+        await pending.rename('${directory.path}/state.json');
+      } finally {
+        markLocalDataChanged();
+      }
       return value;
     });
     _tail = next.then<void>((_) {}, onError: (Object _, StackTrace _) {});

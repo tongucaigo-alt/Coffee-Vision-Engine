@@ -52,6 +52,7 @@ class _Client extends AiClient {
     List<String> previousTexts = const [],
     void Function(FortuneProgress)? onProgress,
     Future<void> Function()? beforeRequest,
+    void Function(String stage, int elapsedMs)? onStage,
     AiGenerationBudget? budget,
     int maxAttempts = 2,
   }) async {

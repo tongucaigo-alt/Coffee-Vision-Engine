@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'local_revision_cache.dart';
 import 'package:coffee_camera/coffee_camera.dart';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
@@ -84,7 +85,11 @@ class DraftStore {
     final key = Platform.isWindows ? normalized.toLowerCase() : normalized;
     final next = (_writes[key] ?? Future<void>.value()).then((_) async {
       await ensureWritable();
-      return operation();
+      try {
+        return await operation();
+      } finally {
+        markLocalDataChanged();
+      }
     });
     late final Future<void> tail;
     void clear() {

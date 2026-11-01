@@ -1,0 +1,78 @@
+{
+  "environment": "Windows host, Flutter 3.44.6 / Dart 3.12.2, flutter test, not Android debug/profile/release",
+  "samplesPerCase": 4,
+  "units": "microseconds",
+  "synthetic": true,
+  "sequentialRuns": true,
+  "paidProviderCalls": 0,
+  "before": {
+    "oneSavedAnswerUs": [
+      12643,
+      20800,
+      20274,
+      19308
+    ],
+    "readingOpenUs": [
+      1578740,
+      1651219,
+      1759185,
+      1752490
+    ],
+    "reviewScanUs": [
+      56380,
+      48510,
+      46491,
+      45553
+    ],
+    "recordsVisitUs": [
+      47731,
+      47221,
+      47028,
+      45984
+    ],
+    "preparedReuseUs": [
+      98998,
+      100255,
+      99836,
+      103160
+    ]
+  },
+  "after": {
+    "oneSavedAnswerUs": [
+      4144,
+      1466,
+      1546,
+      1284
+    ],
+    "readingOpenUs": [
+      1178,
+      1192,
+      1049,
+      1162
+    ],
+    "reviewScanUs": [
+      62926,
+      33546,
+      32018,
+      30831
+    ],
+    "recordsVisitUs": [
+      34010,
+      37,
+      10,
+      9
+    ],
+    "preparedReuseUs": [
+      179,
+      52,
+      30,
+      27
+    ]
+  },
+  "fixture": {
+    "aiResults": 102,
+    "reviewRevisionFilesAtScan": 100,
+    "paddingEntriesPerRevision": 200,
+    "notes": "One answer and 100 answers per session measured separately; parsed-cache warmup precedes records summary measurement; fake local vision only seeds reusable preparation, excluded from its timing."
+  }
+}

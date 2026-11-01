@@ -65,7 +65,11 @@ final class ReviewController extends ChangeNotifier {
     bool Function()? isCancelled,
   ) async {
     try {
-      final exposures = await store.knownGroupExposures(_session);
+      // Exposure history is only consumed when sealing a new photo set.
+      // An existing immutable first observation must never be recaptured.
+      final exposures = _session.currentInitialObservation == null
+          ? await store.knownGroupExposures(_session)
+          : const <Map<String, dynamic>>[];
       if (_closed || isCancelled?.call() == true) return;
       final captured = captureInitialObservations(
         _session,
@@ -96,6 +100,15 @@ final class ReviewController extends ChangeNotifier {
         setupError = null;
       }
       if (_closed || isCancelled?.call() == true) return;
+      // The immutable session constructor only retains preparation matching the
+      // current source fingerprint. No analysis/source change means no rebuild
+      // or durable revision is needed; topic personalization happens later.
+      if (targets.isEmpty &&
+          _session.preparedInput?['version'] == reviewPreparationVersion &&
+          _session.preparedInput?['payload']?['version'] ==
+              reviewPayloadVersion) {
+        return;
+      }
       final next = _session.next(
         preparedInput: prepareReviewInput(
           _session,

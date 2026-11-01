@@ -225,6 +225,7 @@ class AiClient {
     List<String> previousTexts = const [],
     void Function(FortuneProgress)? onProgress,
     Future<void> Function()? beforeRequest,
+    void Function(String stage, int elapsedMs)? onStage,
     AiGenerationBudget? budget,
     int maxAttempts = 2,
   }) async {
@@ -396,31 +397,47 @@ class AiClient {
       if (remaining <= 0) throw const AiFailure('Üretim süresi doldu.');
       late final Map<String, dynamic> data;
       try {
-        await beforeRequest?.call();
+        final validationWatch = Stopwatch()..start();
+        try {
+          await beforeRequest?.call();
+        } finally {
+          onStage?.call(
+            'requestValidation${attempt + 1}',
+            validationWatch.elapsedMilliseconds,
+          );
+        }
         cancellation.check();
         sharedBudget.reserveAttempts(1);
-        data = await _request(
-          p,
-          'POST',
-          '/chat/completions',
-          key,
-          timeout: Duration(milliseconds: sharedBudget.remainingMilliseconds),
-          cancellation: cancellation,
-          body: {
-            'model': p.model,
-            'messages': prompt.messages(
-              input,
-              noThink: p.noThink && !kimiInstant,
-              repair: attempt == 1,
-              repairReason: lastError,
-              previousReply: previousReply,
-            ),
-            'stream': false,
-            if (kimiInstant) 'thinking': {'type': 'disabled'},
-            'temperature': temperature,
-            'max_tokens': prompt.data['maxTokens'],
-          },
-        );
+        final responseWatch = Stopwatch()..start();
+        try {
+          data = await _request(
+            p,
+            'POST',
+            '/chat/completions',
+            key,
+            timeout: Duration(milliseconds: sharedBudget.remainingMilliseconds),
+            cancellation: cancellation,
+            body: {
+              'model': p.model,
+              'messages': prompt.messages(
+                input,
+                noThink: p.noThink && !kimiInstant,
+                repair: attempt == 1,
+                repairReason: lastError,
+                previousReply: previousReply,
+              ),
+              'stream': false,
+              if (kimiInstant) 'thinking': {'type': 'disabled'},
+              'temperature': temperature,
+              'max_tokens': prompt.data['maxTokens'],
+            },
+          );
+        } finally {
+          onStage?.call(
+            attempt == 0 ? 'firstResponse' : 'repairResponse',
+            responseWatch.elapsedMilliseconds,
+          );
+        }
       } on AiFailure catch (error) {
         throw error.timed(
           attempt == 0 ? 'generating' : 'repairing',
@@ -429,6 +446,7 @@ class AiClient {
         );
       }
       cancellation.check();
+      final qualityWatch = Stopwatch()..start();
       final choice = (data['choices'] as List).first as Map;
       final content = (choice['message'] as Map)['content'] as String?;
       previousReply = content;
@@ -446,6 +464,10 @@ class AiClient {
               content == null
           ? null
           : narrativeRepetition(content, repetitionTexts);
+      onStage?.call(
+        'responseQuality${attempt + 1}',
+        qualityWatch.elapsedMilliseconds,
+      );
       if (lastError == null ||
           (bestEffort &&
               !isPersonalizedContextVersion(input['version']) &&

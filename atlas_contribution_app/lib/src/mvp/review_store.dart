@@ -1,4 +1,5 @@
 import 'dart:convert';
+import '../local_revision_cache.dart';
 import 'dart:io';
 
 import 'package:coffee_camera/coffee_camera.dart';
@@ -31,7 +32,13 @@ final class ReviewStore {
   Future<T> _serial<T>(Future<T> Function() operation) {
     final normalized = path.normalize(directory.absolute.path);
     final key = Platform.isWindows ? normalized.toLowerCase() : normalized;
-    final next = (_tails[key] ?? Future<void>.value()).then((_) => operation());
+    final next = (_tails[key] ?? Future<void>.value()).then((_) async {
+      try {
+        return await operation();
+      } finally {
+        markLocalDataChanged();
+      }
+    });
     late final Future<void> tail;
     void clear() {
       if (identical(_tails[key], tail)) _tails.remove(key);
@@ -70,15 +77,45 @@ final class ReviewStore {
     return value == null ? null : Map<String, dynamic>.from(value as Map);
   }
 
-  Future<List<ReviewSession>> _revisions() async {
+  // Bounded parsed metadata only. Every hit still reads and hashes the actual
+  // file, so corruption, replacement and restored timestamps cannot bypass checks.
+  final _verified =
+      <String, ({String digest, ReviewSession session, int bytes})>{};
+  int _verifiedBytes = 0;
+  static const _maxVerifiedBytes = 4 * 1024 * 1024;
+  static const _maxVerifiedRecords = 128;
+
+  Future<List<ReviewSession>> _revisions({String? sessionId}) async {
+    // Current-record operations verify that record's complete revision history.
+    // Full listing/exposure audits still verify every historical document.
+    // IDs may contain hyphens/digits, so a prefix alone is not an identity test.
+    final selectedName = sessionId == null
+        ? null
+        : RegExp('^review-${RegExp.escape(sessionId)}--?[0-9]+\\.json\$');
     final result = <ReviewSession>[];
+    final seen = <String>{};
     await for (final entry in directory.list(followLinks: false)) {
       if (entry is! File ||
           !path.basename(entry.path).startsWith('review-') ||
           !entry.path.endsWith('.json')) {
         continue;
       }
-      final envelope = jsonDecode(await entry.readAsString()) as Map;
+      if (selectedName != null &&
+          !selectedName.hasMatch(path.basename(entry.path))) {
+        continue;
+      }
+      seen.add(entry.path);
+      final bytes = await entry.readAsBytes();
+      final digest = sha256.convert(bytes).toString();
+      final cached = _verified.remove(entry.path);
+      if (cached != null) _verifiedBytes -= cached.bytes;
+      if (cached?.digest == digest) {
+        _verified[entry.path] = cached!;
+        _verifiedBytes += cached.bytes;
+        result.add(cached.session);
+        continue;
+      }
+      final envelope = jsonDecode(utf8.decode(bytes)) as Map;
       final document = Map<String, dynamic>.from(envelope['document'] as Map);
       if ('sha256:${sha256.convert(utf8.encode(jsonEncode(document)))}' !=
           envelope['checksum']) {
@@ -90,8 +127,42 @@ final class ReviewStore {
         throw const FormatException('Review identity mismatch');
       }
       result.add(session);
+      if (bytes.length <= _maxVerifiedBytes) {
+        _verified[entry.path] = (
+          digest: digest,
+          session: session,
+          bytes: bytes.length,
+        );
+        _verifiedBytes += bytes.length;
+        while (_verified.length > _maxVerifiedRecords ||
+            _verifiedBytes > _maxVerifiedBytes) {
+          _verifiedBytes -= _verified.remove(_verified.keys.first)!.bytes;
+        }
+      }
+    }
+    for (final key
+        in _verified.keys
+            .where(
+              (key) =>
+                  !seen.contains(key) &&
+                  (selectedName == null ||
+                      selectedName.hasMatch(path.basename(key))),
+            )
+            .toList()) {
+      _verifiedBytes -= _verified.remove(key)!.bytes;
     }
     return result;
+  }
+
+  /// Fresh byte/checksum validation of every revision belonging to one record.
+  /// No cached existence, revision number or file timestamp authorizes a result.
+  Future<ReviewSession?> session(String id) async {
+    safeReviewId(id);
+    ReviewSession? latest;
+    for (final item in await _revisions(sessionId: id)) {
+      if (latest == null || item.revision > latest.revision) latest = item;
+    }
+    return latest;
   }
 
   Future<List<ReviewSession>> sessions() async {
@@ -154,8 +225,7 @@ final class ReviewStore {
   }
 
   Future<void> save(ReviewSession session) => _serial(() async {
-    final all = await sessions();
-    final old = all.where((s) => s.id == session.id).firstOrNull;
+    final old = await this.session(session.id);
     if (old?.deleted == true || session.revision != (old?.revision ?? 0) + 1) {
       throw StateError('Stale review revision');
     }
@@ -174,7 +244,7 @@ final class ReviewStore {
     }
     if (old == null &&
         !session.id.startsWith('linked-') &&
-        all
+        (await sessions())
                 .where(
                   (s) =>
                       !s.deleted &&

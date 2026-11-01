@@ -54,7 +54,7 @@ class AiBridge {
     }
     await reviews.initialize();
     final id = sessionId(root);
-    final old = (await reviews.sessions()).where((s) => s.id == id).firstOrNull;
+    final old = await reviews.session(id);
     if (old?.deleted == true || await ai.isDeleted(id)) {
       throw const AiFailure('Kayıt silinmiş.');
     }
@@ -142,7 +142,7 @@ class AiBridge {
     }
     await ai.deleteSession(id);
     await reviews.initialize();
-    final s = (await reviews.sessions()).where((s) => s.id == id).firstOrNull;
+    final s = await reviews.session(id);
     if (s != null) await reviews.delete(s);
   }
 
@@ -169,9 +169,7 @@ class AiBridge {
           preparationSourceFingerprint(current) ==
               preparationSourceFingerprint(snapshot);
     }
-    final current = (await reviews.sessions())
-        .where((s) => s.id == snapshot.id)
-        .firstOrNull;
+    final current = await reviews.session(snapshot.id);
     return current != null &&
         !current.deleted &&
         preparationSourceFingerprint(current) ==

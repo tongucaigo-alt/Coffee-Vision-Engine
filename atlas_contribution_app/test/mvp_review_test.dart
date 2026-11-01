@@ -201,7 +201,11 @@ void main() {
     () async {
       final s = review(photos: [await photo()]);
       await store.save(s);
-      var loads = 0;
+      var loads = 0, exposureReads = 0;
+      store.additionalExposures = (_) async {
+        exposureReads++;
+        return [];
+      };
       final controller = ReviewController(
         store: store,
         session: s,
@@ -212,6 +216,8 @@ void main() {
       );
       await controller.analyze(enrich: true);
       final first = jsonEncode(controller.session.currentInitialObservation);
+      final prepared = jsonEncode(controller.session.preparedInput);
+      final revision = controller.session.revision;
       final analysis = jsonEncode(controller.session.photos.single.analysis);
       final active = <String>[];
       controller.addListener(() {
@@ -221,9 +227,32 @@ void main() {
       });
       await controller.analyze(enrich: true);
       expect(loads, 1);
+      expect(exposureReads, 1);
+      expect(controller.session.revision, revision);
+      expect(jsonEncode(controller.session.preparedInput), prepared);
       expect(active, isEmpty);
       expect(jsonEncode(controller.session.photos.single.analysis), analysis);
       expect(jsonEncode(controller.session.currentInitialObservation), first);
+      final previousPhoto = controller.session.photos.single;
+      await controller.save(
+        controller.session.withPhoto(
+          previousPhoto.update(
+            photo: previousPhoto.photo.annotated([
+              RegionAnnotation(
+                id: 'new-region',
+                box: RegionBox(.2, .3, .1, .1),
+                label: 'bird',
+              ),
+            ], PhotoDecision.marked),
+          ),
+        ),
+      );
+      expect(controller.session.preparedInput, isNull);
+      await controller.analyze(enrich: true);
+      expect(controller.session.revision, greaterThan(revision));
+      expect(jsonEncode(controller.session.preparedInput), isNot(prepared));
+      expect(jsonEncode(controller.session.currentInitialObservation), first);
+      expect(exposureReads, 1);
       await controller.close();
       controller.dispose();
     },

@@ -1,0 +1,24 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import {messages,qualityError,visualClaimRepairHint,prompt} from '../contract.mjs';
+const fixture=JSON.parse(readFileSync(new URL('./fixtures/fortune-v4-cases.json',import.meta.url)));
+test('targeted visual repair points at bounded failing claims without weakening quality',()=>{
+  const context=fixture.context, before=JSON.stringify(context), claim='Fincanda bir kuş görüyorum.';
+  const rejected=fixture.story+' '+claim;
+  assert.equal(qualityError(rejected,'stop',context),'unsupported_visual_claim');
+  const hint=visualClaimRepairHint(rejected,'unsupported_visual_claim',context);
+  assert.ok(hint.includes(JSON.stringify([claim])));
+  assert.ok(!hint.includes(fixture.story));
+  const repair=messages(context,false,true,'unsupported_visual_claim',rejected);
+  assert.ok(repair.at(-1).content.includes(hint));
+  assert.equal(repair[4].content,rejected);
+  assert.equal(JSON.stringify(context),before);
+  assert.equal(qualityError(fixture.story,'stop',context),null);
+  assert.equal(qualityError(fixture.story+' Telve üzerinde bir balık görüyorum.','stop',context),'unsupported_visual_claim');
+  assert.equal(qualityError('Kısa.','stop',context),'length');
+  assert.equal(prompt.maxTokens,1800);
+  const many=Array(20).fill(claim).join(' ');
+  assert.ok(visualClaimRepairHint(many,'unsupported_visual_claim',context).includes(JSON.stringify([claim,claim])));
+  assert.equal(visualClaimRepairHint(many,'length',context),'');
+});

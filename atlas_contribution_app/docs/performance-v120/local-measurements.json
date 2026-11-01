@@ -1,0 +1,54 @@
+{
+  "environment": "Windows host Flutter test; not a phone end-to-end measurement",
+  "baselineCommit": "fbb8bcc",
+  "sequentialRuns": true,
+  "samplesPerCase": 4,
+  "before": {
+    "synthetic": true,
+    "revisionFiles": 263,
+    "recordCount": 40,
+    "seededBytes": 23388969,
+    "activeRevisionFiles": 7,
+    "activeRevisionBytes": 622503,
+    "units": "microseconds",
+    "timings": {
+      "sourceCurrentUs": [
+        1303515,
+        1303991,
+        1314423,
+        1323704
+      ],
+      "saveSamePhotoSourceUs": [
+        1291100,
+        1306432,
+        1310580,
+        1292547
+      ]
+    },
+    "providerCalls": 0
+  },
+  "after": {
+    "synthetic": true,
+    "revisionFiles": 263,
+    "recordCount": 40,
+    "seededBytes": 23388969,
+    "activeRevisionFiles": 7,
+    "activeRevisionBytes": 622503,
+    "units": "microseconds",
+    "timings": {
+      "sourceCurrentUs": [
+        61872,
+        18938,
+        17346,
+        17280
+      ],
+      "saveSamePhotoSourceUs": [
+        18086,
+        19608,
+        20204,
+        24466
+      ]
+    },
+    "providerCalls": 0
+  }
+}

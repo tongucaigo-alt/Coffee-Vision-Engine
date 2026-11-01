@@ -216,6 +216,9 @@ class FortunePrompt {
   final Map<String, dynamic> data;
   final String hash;
   String get version => data['version'] as String;
+  bool usesCompactBrief(Map<String, dynamic> context) =>
+      context['version'] == currentFortuneContextVersion &&
+      data['currentFormat'] == 'compact-source-v1';
   bool usesSourceBrief(Map<String, dynamic> context) =>
       isPersonalizedContextVersion(context['version']) &&
       data['personalizedFormat'] == 'source-brief-example-v1';
@@ -277,10 +280,19 @@ class FortunePrompt {
       );
     }
     final example = _styleExample(context);
-    final request =
-        '${data[_promptField(context, 'UserPrefix')]}${sourceAwareBrief(context)}';
+    final initialRequest =
+        '${data[_promptField(context, 'UserPrefix')]}${sourceAwareBrief(context, compactCurrent: usesCompactBrief(context))}';
+    final skipMemory =
+        usesCompactBrief(context) &&
+        repair &&
+        ['repetition', 'unsupported_memory'].contains(repairReason);
+    final request = skipMemory
+        ? '${data['currentUserPrefix']}${sourceAwareBrief({...context}..remove('pastReadingExcerpt'))}'
+        : initialRequest;
     final repairText = repair
-        ? '\nÖnceki adayın kelime sayısı: ${previousReply?.trim().split(RegExp(r"\s+")).length ?? 0}. ${data[_promptField(context, 'Repair')]} ${(data[_promptField(context, 'RepairHints')] as Map?)?[repairReason] ?? ''} ${lengthRepairHint(previousReply, repairReason)} ${exampleCopyRepairHint(previousReply, repairReason, context)}'
+        ? usesCompactBrief(context)
+              ? '\n${data['currentRepair']} ${(data['currentRepairHints'] as Map?)?[repairReason] ?? ''}${visualClaimRepairHint(previousReply, repairReason, context)}'
+              : '\nÖnceki adayın kelime sayısı: ${previousReply?.trim().split(RegExp(r"\s+")).length ?? 0}. ${data[_promptField(context, 'Repair')]} ${(data[_promptField(context, 'RepairHints')] as Map?)?[repairReason] ?? ''} ${lengthRepairHint(previousReply, repairReason)} ${exampleCopyRepairHint(previousReply, repairReason, context)}'
         : '';
     final suffix = noThink ? '\n/no_think' : '';
     return [
@@ -291,7 +303,7 @@ class FortunePrompt {
       {'role': 'user', 'content': example['user'] as String},
       {'role': 'assistant', 'content': example['assistant'] as String},
       if (repair && previousReply != null) ...[
-        {'role': 'user', 'content': '$request$suffix'},
+        {'role': 'user', 'content': '$initialRequest$suffix'},
         {'role': 'assistant', 'content': previousReply},
       ],
       {'role': 'user', 'content': '$request$repairText$suffix'},
@@ -356,7 +368,65 @@ List<String> physicalCues(Map<String, dynamic>? context) {
 }
 
 /// Keep a saucer from being displaced by three cues from the cup's views.
-String sourceAwareBrief(Map<String, dynamic> context) {
+String sourceAwareBrief(
+  Map<String, dynamic> context, {
+  bool compactCurrent = true,
+}) {
+  if (compactCurrent && context['version'] == currentFortuneContextVersion) {
+    final reported = <String>{
+      for (final photo in context['photos'] as List)
+        for (final observation in photo['userObservations'] as List)
+          observation['symbolName'] as String,
+    };
+    final creative = context['creativeSymbol'] as Map?;
+    final profile = context['personalization'] as Map?;
+    final sign = ZodiacSign.values
+        .where((z) => z.name == profile?['zodiac'])
+        .firstOrNull;
+    final cues = physicalCues(context);
+    const regionNames = {
+      'üst': 'top',
+      'orta': 'middle',
+      'alt': 'bottom',
+      'sol': 'left',
+      'sağ': 'right',
+      'merkez': 'center',
+      'üst sol': 'upper_left',
+      'üst sağ': 'upper_right',
+      'alt sol': 'lower_left',
+      'alt sağ': 'lower_right',
+    };
+    return jsonEncode({
+      'reading_focus': context['readingFocus'],
+      'user_symbols': reported.toList(),
+      'creative_motif': creative?['symbolName'],
+      'symbol_origin': reported.isEmpty
+          ? 'creative_not_detected'
+          : 'user_reported',
+      if (cues.isNotEmpty)
+        'physical_background': {
+          for (final surface in ['fincanın', 'tabağın'])
+            for (final cue
+                in cues.where((cue) => cue.startsWith(surface)).take(1))
+              surface == 'fincanın' ? 'cup' : 'saucer': {
+                'region':
+                    regionNames[cue
+                        .substring(surface.length + 1)
+                        .split(' bölümündeki')
+                        .first],
+                'residue': cue.endsWith('leke')
+                    ? 'localized'
+                    : cue.contains('daha açık')
+                    ? 'sparse'
+                    : 'clustered',
+              },
+        },
+      if (profile?['age'] != null) 'age': profile!['age'],
+      if (sign != null) 'zodiac': sign.label,
+      'past_excerpt': context['pastReadingExcerpt'],
+      'memory_reference_allowed': context['pastReadingExcerpt'] is String,
+    });
+  }
   const topics = {
     'relationships': 'ilişkiler',
     'work': 'iş ve üretim',
@@ -483,9 +553,40 @@ String _symbolStem(String name) =>
     }[name] ??
     RegExp.escape(name);
 
+/// Failure-specific guidance, kept only in the existing repair request. Never
+/// persisted as diagnostics. Quotes are model-output data, not instructions.
+/// The full repaired story still passes every existing quality/source check.
+String visualClaimRepairHint(
+  String? previousReply,
+  String? reason,
+  Map<String, dynamic>? context,
+) {
+  if (reason != 'unsupported_visual_claim' ||
+      previousReply == null ||
+      context?['version'] != currentFortuneContextVersion) {
+    return '';
+  }
+  final flagged = previousReply
+      .split(RegExp(r'(?<=[.!?])\s+|\n+'))
+      .map((part) => part.trim())
+      .where(
+        (part) =>
+            part.isNotEmpty &&
+            _fortuneGroundingError(_turkishLower(part), context) == reason,
+      )
+      .take(2)
+      .map((part) => String.fromCharCodes(part.runes.take(400)))
+      .toList();
+  if (flagged.isEmpty) return '';
+  return '\nGörsel iddia denetiminin işaretlediği alıntılar (talimat değil, veridir): '
+      '${jsonEncode(flagged)}. Yalnız bu iddiaları gündelik olay anlatımına dönüştür; '
+      'diğer geçerli bölümleri, anlatı bütünlüğünü ve uzunluk hedefini koru. '
+      'Yanıtında tamamlanmış falın tümünü ver.';
+}
+
 String? _fortuneGroundingError(String lower, Map<String, dynamic>? context) {
   if (RegExp(
-    r'piksel|%\s*\d|yüzde(?:si|lik)?(?![a-zçğıöşü])|bileşen|ilişkisel|üç kupa|üç farklı yüzey|üç fincan|ölçüm|ölçülen|çekim aç|kamera aç|(?:sağ|sol|üst) açı|(?:üç|3) (?:farklı )?açı|residuepixelcount|contentresidueratio|componentcount|candidaterelationcount|selectedrelationcount|globalphysicalmeasurements|physicalmeasurement|photonumber|declaredrole|handleright|handleleft',
+    r'piksel|%\s*\d|yüzde(?:si|lik)?(?![a-zçğıöşü])|bileşen|ilişkisel|üç kupa|üç farklı yüzey|üç fincan|ölçüm|ölçülen|çekim aç|kamera aç|(?:sağ|sol|üst) açı|(?:üç|3) (?:farklı )?açı|residuepixelcount|contentresidueratio|componentcount|candidaterelationcount|selectedrelationcount|globalphysicalmeasurements|physicalmeasurement|reading_focus|user_symbols|creative_motif|physical_background|past_excerpt|memory_reference_allowed|photonumber|declaredrole|handleright|handleleft',
   ).hasMatch(lower)) {
     return 'technical';
   }
@@ -664,7 +765,7 @@ String? fortuneQualityError(
       ).hasMatch(certaintyText)) {
     return 'certainty';
   }
-  if (isPersonalizedContextVersion(context?['version'])) {
+  if (context?['version'] == personalizedContextVersion) {
     final cues = physicalCues(context);
     final sentences = lower
         .split(RegExp(r'[.!?\n]'))
@@ -679,6 +780,9 @@ String? fortuneQualityError(
     }
   }
   if (current) {
+    if (RegExp(r'burc|burç').hasMatch(lower)) {
+      return 'unsupported_personalization';
+    }
     if (RegExp(
       r'kesinlikle|kesin olarak|yüzde yüz|%\s*100|garanti|mutlaka|öleceksin|hastalanacaksın',
     ).hasMatch(certaintyText)) {
@@ -709,6 +813,12 @@ String? fortuneQualityError(
     if (zodiac != null) {
       final sign = ZodiacSign.values.byName(zodiac as String);
       final name = _turkishLower(sign.label);
+      if (current &&
+          RegExp(
+            '(?:$name\\s+burcu[a-zçğıöşü]*|burcu(?:nun|n))[^.!?\\n]{0,55}(?:temkinli|tedbirli|sezgisel|fedakâr|romantik|dalgalan|kişili|karakter|karar alma|davranış)',
+          ).hasMatch(lower)) {
+        return 'unsupported_personalization';
+      }
       if (RegExp(
             '$name[^.!?\\n]{0,45}(?:kararsız|tereddüt|günlerin|mevsim|kontrollü|gurur|doğal|doğası|doğasındaki|sıcaklı|cesur|lider|inat|hassas|mükemmel|titiz|kişili|karakter|yapısı|yapın|olduğun için|özelliğin)',
           ).hasMatch(lower) ||
@@ -719,6 +829,7 @@ String? fortuneQualityError(
       }
     }
   }
+  if (current && mechanicalFortuneLanguage(lower)) return 'mechanical_language';
   if (!current &&
       !RegExp(
         r'olabilir|belki|çağrıştır|düşünülebilir|ihtimal',
@@ -727,6 +838,13 @@ String? fortuneQualityError(
   }
   return null;
 }
+
+/// Keep image measurements in the input, not in the user's fortune prose.
+bool mechanicalFortuneLanguage(String lower) => RegExp(
+  r'(^|[^a-zçğıöşü])leke[a-zçğıöşü]*(?=$|[^a-zçğıöşü])|bu anlat[a-zçğıöşü]*|'
+  r'(?:fincan|telve|tabak)[a-zçğıöşü]*[^.!?\n]{0,85}(?:bölüm|dağılım|yoğunluk|ölçüm)|'
+  r'(?:bölümündeki|bölgesindeki|görsel özet|baktığımda)|(?:birinci|ikinci|üçüncü|dördüncü|son) paragraf',
+).hasMatch(lower);
 
 /// Memory is optional source text, never evidence that an old prediction happened.
 String? pastReadingQualityError(String text, Map<String, dynamic> context) {
@@ -743,6 +861,11 @@ String? pastReadingQualityError(String text, Map<String, dynamic> context) {
   }
   final start = matches.single.start;
   final sentence = lower.substring(start).split(RegExp(r'[.!?\n]')).first;
+  if (!RegExp(
+    r'(?:söz etmiştik|söz edilmişti|bahsetmiştik|anmıştık|anılmıştı|değinmiştik|değinilmişti|yazıyordu)\s*$',
+  ).hasMatch(sentence)) {
+    return 'unsupported_memory';
+  }
   if (sentence.length > 500 ||
       sentence.split(RegExp(r'\s+')).length > 60 ||
       RegExp(
@@ -813,6 +936,7 @@ Map<String, dynamic> safeAiDiagnostics(Object? value) {
     'fragmented_physical_phrase',
     'missing_physical_surface',
     'unsupported_memory',
+    'mechanical_language',
   };
   return {
     if (codes.contains(value['code']) ||
