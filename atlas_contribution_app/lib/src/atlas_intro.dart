@@ -371,7 +371,7 @@ class _AtlasIntroViewState extends State<AtlasIntroView>
     super.dispose();
   }
 
-  // Both renderings share one player/clock; only the edge extension is blurred.
+  // Scene and edge textures share one player/clock; the lake is in the video.
   Widget _frame(AtlasIntroController flow, {Key? posterKey}) =>
       ExcludeSemantics(
         child: Stack(

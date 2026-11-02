@@ -320,6 +320,9 @@ void main() {
     const Size(360, 700),
     const Size(412, 700),
     const Size(412, 892),
+    const Size(360, 800),
+    const Size(360, 840),
+    const Size(768, 1024),
     const Size(320, 480),
     const Size(700, 320),
   ]) {
@@ -371,7 +374,7 @@ void main() {
           expect(content.top, greaterThanOrEqualTo(-.01));
           expect(content.right, lessThanOrEqualTo(size.width + .01));
           expect(content.bottom, lessThanOrEqualTo(size.height + .01));
-          expect(content.width / content.height, closeTo(720 / 1280, .001));
+          expect(content.width / content.height, closeTo(9 / 20, .001));
           expect(t.takeException(), isNull);
           final out = Platform.environment['ATLAS_V97_CAPTURE'];
           if (out != null) {

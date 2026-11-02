@@ -8,6 +8,13 @@ import 'package:atlas_contribution_app/src/contribution_home.dart';
 import 'contribution_save_status_test.dart' show MemoryStore;
 import 'atlas_intro_test.dart' show Prefs, Media, Audio;
 
+// Headless widget tests do not receive the engine's raster timing callback.
+// The delayed-raster gate itself is exercised in atlas_soft_intro_test.dart.
+class _StartupTestBinding extends AutomatedTestWidgetsFlutterBinding {
+  @override
+  Future<void> get waitUntilFirstFrameRasterized => Future<void>.value();
+}
+
 class Guide extends CoffeeGuideStore {
   Guide() : super(Directory('unused'));
   int reads = 0;
@@ -19,6 +26,7 @@ class Guide extends CoffeeGuideStore {
 }
 
 void main() {
+  _StartupTestBinding();
   for (final skip in [false, true]) {
     testWidgets(
       'bootstrap completes behind intro, guide starts after exit once: back=$skip',
@@ -50,6 +58,13 @@ void main() {
               starts++;
               throw StateError('fixture');
             },
+          ),
+        );
+        // The full-resolution poster must finish decoding before playback.
+        await t.runAsync(
+          () => precacheImage(
+            const AssetImage('assets/intro/atlas-welcome-first.jpg'),
+            find.byType(AtlasIntroView).evaluate().single,
           ),
         );
         for (var i = 0; i < 8; i++) {

@@ -1,0 +1,20 @@
+{
+  "checkpoint": "V125 approved natural lake opening before fairytale transition",
+  "date": "2026-11-03",
+  "versionCode": 125,
+  "approvedVideoSha256": "7d84d7a37aadfc475a87d3467d80cede5c00fb075ea50e7a91bff7bd6e5d8a80",
+  "audioPayloadSha256": "1eabbae4a275c3b56a0c92d3055f3bec35fd804ecb53d05db3e2f02eed0018d3",
+  "oldAudioGainAndPolicyPreserved": true,
+  "oneSecondReveal": true,
+  "testsPassed": 53,
+  "optionalLegacyExportTestSkipped": 1,
+  "flutterAnalyze": "No issues found",
+  "actualAndroidColdStartVerified": true,
+  "userDataPreserved": true,
+  "runtimeBase": "e7240e3b04dcc70511cf1c902bfa3f242a8207cf",
+  "runtimeFilesCompared": 358,
+  "runtimePackagesMatchV121": true,
+  "privateCredentialsPublished": false,
+  "apkPublished": false,
+  "privatePhoneBackupsPublished": false
+}

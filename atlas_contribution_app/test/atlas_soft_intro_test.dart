@@ -150,6 +150,9 @@ void main() {
     const Size(360, 700),
     const Size(412, 700),
     const Size(412, 892),
+    const Size(360, 800),
+    const Size(360, 840),
+    const Size(768, 1024),
     const Size(700, 360),
   ]) {
     testWidgets('real intro composition and 1000ms reveal $size', (t) async {
