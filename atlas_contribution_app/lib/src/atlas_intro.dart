@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:video_player/video_player.dart';
 import 'atlas_intro_composition.dart';
+import 'atlas_intro_transition.dart';
 
 const atlasIntroBackground = Color(0xff201611);
 
@@ -131,6 +132,8 @@ class AtlasIntroController extends ChangeNotifier with WidgetsBindingObserver {
   final AtlasIntroAudio audio;
   bool visible = true,
       closing = false,
+      departing = false,
+      completedNaturally = false,
       ready = false,
       staticFrame = false,
       playbackFrame = false,
@@ -145,6 +148,7 @@ class AtlasIntroController extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   int _exitTicks = 0;
+  static const departureDuration = Duration(milliseconds: 800);
   void start({required bool reducedMotion}) {
     if (_started || _disposed || closing || !visible) return;
     _started = true;
@@ -204,8 +208,18 @@ class AtlasIntroController extends ChangeNotifier with WidgetsBindingObserver {
     }
     if (ready &&
         media.duration > Duration.zero &&
+        playbackFrame &&
+        !departing &&
+        media.duration - media.position <= departureDuration) {
+      departing = true;
+      notifyListeners();
+    }
+    if (ready &&
+        media.duration > Duration.zero &&
         media.position >= media.duration) {
-      finish();
+      completedNaturally = true;
+      // The wash already ran over the last 800ms of the original video.
+      finish(immediate: true);
     }
   }
 
@@ -231,7 +245,15 @@ class AtlasIntroController extends ChangeNotifier with WidgetsBindingObserver {
     } else {
       final elapsed = (media.position - _start).inMilliseconds;
       final remaining = (media.duration - media.position).inMilliseconds;
-      _setGain(.2 * math.min(elapsed / 250, remaining / 250).clamp(0.0, 1.0));
+      _setGain(
+        .2 *
+            math
+                .min(
+                  elapsed / 250,
+                  remaining / departureDuration.inMilliseconds,
+                )
+                .clamp(0.0, 1.0),
+      );
     }
   }
 
@@ -307,10 +329,12 @@ class AtlasIntroView extends StatefulWidget {
 }
 
 class _AtlasIntroViewState extends State<AtlasIntroView>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late final AnimationController _reveal;
+  late final AnimationController _departure;
   final _visualReady = Completer<void>();
   bool _preparing = false;
+  bool _departing = false;
   @override
   void initState() {
     super.initState();
@@ -318,10 +342,28 @@ class _AtlasIntroViewState extends State<AtlasIntroView>
       vsync: this,
       duration: const Duration(milliseconds: 1000),
     );
+    _departure = AnimationController(
+      vsync: this,
+      duration: AtlasIntroController.departureDuration,
+    );
+    widget.controller.addListener(_flowChanged);
     widget.controller.attachVisualReady(_visualReady.future);
     unawaited(
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky),
     );
+  }
+
+  void _flowChanged() {
+    final flow = widget.controller;
+    if (!mounted || _departing || !flow.departing || flow.closing) return;
+    _departing = true;
+    final remaining = (flow.media.duration - flow.media.position).inMilliseconds
+        .clamp(0, AtlasIntroController.departureDuration.inMilliseconds);
+    _departure.value =
+        1 - remaining / AtlasIntroController.departureDuration.inMilliseconds;
+    if (remaining > 0) {
+      _departure.animateTo(1, duration: Duration(milliseconds: remaining));
+    }
   }
 
   @override
@@ -365,7 +407,9 @@ class _AtlasIntroViewState extends State<AtlasIntroView>
 
   @override
   void dispose() {
+    widget.controller.removeListener(_flowChanged);
     _reveal.dispose();
+    _departure.dispose();
     if (!_visualReady.isCompleted) _visualReady.complete();
     unawaited(SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge));
     super.dispose();
@@ -423,11 +467,20 @@ class _AtlasIntroViewState extends State<AtlasIntroView>
                       : Curves.easeInOutCubic.transform(_reveal.value),
                   child: child,
                 ),
-                child: AtlasIntroComposition(
-                  frame: () => _frame(flow),
-                  mainFrame: _frame(
-                    flow,
-                    posterKey: const ValueKey('atlas-intro-poster'),
+                child: AnimatedBuilder(
+                  animation: _departure,
+                  builder: (context, child) => AtlasParchmentDissolve(
+                    progress: MediaQuery.disableAnimationsOf(context)
+                        ? 0
+                        : _departure.value,
+                    child: child!,
+                  ),
+                  child: AtlasIntroComposition(
+                    frame: () => _frame(flow),
+                    mainFrame: _frame(
+                      flow,
+                      posterKey: const ValueKey('atlas-intro-poster'),
+                    ),
                   ),
                 ),
               ),

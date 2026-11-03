@@ -8,6 +8,7 @@ import 'src/local_store.dart';
 import 'src/offline_contribution.dart';
 import 'src/atlas_design.dart';
 import 'src/atlas_intro.dart';
+import 'src/atlas_intro_transition.dart';
 import 'src/atlas_home_hints.dart';
 import 'src/coffee_guide_gate.dart';
 import 'src/coffee_guide_page.dart';
@@ -148,6 +149,14 @@ class _OfflineStartupAppState extends State<OfflineStartupApp> {
         ),
       );
     }
+    final destination = _buildDestination(context);
+    if (intro != null && intro.completedNaturally && !intro.staticFrame) {
+      return AtlasIntroArrival(child: destination);
+    }
+    return destination;
+  }
+
+  Widget _buildDestination(BuildContext context) {
     if (_loading) {
       return MaterialApp(
         theme: atlasTheme(),

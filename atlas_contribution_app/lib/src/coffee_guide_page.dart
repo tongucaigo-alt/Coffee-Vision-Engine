@@ -445,7 +445,7 @@ class _GuideIllustrationState extends State<_GuideIllustration>
             ),
             const SizedBox(height: 16),
             _wrap([
-              _sample('Kahve', Icons.home_outlined),
+              _sample('Kahve', Icons.coffee_outlined),
               _sample('Kayıtlarım', Icons.history),
               _sample('Ayarlar', Icons.settings_outlined),
             ]),

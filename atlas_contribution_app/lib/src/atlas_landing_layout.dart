@@ -5,6 +5,7 @@ import 'package:flutter/rendering.dart';
 import 'atlas_design.dart';
 import 'atlas_home_atmosphere.dart';
 import 'atlas_home_hints.dart';
+import 'atlas_intro_transition.dart';
 
 class AtlasLandingLayout extends StatefulWidget {
   const AtlasLandingLayout({
@@ -74,6 +75,7 @@ class _AtlasLandingLayoutState extends State<AtlasLandingLayout>
       _createController();
     }
     _routeVisible =
+        AtlasIntroArrival.isRevealedOf(context) &&
         TickerMode.valuesOf(context).enabled &&
         (ModalRoute.isCurrentOf(context) ?? true);
     _scheduleVisibility();

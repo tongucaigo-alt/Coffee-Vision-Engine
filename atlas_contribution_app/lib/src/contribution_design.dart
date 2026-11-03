@@ -527,8 +527,8 @@ extension _AtlasHomePresentation on _ContributionHomeState {
                                 : (index) => _change(() => _tab = index),
                             destinations: [
                               const NavigationDestination(
-                                icon: Icon(Icons.home_outlined),
-                                selectedIcon: Icon(Icons.home),
+                                icon: Icon(Icons.coffee_outlined),
+                                selectedIcon: Icon(Icons.coffee),
                                 label: 'Kahve',
                               ),
                               if (_hasTarot)
