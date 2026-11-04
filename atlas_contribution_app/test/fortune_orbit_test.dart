@@ -139,7 +139,7 @@ void main() {
       expect(find.byKey(const ValueKey('fortune-orbit-frame')), findsNothing);
       expect(
         find.byKey(const ValueKey('fortune-decorative-symbols')),
-        findsOneWidget,
+        findsNothing,
       );
       await tester.pumpWidget(const SizedBox());
     },

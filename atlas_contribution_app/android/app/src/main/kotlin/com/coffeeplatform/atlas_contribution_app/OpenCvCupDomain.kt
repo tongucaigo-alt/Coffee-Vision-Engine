@@ -7,7 +7,7 @@ import kotlin.math.*
 /** Analysis-only domain. Does not crop, resize, draw on or persist user photos. */
 internal object OpenCvCupDomain {
     data class Result(val mask: Mat, val ellipse: RotatedRect?)
-    private data class Proposal(val score: Double, val ellipse: RotatedRect, val rimEvidence: Double = 0.0)
+    private data class Proposal(val score: Double, val ellipse: RotatedRect, val rimEvidence: Double = 0.0, val primaryId: Int = 0)
 
     fun detect(gray: Mat, rgba: Mat): Result {
         val h = gray.rows(); val w = gray.cols()
@@ -56,6 +56,7 @@ internal object OpenCvCupDomain {
                 }
             }
             if(anchor==0) return Result(Mat.zeros(h,w,CvType.CV_8U),null)
+            val primaryLabels=IntArray(w*h);anchorLabels.get(0,0,primaryLabels)
             Imgproc.GaussianBlur(gray, smooth, Size(5.0, 5.0), 1.0)
             Imgproc.Canny(smooth, edges, 50.0, 120.0)
             Core.bitwise_not(edges, inverted)
@@ -70,6 +71,12 @@ internal object OpenCvCupDomain {
                 val i=y*w+x
                 if(strong[i].toInt()!=0) { coffeeSamples.add(i);quadrantTotals[quadrant(x,y)]++ }
             }
+            val anchorOrder=(1 until count).filter {
+                anchorStats.get(it,Imgproc.CC_STAT_AREA)[0]>=100 &&
+                anchorCenters.get(it,0)[0] in w*.15..w*.85 && anchorCenters.get(it,1)[0] in h*.15..h*.85
+            }.sortedByDescending { anchorStats.get(it,Imgproc.CC_STAT_AREA)[0] }.take(3)
+            var currentAnchor=anchor
+            var primarySamples=coffeeSamples.filter { primaryLabels[it]==currentAnchor }
             fun measuredProposal(e:RotatedRect):Proposal? {
                 val ew=e.size.width;val eh=e.size.height;val cx=e.center.x;val cy=e.center.y
                 val area=PI*ew*eh/4
@@ -77,13 +84,16 @@ internal object OpenCvCupDomain {
                     max(ew,eh)>max(w,h)*1.6 || area<=w*h*.08 || area>=w*h*1.2 ||
                     ew/eh !in .30..3.33 || cx !in w*.1..w*.9 || cy !in h*.1..h*.9) return null
                 val ca=cos(e.angle*PI/180);val sa=sin(e.angle*PI/180)
-                var support=0;var ceramic=0;var contrast=0
+                var support=0;var ceramic=0;var contrast=0;var visible=0
+                // Normalize against visible rim samples for cropped openings;
+                // still require a substantial measured arc and ceramic evidence.
                 for(i in 0 until 72) {
                     val a=i*2*PI/72
                     val dx=ew/2*cos(a)*ca-eh/2*sin(a)*sa
                     val dy=ew/2*cos(a)*sa+eh/2*sin(a)*ca
                     val x=(cx+dx).roundToInt();val y=(cy+dy).roundToInt()
                     if(x !in 0 until w || y !in 0 until h) continue
+                    visible++
                     if(distancePixels[y*w+x]<=max(3.0,min(ew,eh)*.0175)) support++
                     for(scale in doubleArrayOf(.96,1.0,1.04)) {
                         val px=(cx+dx*scale).roundToInt();val py=(cy+dy*scale).roundToInt()
@@ -94,7 +104,6 @@ internal object OpenCvCupDomain {
                     if(ix in 0 until w && iy in 0 until h && ox in 0 until w && oy in 0 until h &&
                         (levels[iy*w+ix].toInt() and 255)-(levels[oy*w+ox].toInt() and 255)>=18) contrast++
                 }
-                if(support<31 || ceramic<36) return null
                 val covered=IntArray(4)
                 for(pixel in coffeeSamples) {
                     val x=pixel%w-cx;val y=pixel/w-cy
@@ -106,8 +115,23 @@ internal object OpenCvCupDomain {
                     distributed+=covered[q].toDouble()/quadrantTotals[q];quadrants++
                 }
                 if(quadrants>0) distributed/=quadrants
-                val rimEvidence=ceramic/72.0*2+support/72.0+contrast/72.0*2
-                return Proposal(rimEvidence+distributed+min(1.0,area/(w*h))*.5,e,rimEvidence)
+                val rimEvidence=2.0*ceramic/max(1,visible)+support.toDouble()/max(1,visible)
+                // Rim support alone can describe a small inner patch or a
+                // second cup. Require it to enclose the active coffee component.
+                val primaryCovered=primarySamples.count { pixel ->
+                    val x=pixel%w-cx;val y=pixel/w-cy
+                    ((x*ca+y*sa)/(ew/2)).pow(2)+((-x*sa+y*ca)/(eh/2)).pow(2)<=.92*.92
+                }
+                val primaryCoverage=primaryCovered.toDouble()/max(1,primarySamples.size)
+                val edgeFraction=if(primaryCoverage>=.85 && ceramic.toDouble()/max(1,visible)>=.70) .40 else .43
+                val reliable=visible>=32 && support>=max(18.0,ceil(visible*edgeFraction)) &&
+                    ceramic>=max(20.0,ceil(visible*.50)) && primaryCoverage>=.72
+                // White outer body can inflate a brightness/area score.
+                // Prefer a supported visible rim, not a larger enclosing ellipse.
+                val score=rimEvidence+primaryCoverage*1.8+distributed*1.3-
+                    (1.0-visible/72.0)*2.0
+                if(!reliable) return null
+                return Proposal(score,e,rimEvidence,currentAnchor)
             }
             Imgproc.HoughCircles(smooth, circles, Imgproc.HOUGH_GRADIENT, 1.2,
                 max(20.0, min(w, h) * .1), 100.0, 40.0,
@@ -159,7 +183,7 @@ internal object OpenCvCupDomain {
                     val median = errors[errors.size/2]
                     val p90 = errors[(errors.size*.90).toInt().coerceAtMost(errors.lastIndex)]
                     val coverage = bins.size / 36.0
-                    if (median <= .08 && p90 <= .25 && coverage >= .65)
+                    if (median <= .12 && p90 <= .35 && coverage >= .35)
                         proposals.add(Proposal(area/(w*h)*coverage*(1-median*3), ellipse))
                 }
             }
@@ -196,6 +220,7 @@ internal object OpenCvCupDomain {
             } finally { ceramicMask.release() }
             // All sources use the same evidence, replacing incomparable Hough ranks
             // and contour-area scores. A weak nonempty result also triggers retry.
+            val rawGeometry=proposals.toList()
             val measured=proposals.mapNotNull { p -> measuredProposal(p.ellipse) }
             proposals.clear();proposals.addAll(measured)
             if ((proposals.maxOfOrNull { it.score } ?: 0.0)<4.2) {
@@ -232,15 +257,50 @@ internal object OpenCvCupDomain {
                     } finally { stretched.release(); ovalCircles.release() }
                 }
             }
-            val ranked=proposals.sortedByDescending { it.score }
-            val best=ranked.firstOrNull()
-            // Prefer the measured enclosing opening over its nested bottom if
-            // their evidence is comparable; size alone never makes a valid rim.
-            val chosen=if(best==null) null else ranked.firstOrNull {
-                it.score>=best.score-.15 && it.rimEvidence>=best.rimEvidence &&
-                    it.ellipse.size.area()>best.ellipse.size.area()*1.15 &&
-                    encloses(it.ellipse,best.ellipse)
-            }?.ellipse ?: best.ellipse
+            // Coffee contours supply bounded geometric proposals, never the cup
+            // boundary by themselves. Every proposal still needs rim evidence.
+            fun addPrimarySeeds() {
+                val contourPoints=ArrayList<Point>()
+                for(y in 1 until h-1) for(x in 1 until w-1) {
+                    val i=y*w+x
+                    if(primaryLabels[i]==currentAnchor && (primaryLabels[i-1]!=currentAnchor || primaryLabels[i+1]!=currentAnchor || primaryLabels[i-w]!=currentAnchor || primaryLabels[i+w]!=currentAnchor)) contourPoints.add(Point(x.toDouble(),y.toDouble()))
+                }
+                if(contourPoints.size>=5) {
+                    val integer=MatOfPoint(*contourPoints.toTypedArray());val hull=MatOfInt()
+                    try {
+                        Imgproc.convexHull(integer,hull)
+                        val points=hull.toArray().map { contourPoints[it] }.toTypedArray()
+                        if(points.size>=5) {
+                            val floating=MatOfPoint2f(*points)
+                            try {
+                                val seed=Imgproc.fitEllipse(floating)
+                                val minor=min(seed.size.width,seed.size.height)
+                                val direction=(seed.angle+(if(seed.size.width<=seed.size.height) 0.0 else 90.0))*PI/180
+                                // Preserve the measured hull centre along the major axis;
+                                // lateral shifts can follow a bright outer-body edge.
+                                for(scale in listOf(1.0,1.08,1.16,1.25)) for(shift in listOf(-.20,-.10,0.0,.10)) {
+                                    val center=Point(seed.center.x+cos(direction)*minor*shift,seed.center.y+sin(direction)*minor*shift)
+                                    measuredProposal(RotatedRect(center,Size(seed.size.width*scale,seed.size.height*scale),seed.angle))?.let { proposals.add(it) }
+                                }
+                            } finally { floating.release() }
+                        }
+                    } finally { integer.release();hull.release() }
+                }
+
+            }
+            addPrimarySeeds()
+            // A shadow may be the largest brown component. Try smaller central
+            // components only when the dominant one cannot support a valid rim.
+            for(nextAnchor in anchorOrder.drop(1)) {
+                if(proposals.any { it.primaryId==currentAnchor }) break
+                currentAnchor=nextAnchor
+                primarySamples=coffeeSamples.filter { primaryLabels[it]==currentAnchor }
+                rawGeometry.mapNotNull { measuredProposal(it.ellipse) }.forEach { proposals.add(it) }
+                addPrimarySeeds()
+            }
+            val primary=anchorOrder.firstOrNull { id -> proposals.any { it.primaryId==id } }
+            val ranked=proposals.filter { it.primaryId==primary }.sortedByDescending { it.score }
+            val chosen=ranked.firstOrNull()?.ellipse
             val mask = Mat.zeros(h, w, CvType.CV_8U)
             if (chosen != null) {
                 val interior = RotatedRect(chosen.center,
@@ -257,15 +317,4 @@ internal object OpenCvCupDomain {
         }
     }
 
-    private fun encloses(outer:RotatedRect,inner:RotatedRect):Boolean {
-        val ca=cos(outer.angle*PI/180);val sa=sin(outer.angle*PI/180)
-        val ci=cos(inner.angle*PI/180);val si=sin(inner.angle*PI/180)
-        for(i in 0 until 16) {
-            val a=i*2*PI/16
-            val x=inner.center.x+inner.size.width/2*cos(a)*ci-inner.size.height/2*sin(a)*si-outer.center.x
-            val y=inner.center.y+inner.size.width/2*cos(a)*si+inner.size.height/2*sin(a)*ci-outer.center.y
-            if(((x*ca+y*sa)/(outer.size.width/2)).pow(2)+((-x*sa+y*ca)/(outer.size.height/2)).pow(2)>1.05) return false
-        }
-        return true
-    }
 }

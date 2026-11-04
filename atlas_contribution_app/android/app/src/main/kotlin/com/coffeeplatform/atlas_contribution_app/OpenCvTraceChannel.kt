@@ -25,6 +25,11 @@ class OpenCvTraceChannel(messenger: BinaryMessenger) {
                 result.error("invalid_image", "Invalid working image", null)
                 return@setMethodCallHandler
             }
+            val surface = call.argument<String>("surface") ?: "cup"
+            if (surface != "cup" && surface != "saucer") {
+                result.error("invalid_surface", "Invalid surface", null)
+                return@setMethodCallHandler
+            }
             worker.execute {
                 try {
                     // Comparison input is used by the isolated diagnostic harness only.
@@ -34,7 +39,7 @@ class OpenCvTraceChannel(messenger: BinaryMessenger) {
                     } else if (comparisonClip == 1.0 || comparisonClip == 3.0) {
                         extract(bytes, comparisonClip)
                     } else analyze(bytes, call.argument<Boolean>("adaptive") == true,
-                        (call.argument<Number>("extraBudgetMs")?.toLong() ?: 500L).coerceIn(0L, 500L))
+                        (call.argument<Number>("extraBudgetMs")?.toLong() ?: 500L).coerceIn(0L, 500L), surface)
                     main.post { result.success(value) }
                 } catch (error: Throwable) {
                     main.post { result.error("analysis_failed", error.javaClass.simpleName, null) }
@@ -44,7 +49,7 @@ class OpenCvTraceChannel(messenger: BinaryMessenger) {
     }
     fun close() { channel.setMethodCallHandler(null); worker.shutdown() }
 
-    private fun extract(bytes: ByteArray, clip: Double = 2.0, cupDomain: Boolean = true): Map<String, Any> {
+    private fun extract(bytes: ByteArray, clip: Double = 2.0, cupDomain: Boolean = true, surface: String = "cup", recoverMergedCup: Boolean = false): Map<String, Any> {
         check(OpenCVLoader.initLocal())
         val started = System.nanoTime()
         val bitmap = requireNotNull(BitmapFactory.decodeByteArray(bytes, 0, bytes.size))
@@ -59,7 +64,9 @@ class OpenCvTraceChannel(messenger: BinaryMessenger) {
             clahe.apply(gray, enhanced)
             Imgproc.adaptiveThreshold(enhanced, mask, 255.0,
                 Imgproc.ADAPTIVE_THRESH_GAUSSIAN_C, Imgproc.THRESH_BINARY_INV, 41, 12.0)
-            val detected = if (cupDomain) OpenCvCupDomain.detect(gray, rgba) else null
+            val detected = if (!cupDomain) null else if (surface == "saucer")
+                OpenCvSaucerDomain.detect(gray, rgba) else OpenCvCupDomain.detect(gray, rgba)
+            var conservativeForeground: ByteArray? = null
             if (detected != null) owned.add(detected.mask)
             if (detected != null) {
                 val levels = ByteArray(gray.rows()*gray.cols()); gray.get(0,0,levels)
@@ -76,6 +83,11 @@ class OpenCvTraceChannel(messenger: BinaryMessenger) {
                     if (count>0 && cumulative>=ceil(count*.9)) { p90=v; break }
                 }
                 val darkLimit = min(80.0,p90*.4)
+                // Keep the adaptive mask contribution; reduce only the forced dark fill.
+                val conservativeDarkLimit = 60.0
+                val conservative = if (recoverMergedCup && surface == "cup" &&
+                    detected.ellipse != null && darkLimit > conservativeDarkLimit)
+                    ByteArray(levels.size) else null
                 for (i in levels.indices) {
                     val r=colors[i*4].toInt() and 255; val g=colors[i*4+1].toInt() and 255
                     val b=colors[i*4+2].toInt() and 255; val level=levels[i].toInt() and 255
@@ -83,15 +95,18 @@ class OpenCvTraceChannel(messenger: BinaryMessenger) {
                     val saturation=if(maxChannel==0) 0.0 else 255.0*(maxChannel-minChannel)/maxChannel
                     val coffee=(r>b+6 && r>=g-3 && saturation>30 && level<160) ||
                         (level<70 && r>=g && r>b+2 && saturation>20)
-                    foreground[i]=if(region[i].toInt()==0 || !coffee) 0 else
-                        if(level<darkLimit) 255.toByte() else foreground[i]
+                    val allowed = region[i].toInt() != 0 && coffee
+                    if (conservative != null && allowed) {
+                        conservative[i] = if (level < conservativeDarkLimit) 255.toByte() else foreground[i]
+                    }
+                    foreground[i] = if (!allowed) 0 else
+                        if (level < darkLimit) 255.toByte() else foreground[i]
                 }
+                conservativeForeground = conservative
                 mask.put(0,0,foreground)
             }
             val kernel = Imgproc.getStructuringElement(Imgproc.MORPH_ELLIPSE, Size(3.0, 3.0))
             owned.add(kernel)
-            Imgproc.morphologyEx(mask, mask, Imgproc.MORPH_OPEN, kernel)
-            Imgproc.morphologyEx(mask, mask, Imgproc.MORPH_CLOSE, kernel)
             val w = mask.cols(); val h = mask.rows()
             val domain = detected?.mask ?: Mat.zeros(h, w, CvType.CV_8U).also { owned.add(it) }
             // Match the desktop experiment's elliptical domain, pixel centers included.
@@ -107,42 +122,66 @@ class OpenCvTraceChannel(messenger: BinaryMessenger) {
                 }
             }
             if (detected == null) domain.put(0, 0, domainBytes)
-            Core.bitwise_and(mask, domain, mask)
             val labels = mat(); val stats = mat(); val centroids = mat()
-            val count = Imgproc.connectedComponentsWithStats(mask, labels, stats, centroids, 8, CvType.CV_32S)
-            val labelPixels = IntArray(w * h); labels.get(0, 0, labelPixels)
-            val candidates = mutableListOf<Map<String, Any>>()
-            for (id in 1 until count) {
-                val area = stats.get(id, Imgproc.CC_STAT_AREA)[0]
-                val x = stats.get(id, Imgproc.CC_STAT_LEFT)[0].toInt()
-                val y = stats.get(id, Imgproc.CC_STAT_TOP)[0].toInt()
-                val bw = stats.get(id, Imgproc.CC_STAT_WIDTH)[0].toInt()
-                val bh = stats.get(id, Imgproc.CC_STAT_HEIGHT)[0].toInt()
-                val fill = area / (bw * bh)
-                val nx = (centroids.get(id, 0)[0] + .5) / w
-                val ny = (centroids.get(id, 1)[0] + .5) / h
-                if (area < 70 || area > domainSize * .12 || bw < 8 || bh < 8 || fill < .12) continue
-                if (detected == null && (((nx - .5) / .40).pow(2) + ((ny - .5) / .40).pow(2) >= 1)) continue
-                val pixels = mutableListOf<Int>(); val boundary = mutableListOf<Int>()
-                val signature = IntArray(64)
-                for (py in y until y + bh) for (px in x until x + bw) {
-                    val index = py * w + px
-                    if (labelPixels[index] != id) continue
-                    pixels.add(index)
-                    signature[min(7, (py - y) * 8 / bh) * 8 + min(7, (px - x) * 8 / bw)]++
-                    if (px == 0 || py == 0 || px == w - 1 || py == h - 1 ||
-                        labelPixels[index - 1] != id || labelPixels[index + 1] != id ||
-                        labelPixels[index - w] != id || labelPixels[index + w] != id) boundary.add(index)
+            val labelPixels = IntArray(w * h)
+            val minRegionArea = max(160.0, domainSize * .004)
+            val maxRegionArea = domainSize * .12
+            fun collect(): Pair<List<Map<String, Any>>, Boolean> {
+                Imgproc.morphologyEx(mask, mask, Imgproc.MORPH_OPEN, kernel)
+                Imgproc.morphologyEx(mask, mask, Imgproc.MORPH_CLOSE, kernel)
+                Core.bitwise_and(mask, domain, mask)
+                val count = Imgproc.connectedComponentsWithStats(mask, labels, stats, centroids, 8, CvType.CV_32S)
+                labels.get(0, 0, labelPixels)
+                var oversized = false
+                val candidates = mutableListOf<Map<String, Any>>()
+                for (id in 1 until count) {
+                    val area = stats.get(id, Imgproc.CC_STAT_AREA)[0]
+                    if (area > maxRegionArea) {
+                        oversized = true
+                        continue
+                    }
+                    if (area < minRegionArea) continue
+                    val x = stats.get(id, Imgproc.CC_STAT_LEFT)[0].toInt()
+                    val y = stats.get(id, Imgproc.CC_STAT_TOP)[0].toInt()
+                    val bw = stats.get(id, Imgproc.CC_STAT_WIDTH)[0].toInt()
+                    val bh = stats.get(id, Imgproc.CC_STAT_HEIGHT)[0].toInt()
+                    val fill = area / (bw * bh)
+                    val nx = (centroids.get(id, 0)[0] + .5) / w
+                    val ny = (centroids.get(id, 1)[0] + .5) / h
+                    if (bw < 8 || bh < 8 || fill < .12) continue
+                    if (detected == null && (((nx - .5) / .40).pow(2) + ((ny - .5) / .40).pow(2) >= 1)) continue
+                    val pixels = mutableListOf<Int>(); val boundary = mutableListOf<Int>()
+                    val signature = IntArray(64)
+                    for (py in y until y + bh) for (px in x until x + bw) {
+                        val index = py * w + px
+                        if (labelPixels[index] != id) continue
+                        pixels.add(index)
+                        signature[min(7, (py - y) * 8 / bh) * 8 + min(7, (px - x) * 8 / bw)]++
+                        if (px == 0 || py == 0 || px == w - 1 || py == h - 1 ||
+                            labelPixels[index - 1] != id || labelPixels[index + 1] != id ||
+                            labelPixels[index - w] != id || labelPixels[index + w] != id) boundary.add(index)
+                    }
+                    candidates.add(mapOf("id" to id, "pixels" to pixels.toIntArray(),
+                        "boundary" to boundary.toIntArray(), "box" to listOf(x, y, bw, bh),
+                        "score" to sqrt(area) * (1 - fill * .3),
+                        "signature" to signature.toList(), "aspect" to bw.toDouble() / bh))
                 }
-                candidates.add(mapOf("id" to id, "pixels" to pixels.toIntArray(),
-                    "boundary" to boundary.toIntArray(), "box" to listOf(x, y, bw, bh),
-                    "score" to sqrt(area) * (1 - fill * .3),
-                    "signature" to signature.toList(), "aspect" to bw.toDouble() / bh))
+                return candidates to oversized
             }
+            val (baseline, oversized) = collect()
+            val conservative = conservativeForeground
+            val candidates = if (baseline.size <= 2 && oversized && conservative != null) {
+                // A large joined mass can hide useful traces. Reuse the same cup domain
+                // and keep the original mask result if the retry finds no additional candidates.
+                mask.put(0, 0, conservative)
+                val (retry, _) = collect()
+                if (retry.size > baseline.size) retry else baseline
+            } else baseline
             return mapOf("width" to w, "height" to h,
                 "candidates" to candidates.sortedByDescending { it["score"] as Double }.take(24),
                 "durationMs" to (System.nanoTime() - started) / 1_000_000,
-                "cupBoundary" to (detected?.ellipse?.let { listOf(it.center.x,it.center.y,it.size.width,it.size.height,it.angle) } ?: emptyList<Double>()))
+                "surfaceBoundary" to (detected?.ellipse?.let { listOf(it.center.x,it.center.y,it.size.width,it.size.height,it.angle) } ?: emptyList<Double>()),
+                "cupBoundary" to (if (surface == "cup") detected?.ellipse?.let { listOf(it.center.x,it.center.y,it.size.width,it.size.height,it.angle) } ?: emptyList<Double>() else emptyList<Double>()))
         } finally {
             owned.forEach { it.release() }; clahe.collectGarbage(); bitmap.recycle()
         }
@@ -158,10 +197,10 @@ class OpenCvTraceChannel(messenger: BinaryMessenger) {
         return area.toDouble() / min(x[2] * x[3], y[2] * y[3])
     }
 
-    /** No work, result or cache changes in normal builds; optional bounded retry. */
-    private fun analyze(bytes: ByteArray, adaptive: Boolean, budgetMs: Long): Map<String, Any> {
-        val baseline = extract(bytes)
-        if (!adaptive) return baseline
+    /** Normal extraction, with optional contrast comparison for diagnostic callers. */
+    private fun analyze(bytes: ByteArray, adaptive: Boolean, budgetMs: Long, surface: String = "cup"): Map<String, Any> {
+        val baseline = extract(bytes, surface = surface, recoverMergedCup = true)
+        if (!adaptive || surface == "saucer") return baseline
         val extraStarted = System.nanoTime()
         fun expired() = System.nanoTime() - extraStarted >= budgetMs * 1_000_000L
         fun fallback() = baseline + ("durationMs" to ((baseline["durationMs"] as Long) +

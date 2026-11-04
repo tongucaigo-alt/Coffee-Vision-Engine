@@ -73,6 +73,90 @@ void main() {
     () => messenger.setMockMethodCallHandler(TraceService.channel, null),
   );
 
+  test('merged cup recovery does not reuse prior masks', () async {
+    final dir = await Directory.systemTemp.createTemp('trace-prior-versions-');
+    addTearDown(() => dir.delete(recursive: true));
+    final p = photo();
+    final file = File('${dir.path}/original.jpg')
+      ..writeAsBytesSync(testImage());
+    final cache = Directory('${dir.path}/cache');
+    final owner = sha256.convert(utf8.encode('owner')).toString();
+    final folder = Directory('${cache.path}/$owner')
+      ..createSync(recursive: true);
+    final oldFiles = <File>[];
+    for (final algorithm in [
+      'opencv-4.13-traces-v4-rim-domain',
+      'opencv-4.13-traces-v4-rim-domain-selective',
+      'opencv-4.13-traces-v5-primary-cup-quality',
+      'opencv-4.13-traces-v5-primary-cup-quality-selective',
+      'opencv-4.13-traces-v6-surface-quality',
+      'opencv-4.13-traces-v6-surface-quality-selective',
+    ]) {
+      final surfaceKey = algorithm.contains('-v6-') ? '${p.surface.name}|' : '';
+      final identity =
+          '${p.checksum}|$algorithm|$surfaceKey${jsonEncode(p.visibleCrop.toJson())}';
+      final name = sha256.convert(utf8.encode(identity)).toString();
+      oldFiles.add(
+        File('${folder.path}/$name.json')
+          ..writeAsStringSync(jsonEncode(validResult())),
+      );
+    }
+    final oldContents = oldFiles.map((file) => file.readAsBytesSync()).toList();
+    var calls = 0;
+    messenger.setMockMethodCallHandler(TraceService.channel, (_) async {
+      calls++;
+      return {...validResult(), 'candidates': []};
+    });
+    for (final selective in [false, true]) {
+      final service = TraceService(cache, adaptive: selective);
+      expect((await service.analyze('owner', file, p))['candidates'], isEmpty);
+      expect((await service.analyze('owner', file, p))['candidates'], isEmpty);
+    }
+    expect(calls, 2);
+    for (var i = 0; i < oldFiles.length; i++) {
+      expect(oldFiles[i].readAsBytesSync(), oldContents[i]);
+    }
+  });
+
+  test(
+    'surface identity separates identical cup and saucer bytes and includes both',
+    () async {
+      final dir = await Directory.systemTemp.createTemp('trace-surfaces-');
+      addTearDown(() => dir.delete(recursive: true));
+      final file = File('${dir.path}/same.jpg')..writeAsBytesSync(testImage());
+      final requests = <String>[];
+      messenger.setMockMethodCallHandler(TraceService.channel, (call) async {
+        requests.add((call.arguments as Map)['surface'] as String);
+        return {
+          ...validResult(),
+          'surfaceBoundary': [50, 50, 90, 90, 0],
+        };
+      });
+      final cups = photo(), saucer = photo(surface: PhotoSurface.saucer);
+      final service = TraceService(Directory('${dir.path}/cache'));
+      final photos = [cups, saucer];
+      final set = await service.loadSet(
+        owner: 'same',
+        photos: photos,
+        fileFor: (_) => file,
+      );
+      await service.loadSet(
+        owner: 'same',
+        photos: photos,
+        fileFor: (_) => file,
+      );
+      expect(requests, ['cup', 'saucer']);
+      expect(set.photos, photos);
+      expect(set.selected.map((t) => t.photoIndex), [0, 1]);
+      expect(set.indexOf(saucer), 1);
+      expect(tracePhotoIdentity(cups), isNot(tracePhotoIdentity(saucer)));
+      expect(
+        jsonEncode(photos.map((p) => p.toJson()).toList()),
+        jsonEncode([cups.toJson(), saucer.toJson()]),
+      );
+    },
+  );
+
   test(
     'V76 never reuses a V75 mask cached for the same photo and crop',
     () async {
@@ -155,6 +239,8 @@ void main() {
       (r) => r['candidates'][0]['signature'] = [1],
       (r) => r['cupBoundary'] = [20, 20, 0, 30, 0],
       (r) => r['cupBoundary'] = [20, 20, 30, 30],
+      (r) => r['surfaceBoundary'] = [20, 20, 0, 30, 0],
+      (r) => r['surfaceBoundary'] = [20, 20, 30, 30],
     ]) {
       final r = validResult();
       change(r);
@@ -244,7 +330,7 @@ void main() {
   );
 
   test(
-    'native error is optional, saucers skipped, cancellation stops further photos',
+    'native error is optional, cancellation stops cups and saucers',
     () async {
       final dir = await Directory.systemTemp.createTemp('trace-failure-');
       addTearDown(() => dir.delete(recursive: true));

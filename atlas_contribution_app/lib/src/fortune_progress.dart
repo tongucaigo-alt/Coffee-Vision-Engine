@@ -6,6 +6,7 @@ import 'cropped_photo.dart';
 import 'photo_crop.dart';
 import 'opencv_traces.dart';
 import 'trace_overlay.dart';
+import 'trace_symbols.dart';
 import 'label_picker.dart' show labelIcons;
 import 'coffee_loading_animation.dart';
 import 'atlas_atmosphere.dart';
@@ -61,7 +62,7 @@ class FortuneScan extends StatefulWidget {
   /// Decorative only; enable exclusively on the fortune preparation screen.
   final bool showDecorativeSymbols;
 
-  /// Residue centres in normalized original-photo coordinates, never labels.
+  /// Legacy presentation hint retained for callers; placement uses TraceSet.
   final List<Offset> Function(ContributionPhoto)? symbolAnchorsFor;
   @override
   State<FortuneScan> createState() => _FortuneScanState();
@@ -138,9 +139,11 @@ class _FortuneScanState extends State<FortuneScan>
                 p.localName == widget.progress.photoId,
             orElse: () => photos[_photo % photos.length],
           );
-    final anchors = photo == null
-        ? const <Offset>[]
-        : widget.symbolAnchorsFor?.call(photo) ?? const <Offset>[];
+    final localTraces = photo == null || widget.traces == null
+        ? const <TraceCandidate>[]
+        : widget.traces!.selected
+              .where((t) => t.photoIndex == widget.traces!.indexOf(photo))
+              .toList();
     return ListView(
       padding: const EdgeInsets.all(24),
       children: [
@@ -166,7 +169,7 @@ class _FortuneScanState extends State<FortuneScan>
               ),
               if (_animate &&
                   widget.showDecorativeSymbols &&
-                  photo.surface == PhotoSurface.cup)
+                  localTraces.isNotEmpty)
                 Positioned.fill(
                   child: IgnorePointer(
                     child: ExcludeSemantics(
@@ -177,7 +180,8 @@ class _FortuneScanState extends State<FortuneScan>
                           cycle: _symbolCycle,
                           seed: _symbolSeed,
                           crop: _scanCrop(photo),
-                          anchors: anchors,
+                          traces: localTraces,
+                          photoIdentity: tracePhotoIdentity(photo),
                         ),
                       ),
                     ),
@@ -227,14 +231,14 @@ class _FortuneSymbols extends StatefulWidget {
     required this.cycle,
     required this.seed,
     required this.crop,
-    required this.anchors,
+    required this.traces,
+    required this.photoIdentity,
   });
   final double phase;
-  final int cycle;
-  final int seed;
+  final int cycle, seed;
   final PhotoCrop crop;
-  final List<Offset> anchors;
-
+  final List<TraceCandidate> traces;
+  final String photoIdentity;
   @override
   State<_FortuneSymbols> createState() => _FortuneSymbolsState();
 }
@@ -254,132 +258,98 @@ class _FortuneSymbolsState extends State<_FortuneSymbols> {
   ]..shuffle(math.Random(widget.seed));
   Size? _size;
   PhotoCrop? _crop;
-  List<Offset> _anchors = const [];
-  final _positions = <Offset>[];
-  final _generations = <int>[];
+  String? _photoIdentity;
+  List<TraceCandidate> _traces = const [];
+  List<TraceSymbolAnchor> _anchors = const [];
+  final _slots = List<TraceSymbolAnchor?>.filled(3, null);
+  final _generations = List<int>.filled(3, -1);
+  final _rounds = <String, int>{};
+  final _lastCycles = <String, int>{};
 
   @override
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (_, bounds) {
-      const iconSize = 22.0;
-      const displayIconSize = iconSize * .75;
-      final centre = Offset(bounds.maxWidth / 2, bounds.maxHeight / 2);
-      final radius = math.max(
-        0.0,
-        math.min(bounds.maxWidth, bounds.maxHeight) * .42 - 22,
-      );
       final size = Size(bounds.maxWidth, bounds.maxHeight);
+      // Photo count must not lock six anchors into the same group of three.
+      if (_lastCycles[widget.photoIdentity] != widget.cycle) {
+        _rounds[widget.photoIdentity] =
+            (_rounds[widget.photoIdentity] ?? -1) + 1;
+        _lastCycles[widget.photoIdentity] = widget.cycle;
+      }
       if (_size != size ||
           _crop != widget.crop ||
-          !listEquals(_anchors, widget.anchors)) {
+          _photoIdentity != widget.photoIdentity ||
+          !listEquals(_traces, widget.traces)) {
         _size = size;
         _crop = widget.crop;
-        _anchors = List.of(widget.anchors);
-        _positions.clear();
-        _generations.clear();
-      }
-      final crop = widget.crop;
-      final residue = <Offset>[];
-      for (final anchor in widget.anchors) {
-        if (!anchor.dx.isFinite ||
-            !anchor.dy.isFinite ||
-            anchor.dx < 0 ||
-            anchor.dx > 1 ||
-            anchor.dy < 0 ||
-            anchor.dy > 1) {
-          continue;
+        _photoIdentity = widget.photoIdentity;
+        _traces = List.of(widget.traces);
+        _anchors = traceSymbolAnchors(_traces, widget.crop, size);
+        for (var i = 0; i < 3; i++) {
+          _slots[i] = null;
+          _generations[i] = -1;
         }
-        final point = Offset(
-          (anchor.dx - crop.x) / crop.width * bounds.maxWidth,
-          (anchor.dy - crop.y) / crop.height * bounds.maxHeight,
-        );
-        if (point.dx >= iconSize &&
-            point.dy >= iconSize &&
-            point.dx <= bounds.maxWidth - iconSize &&
-            point.dy <= bounds.maxHeight - iconSize) {
-          residue.add(point);
-        }
-        if (residue.length == 3) break;
       }
       final breaths = <double>[];
       for (var i = 0; i < 3; i++) {
-        // Start the first symbol visibly, then introduce the others promptly.
         final elapsed = widget.cycle + widget.phase + .12 - i * .09;
         final generation = math.max(0, elapsed.floor());
         final localPhase = elapsed < 0 ? 0.0 : elapsed - elapsed.floor();
         breaths.add(elapsed < 0 ? 0 : math.sin(localPhase * math.pi));
-        // Keep each position fixed through its breath; choose a new one only
-        // while that symbol is invisible at the beginning of its next breath.
-        if (i < _generations.length && _generations[i] == generation) continue;
-        final random = math.Random(widget.seed + generation * 997 + i * 7919);
-        var point = centre;
-        for (var attempt = 0; attempt < 24; attempt++) {
-          final angle = random.nextDouble() * math.pi * 2;
-          final distance = radius * math.sqrt(.12 + random.nextDouble() * .88);
-          point = centre + Offset(math.cos(angle), math.sin(angle)) * distance;
-          if (residue.isNotEmpty && attempt < 12) {
-            final anchor = residue[random.nextInt(residue.length)];
-            point = Offset.lerp(anchor, point, .45)!;
-            final delta = point - centre;
-            if (delta.distance > radius && delta.distance > 0) {
-              point = centre + delta / delta.distance * radius;
-            }
-          }
-          if (_positions.indexed.every(
-            (other) =>
-                other.$1 == i || (other.$2 - point).distance >= iconSize * 1.8,
+        if (_generations[i] == generation) continue;
+        _generations[i] = generation;
+        _slots[i] = null;
+        final round =
+            _rounds[widget.photoIdentity]! + generation - widget.cycle;
+        for (var offset = 0; offset < _anchors.length; offset++) {
+          final anchor = _anchors[(round + i + offset) % _anchors.length];
+          if (_slots.indexed.every(
+            (slot) =>
+                slot.$1 == i ||
+                slot.$2 == null ||
+                (slot.$2!.traceIndex != anchor.traceIndex &&
+                    (slot.$2!.position - anchor.position).distance >=
+                        traceSymbolGap),
           )) {
+            _slots[i] = anchor;
             break;
           }
         }
-        if (i < _positions.length) {
-          _positions[i] = point;
-          _generations[i] = generation;
-        } else {
-          _positions.add(point);
-          _generations.add(generation);
-        }
       }
-      return Stack(
-        key: const ValueKey('fortune-decorative-symbols'),
-        children: [
-          for (var i = 0; i < _positions.length; i++)
-            Positioned(
-              left: _positions[i].dx - displayIconSize / 2,
-              top: _positions[i].dy - displayIconSize / 2,
-              child: Opacity(
-                opacity: math.min(1.0, breaths[i] * 3),
-                child: Transform.scale(
-                  scale: .82 + .38 * breaths[i],
-                  child: Icon(
-                    labelIcons[_labels[(_generations[i] * 3 + i) %
-                        _labels.length]],
-                    key: ValueKey('fortune-symbol-$i'),
-                    size: displayIconSize,
-                    color:
-                        traceColors[(_generations[i] * 3 + i) %
-                            traceColors.length],
-                    shadows: [
-                      Shadow(
-                        color:
-                            traceColors[(_generations[i] * 3 + i) %
-                                    traceColors.length]
-                                .withValues(alpha: .8),
-                        blurRadius: 4,
+      return ClipPath(
+        clipper: TraceSymbolClipper(_traces.first, widget.crop),
+        child: Stack(
+          key: const ValueKey('fortune-decorative-symbols'),
+          children: [
+            for (var i = 0; i < 3; i++)
+              if (_slots[i] case final anchor?)
+                Positioned(
+                  left: anchor.position.dx - traceSymbolIconSize / 2,
+                  top: anchor.position.dy - traceSymbolIconSize / 2,
+                  child: Opacity(
+                    opacity: math.min(1.0, breaths[i] * 3),
+                    child: Transform.scale(
+                      scale: .82 + .38 * breaths[i],
+                      child: Icon(
+                        labelIcons[_labels[(_generations[i] * 3 + i) %
+                            _labels.length]],
+                        key: ValueKey('fortune-symbol-$i'),
+                        size: traceSymbolIconSize,
+                        color: traceSymbolColorFor(anchor.traceIndex),
+                        shadows: [
+                          Shadow(
+                            color: traceSymbolColorFor(
+                              anchor.traceIndex,
+                            ).withValues(alpha: .50),
+                            blurRadius: 4,
+                          ),
+                        ],
                       ),
-                      Shadow(
-                        color:
-                            traceColors[(_generations[i] * 3 + i) %
-                                    traceColors.length]
-                                .withValues(alpha: .5),
-                        blurRadius: 8,
-                      ),
-                    ],
+                    ),
                   ),
                 ),
-              ),
-            ),
-        ],
+          ],
+        ),
       );
     },
   );

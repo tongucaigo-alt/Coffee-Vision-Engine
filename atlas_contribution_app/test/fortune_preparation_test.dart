@@ -35,7 +35,7 @@ void main() {
       final firstProvider = flow.imageFor!(flow.photos.first);
       expect(
         find.byKey(const ValueKey('fortune-decorative-symbols')),
-        findsOneWidget,
+        findsNothing,
       );
       progress.value = const FortuneProgress(FortunePhase.analyzing);
       await tester.pump();

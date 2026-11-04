@@ -26,14 +26,14 @@ TraceCandidate candidate(
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   test(
-    'each photo has its own four-region cap without filling empty results',
+    'each photo has its own seven-region cap without filling empty results',
     () {
       expect(selectTraces([]), isEmpty);
       expect(selectTraces([candidate(0, 1)]), hasLength(1));
       final selected = selectTraces(
         List.generate(8, (i) => candidate(0, i + 1, score: 100 - i.toDouble())),
       );
-      expect(selected, hasLength(4));
+      expect(selected, hasLength(7));
       expect(selected.first.score, 100);
     },
   );
@@ -45,6 +45,19 @@ void main() {
         candidate(2, 3, signatureIndex: 10),
       ]),
       hasLength(3),
+    );
+  });
+  test('mixed cup and saucer quotas retain 1+7+3+2 without filling slots', () {
+    final selected = selectTraces([
+      for (var p = 0; p < 4; p++)
+        for (var i = 1; i <= [1, 9, 3, 2][p]; i++) candidate(p, i),
+    ]);
+    expect(
+      [
+        for (var p = 0; p < 4; p++)
+          selected.where((t) => t.photoIndex == p).length,
+      ],
+      [1, 7, 3, 2],
     );
   });
   test('larger pieces cannot consume every slot before a distinct angle', () {
@@ -59,14 +72,14 @@ void main() {
     expect(selected, hasLength(6));
     expect(selected.map((c) => c.photoIndex).toSet(), {0, 1, 2});
   });
-  test('three angles can retain twelve independent regions', () {
+  test('four surfaces can retain twenty-eight independent regions', () {
     final selected = selectTraces([
-      for (var p = 0; p < 3; p++)
-        for (var i = 1; i <= 6; i++) candidate(p, i, score: 100 - i.toDouble()),
+      for (var p = 0; p < 4; p++)
+        for (var i = 1; i <= 9; i++) candidate(p, i, score: 100 - i.toDouble()),
     ]);
-    expect(selected, hasLength(12));
-    for (var p = 0; p < 3; p++) {
-      expect(selected.where((c) => c.photoIndex == p), hasLength(4));
+    expect(selected, hasLength(28));
+    for (var p = 0; p < 4; p++) {
+      expect(selected.where((c) => c.photoIndex == p), hasLength(7));
     }
   });
   test(
@@ -89,10 +102,10 @@ void main() {
         t.area,
       );
       final selected = selectTraces([
-        for (var i = 1; i <= 5; i++) candidate(0, i),
+        for (var i = 1; i <= 8; i++) candidate(0, i),
         inner,
       ]);
-      expect(selected, hasLength(4));
+      expect(selected, hasLength(7));
       expect(selected, contains(inner));
       expect(selectTraces([inner]), [inner]);
     },

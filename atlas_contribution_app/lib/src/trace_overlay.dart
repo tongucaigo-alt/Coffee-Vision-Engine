@@ -200,8 +200,7 @@ class _TracePhotoViewerState extends State<TracePhotoViewer> {
   Widget build(BuildContext context) => Column(
     mainAxisSize: MainAxisSize.min,
     children: [
-      if (widget.photo.surface == PhotoSurface.cup &&
-          widget.set.indexOf(widget.photo) >= 0)
+      if (widget.set.indexOf(widget.photo) >= 0)
         Wrap(
           alignment: WrapAlignment.center,
           spacing: 8,

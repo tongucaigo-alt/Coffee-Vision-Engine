@@ -17,15 +17,21 @@ const openCvTracesEnabled = bool.fromEnvironment(
 );
 // The optional contrast experiment keeps its own cache identity.
 const adaptiveTracesEnabled = bool.fromEnvironment('ATLAS_OPENCV_ADAPTIVE');
-const adaptiveTraceAlgorithm = 'opencv-4.13-traces-v4-rim-domain-selective';
+const normalTraceAlgorithm = 'opencv-4.13-traces-v7-merged-cup-recovery';
+const adaptiveTraceAlgorithm =
+    'opencv-4.13-traces-v7-merged-cup-recovery-selective';
+const maxTracesPerPhoto = 7;
 const traceAlgorithm = adaptiveTracesEnabled
     ? adaptiveTraceAlgorithm
-    : 'opencv-4.13-traces-v4-rim-domain';
+    : normalTraceAlgorithm;
 const traceColors = [
   Color(0xff0eae98),
   Color(0xffdf4a78),
   Color(0xff4388df),
   Color(0xffe1aa19),
+  Color(0xff9b72cf),
+  Color(0xffe58a45),
+  Color(0xff62bdd2),
 ];
 
 Uint8List prepareTraceImage(Map<String, dynamic> input) {
@@ -87,7 +93,7 @@ class TraceCandidate {
   }
 }
 
-/// Up to four distinct regions per photo. Another angle never consumes its slots.
+/// Up to seven distinct regions per photo. Another angle never consumes its slots.
 List<TraceCandidate> selectTraces(List<TraceCandidate> input) {
   final selected = <TraceCandidate>[];
   final photos = input.map((c) => c.photoIndex).toSet().toList()..sort();
@@ -124,7 +130,8 @@ List<TraceCandidate> selectTraces(List<TraceCandidate> input) {
       if (!duplicate(item)) distinct.add(item);
     }
     bool interior(TraceCandidate item) {
-      final boundary = item.result['cupBoundary'];
+      final boundary =
+          item.result['surfaceBoundary'] ?? item.result['cupBoundary'];
       if (boundary is! List || boundary.length != 5) return false;
       final cx = (boundary[0] as num).toDouble(),
           cy = (boundary[1] as num).toDouble();
@@ -150,7 +157,7 @@ List<TraceCandidate> selectTraces(List<TraceCandidate> input) {
     if (inner != null) local.add(inner);
     for (final item in distinct) {
       if (!identical(item, inner)) local.add(item);
-      if (local.length == 4) break;
+      if (local.length == maxTracesPerPhoto) break;
     }
     selected.addAll(local);
   }
@@ -167,15 +174,17 @@ Map<String, dynamic> validateTraceResult(Object? value) {
   if (w is! int || h is! int || w < 41 || h < 41 || w > 512 || h > 512) {
     throw const FormatException('Invalid trace dimensions');
   }
-  final cupBoundary = result['cupBoundary'];
-  if (cupBoundary != null &&
-      (cupBoundary is! List ||
-          (cupBoundary.isNotEmpty &&
-              (cupBoundary.length != 5 ||
-                  cupBoundary.any((v) => v is! num || !v.isFinite) ||
-                  cupBoundary[2] <= 0 ||
-                  cupBoundary[3] <= 0)))) {
-    throw const FormatException('Invalid cup boundary');
+  for (final key in ['cupBoundary', 'surfaceBoundary']) {
+    final boundary = result[key];
+    if (boundary != null &&
+        (boundary is! List ||
+            (boundary.isNotEmpty &&
+                (boundary.length != 5 ||
+                    boundary.any((v) => v is! num || !v.isFinite) ||
+                    boundary[2] <= 0 ||
+                    boundary[3] <= 0)))) {
+      throw FormatException('Invalid $key');
+    }
   }
   final candidates = result['candidates'];
   if (candidates is! List || candidates.length > 24) {
@@ -239,7 +248,7 @@ Map<String, dynamic> validateTraceResult(Object? value) {
 }
 
 String tracePhotoIdentity(ContributionPhoto photo) =>
-    '${photo.fileKey}|${photo.checksum}|${jsonEncode(photo.visibleCrop.toJson())}';
+    '${photo.fileKey}|${photo.checksum}|${photo.surface.name}|${jsonEncode(photo.visibleCrop.toJson())}';
 
 /// A display-only snapshot. It is never serialized into review or AI documents.
 class TraceSet {
@@ -290,10 +299,9 @@ class TraceService {
       throw const FormatException('Photo changed');
     }
     final area = photo.visibleCrop;
-    final algorithm = adaptive
-        ? adaptiveTraceAlgorithm
-        : 'opencv-4.13-traces-v4-rim-domain';
-    final identity = '$checksum|$algorithm|${jsonEncode(area.toJson())}';
+    final algorithm = adaptive ? adaptiveTraceAlgorithm : normalTraceAlgorithm;
+    final identity =
+        '$checksum|$algorithm|${photo.surface.name}|${jsonEncode(area.toJson())}';
     final name = sha256.convert(utf8.encode(identity)).toString();
     final key = '$owner/$name';
     final existing = _pending[key];
@@ -344,6 +352,7 @@ class TraceService {
       'png': png,
       'photoId': photo.fileKey,
       'coordinateSpace': PhotoCrop.coordinateSpace,
+      'surface': photo.surface.name,
       if (adaptive) 'adaptive': true,
     });
     _native = native;
@@ -387,15 +396,15 @@ class TraceService {
     bool Function()? isCancelled,
     void Function(TraceSet set, ContributionPhoto photo)? onUpdate,
   }) async {
-    final cups = photos.where((p) => p.surface == PhotoSurface.cup).toList();
+    final surfaces = List<ContributionPhoto>.of(photos);
     final candidates = <TraceCandidate>[];
     var failures = 0;
-    for (var i = 0; i < cups.length; i++) {
+    for (var i = 0; i < surfaces.length; i++) {
       if (isCancelled?.call() == true || _deleted.contains(owner)) break;
-      final photo = cups[i];
+      final photo = surfaces[i];
       // Announce the photograph before computation, without invented findings.
       onUpdate?.call(
-        TraceSet(cups, selectTraces(candidates), failures: failures),
+        TraceSet(surfaces, selectTraces(candidates), failures: failures),
         photo,
       );
       try {
@@ -416,12 +425,12 @@ class TraceService {
       }
       if (isCancelled?.call() == true || _deleted.contains(owner)) break;
       onUpdate?.call(
-        TraceSet(cups, selectTraces(candidates), failures: failures),
+        TraceSet(surfaces, selectTraces(candidates), failures: failures),
         photo,
       );
     }
     return TraceSet(
-      List.unmodifiable(cups),
+      List.unmodifiable(surfaces),
       List.unmodifiable(selectTraces(candidates)),
       failures: failures,
     );
