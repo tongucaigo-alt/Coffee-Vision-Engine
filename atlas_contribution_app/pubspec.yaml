@@ -89,6 +89,7 @@ flutter:
     - assets/guide/
     - assets/contribution-labels-v1.json
     - assets/fortune-prompt-v1.json
+    - assets/fortune-prompt-short.json
     - assets/tarot-prompt-v1.json
     - assets/tarot/
     - assets/labels/

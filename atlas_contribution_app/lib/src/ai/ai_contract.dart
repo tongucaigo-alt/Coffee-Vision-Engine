@@ -77,7 +77,7 @@ void _keys(Map value, List<String> keys) {
 /// Reject rather than silently stripping research/private fields.
 Map<String, dynamic> validateAiContext(Map<String, dynamic> value) {
   final v3 = isPersonalizedContextVersion(value['version']);
-  final v4 = value['version'] == currentFortuneContextVersion;
+  final v4 = isFocusedFortuneContextVersion(value['version']);
   final v2 = value['version'] == 'atlas-fortune-context-v2' || v3;
   _keys(value, [
     'version',
@@ -236,10 +236,12 @@ class FortunePrompt {
     List<String> previous,
   ) => [
     ...previous,
-    if (context['version'] == currentFortuneContextVersion &&
+    if (isFocusedFortuneContextVersion(context['version']) &&
         context['pastReadingExcerpt'] is String)
       context['pastReadingExcerpt'] as String,
-    if (usesSourceBrief(context)) _styleExample(context)['assistant'] as String,
+    if (context['version'] != shortFortuneContextVersion &&
+        usesSourceBrief(context))
+      _styleExample(context)['assistant'] as String,
   ];
 
   String exampleCopyRepairHint(
@@ -270,6 +272,15 @@ class FortunePrompt {
     String? repairReason,
     String? previousReply,
   }) {
+    if (context['version'] == shortFortuneContextVersion) {
+      return _shortMessages(
+        context,
+        noThink: noThink,
+        repair: repair,
+        reason: repairReason,
+        previousReply: previousReply,
+      );
+    }
     if (!usesSourceBrief(context)) {
       return _legacyMessages(
         context,
@@ -307,6 +318,52 @@ class FortunePrompt {
         {'role': 'assistant', 'content': previousReply},
       ],
       {'role': 'user', 'content': '$request$repairText$suffix'},
+    ];
+  }
+
+  List<Map<String, String>> _shortMessages(
+    Map<String, dynamic> context, {
+    required bool noThink,
+    required bool repair,
+    String? reason,
+    String? previousReply,
+  }) {
+    final profile = context['personalization'] as Map?;
+    final symbols = <String>{
+      for (final photo in context['photos'] as List)
+        for (final observation in photo['userObservations'] as List)
+          observation['symbolName'] as String,
+    };
+    final past = repair && ['repetition', 'unsupported_memory'].contains(reason)
+        ? null
+        : context['pastReadingExcerpt'];
+    final topic = (data['topics'] as Map)[context['readingFocus']];
+    final brief = jsonEncode({
+      if (profile?['addressName'] != null) 'isim': profile!['addressName'],
+      if (profile?['age'] != null) 'yaş': profile!['age'],
+      if (profile?['maritalStatus'] != null)
+        'medeni_durum': MaritalStatus.values
+            .byName(profile!['maritalStatus'] as String)
+            .label
+            .toLowerCase(),
+      if (profile?['zodiac'] != null)
+        'burç': ZodiacSign.values.byName(profile!['zodiac'] as String).label,
+      if (symbols.isNotEmpty)
+        'kullanıcının_seçtiği_semboller': symbols.toList(),
+      'rastgele_sembol': (context['creativeSymbol'] as Map)['symbolName'],
+      'eski_fal_parçası': ?past,
+    });
+    final system = past == null
+        ? data['system'] as String
+        : "${data['system']}\n${data['memoryRule']}";
+    final suffix = noThink ? '\n/no_think' : '';
+    final repairText = repair
+        ? "\n${data['repair']} ${(data['repairHints'] as Map)[reason] ?? ''}"
+              "${visualClaimRepairHint(previousReply, reason, context)}"
+        : '';
+    return [
+      {'role': 'system', 'content': system},
+      {'role': 'user', 'content': '$topic\n$brief$repairText$suffix'},
     ];
   }
 
@@ -563,7 +620,7 @@ String visualClaimRepairHint(
 ) {
   if (reason != 'unsupported_visual_claim' ||
       previousReply == null ||
-      context?['version'] != currentFortuneContextVersion) {
+      !isFocusedFortuneContextVersion(context?['version'])) {
     return '';
   }
   final flagged = previousReply
@@ -639,7 +696,7 @@ String? _fortuneGroundingError(String lower, Map<String, dynamic>? context) {
       };
       for (final name in active) {
         final escaped = _symbolStem(name);
-        if (context['version'] == currentFortuneContextVersion &&
+        if (isFocusedFortuneContextVersion(context['version']) &&
             RegExp(
               '$escaped[^.!?\\n]{0,120}fiziksel çağrışım[^.!?\\n]{0,50}(?:kendini göster|görünü|birleşiyor|beliriyor)',
             ).hasMatch(visualText)) {
@@ -657,12 +714,13 @@ String? _fortuneGroundingError(String lower, Map<String, dynamic>? context) {
           return 'unsupported_visual_claim';
         }
       }
-      if (!active.any((name) {
-        final stem = _symbolStem(name);
-        return RegExp(
-          '(^|[^a-zçğıöşü])$stem[’\x27]?[a-zçğıöşü]{0,12}(?=\$|[^a-zçğıöşü])',
-        ).hasMatch(lower);
-      })) {
+      if (context['version'] != shortFortuneContextVersion &&
+          !active.any((name) {
+            final stem = _symbolStem(name);
+            return RegExp(
+              '(^|[^a-zçğıöşü])$stem[’\x27]?[a-zçğıöşü]{0,12}(?=\$|[^a-zçğıöşü])',
+            ).hasMatch(lower);
+          })) {
         return 'missing_story_symbol';
       }
     }
@@ -717,8 +775,10 @@ String? fortuneQualityError(
     return 'reasoning';
   }
   if (text.trim().isEmpty || text.length > 12000) return 'incomplete';
+  final short = context?['version'] == shortFortuneContextVersion;
+  final minimumWords = short ? shortFortuneMinimumWords : 150;
   if ((editorial || isPersonalizedContextVersion(context?['version'])) &&
-      text.trim().split(RegExp(r'\s+')).length < 150) {
+      text.trim().split(RegExp(r'\s+')).length < minimumWords) {
     return 'length';
   }
   if (editorial && context?['version'] == 'atlas-fortune-context-v2') {
@@ -752,7 +812,7 @@ String? fortuneQualityError(
       ).hasMatch(certaintyText)) {
     return 'certainty';
   }
-  final current = context?['version'] == currentFortuneContextVersion;
+  final current = isFocusedFortuneContextVersion(context?['version']);
   if (!current &&
       RegExp(
         r'kesinlikle|kesin olarak|yüzde yüz|%\s*100|garanti|mutlaka|olacaksın|kazanacaksın|evleneceksin|gerçekleşecek|olacaktır|öleceksin|olacağını|şekillenecek|getirecek|açılacak|karşılaşacaksın|bulacaksın|seni bekliyor',
@@ -790,10 +850,15 @@ String? fortuneQualityError(
     }
     final memoryError = pastReadingQualityError(text, context!);
     if (memoryError != null) return memoryError;
-    if ((context['personalization'] as Map?)?['age'] != null &&
-        RegExp(
-          r'(^|[^a-zçğıöşü])(?:torun[a-zçğıöşü]*|emekli(?:sin|liğin|liğinde)|eşin(?:le|in)?|çocukların[a-zçğıöşü]*|öğrenci olduğun)(?=$|[^a-zçğıöşü])',
-        ).hasMatch(lower)) {
+    final profile = context['personalization'] as Map?;
+    if ((short || profile?['age'] != null) &&
+        (RegExp(
+              r'(^|[^a-zçğıöşü])(?:torun[a-zçğıöşü]*|emekli(?:sin|liğin|liğinde)|çocukların[a-zçğıöşü]*|öğrenci olduğun)(?=$|[^a-zçğıöşü])',
+            ).hasMatch(lower) ||
+            ((!short || profile?['maritalStatus'] != 'married') &&
+                RegExp(
+                  r'(^|[^a-zçğıöşü])eşin(?:le|in)?(?=$|[^a-zçğıöşü])',
+                ).hasMatch(lower)))) {
       return 'unsupported_personalization';
     }
     if (pastReadingCopyError(text, context)) return 'repetition';
@@ -992,6 +1057,9 @@ class AiFailure implements Exception {
 List<String> fortuneQualityWarnings(String text, Map<String, dynamic> context) {
   if (!isPersonalizedContextVersion(context['version'])) return const [];
   final words = text.trim().split(RegExp(r'\s+')).length;
+  if (context['version'] == shortFortuneContextVersion) {
+    return [if (words < 90 || words > 120) 'length'];
+  }
   return [
     if (words < 250 || words > 400) 'length',
     if (text.trim().split(RegExp(r'\n\s*\n')).length != 4) 'structure',

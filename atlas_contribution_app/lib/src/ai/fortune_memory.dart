@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'dart:math';
 
 import 'package:crypto/crypto.dart';
+
+import 'fortune_personalization.dart';
 import 'reading_identity.dart';
 
 const memoryOpening = 'Eski fallarından birinde';
@@ -369,7 +371,9 @@ class FortuneMemoryEngine {
     FortuneMemoryCandidate? candidate,
   }) {
     if (result['state'] != 'completed' ||
-        (result['context'] as Map?)?['version'] != 'atlas-fortune-context-v4') {
+        !isFocusedFortuneContextVersion(
+          (result['context'] as Map?)?['version'],
+        )) {
       return;
     }
     final key =

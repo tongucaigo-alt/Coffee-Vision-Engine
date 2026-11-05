@@ -4,7 +4,7 @@ import { reportStore } from './reports.mjs';
 import { readFileSync } from 'node:fs';
 import { createHash, randomUUID } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
-import { exact, validateContext, messages, qualityError, qualityWarnings, exampleRepetitionError, prompt, promptHash } from './contract.mjs';
+import { exact, validateContext, messages, qualityError, qualityWarnings, exampleRepetitionError, prompt, promptHash, shortFortuneContextVersion, shortFortunePrompt, shortFortunePromptHash } from './contract.mjs';
 import { tarotContextVersion, tarotPrompt, tarotPromptHash, validateTarotContext, tarotMessages, tarotQualityError } from './tarot-contract.mjs';
 
 const hash = value => createHash('sha256').update(value).digest('hex');
@@ -36,12 +36,17 @@ export function createGateway({config, tokens, fetchImpl = fetch, runtimeMs = 18
       for (let attempt=job.attempts??0; attempt<attemptLimit && job.state === 'running'; attempt++) {
         job.attempts=attempt+1; job.phase=attempt===0?'generating':'repairing';
         const isTarot = job.context.version === tarotContextVersion;
-        const selectedPrompt = isTarot ? tarotPrompt : prompt;
-        const upstream = new URL(job.model.baseUrl.replace(/\/$/,'')+'/chat/completions');
+        const isShort = job.context.version === shortFortuneContextVersion;
+        const selectedPrompt = isTarot ? tarotPrompt : isShort ? shortFortunePrompt : prompt;
+        const selectedHash = isTarot ? tarotPromptHash : isShort ? shortFortunePromptHash : promptHash;
+        const base = job.model.baseUrl.replace(/\/$/,'');
+        const upstream = new URL(base+'/chat/completions');
+        const kimiInstant = isShort && job.model.noThink &&
+          job.model.model === 'kimi-k3.1-pro' && base === 'https://api.moonshot.ai/v1';
         const response = await fetchImpl(upstream, {
           method:'POST', redirect:'error',
           headers:{'Content-Type':'application/json', ...(job.model.apiKey ? {Authorization:`Bearer ${job.model.apiKey}`} : {})},
-          body:JSON.stringify({model:job.model.model, messages:isTarot ? tarotMessages(job.context,job.model.noThink) : messages(job.context,job.model.noThink,attempt===1,lastError,job.previousReply), stream:false, temperature:selectedPrompt.temperature,max_tokens:selectedPrompt.maxTokens}),
+          body:JSON.stringify({model:job.model.model, messages:isTarot ? tarotMessages(job.context,job.model.noThink) : messages(job.context,job.model.noThink && !kimiInstant,attempt===1,lastError,job.previousReply), stream:false, ...(kimiInstant ? {thinking:{type:'disabled'}} : {}), temperature:selectedPrompt.temperature,max_tokens:selectedPrompt.maxTokens}),
         });
         const raw = await response.text();
         if (job.state !== 'running') break;
@@ -55,7 +60,7 @@ export function createGateway({config, tokens, fetchImpl = fetch, runtimeMs = 18
         const error = isTarot ? tarotQualityError(text,choice?.finish_reason,job.context) : qualityError(text,choice?.finish_reason,job.context,false) ?? exampleRepetitionError(text,job.context);
         lastError = error; job.qualityReason=error;
         if (!error) {
-          job.result = {qualityWarnings:isTarot?[]:qualityWarnings(text,job.context),diagnostics:{code:"completed",stage:job.phase,attempts:attempt+1,durationMs:(job.productionMs??0)+Date.now()-job.startedAt},text:text.trim(),model:job.model.model,modelAlias:job.alias,promptVersion:selectedPrompt.version,promptHash:isTarot?tarotPromptHash:promptHash,temperature:selectedPrompt.temperature,maxTokens:selectedPrompt.maxTokens,noThink:!!job.model.noThink,durationMs:(job.productionMs??0)+Date.now()-job.startedAt,attempts:attempt+1,reasoningTokens:data.usage?.completion_tokens_details?.reasoning_tokens??null,reasoningReturned:!!choice?.message?.reasoning_content};
+          job.result = {qualityWarnings:isTarot?[]:qualityWarnings(text,job.context),diagnostics:{code:"completed",stage:job.phase,attempts:attempt+1,durationMs:(job.productionMs??0)+Date.now()-job.startedAt},text:text.trim(),model:job.model.model,modelAlias:job.alias,promptVersion:selectedPrompt.version,promptHash:selectedHash,temperature:selectedPrompt.temperature,maxTokens:selectedPrompt.maxTokens,noThink:!!job.model.noThink,durationMs:(job.productionMs??0)+Date.now()-job.startedAt,attempts:attempt+1,reasoningTokens:data.usage?.completion_tokens_details?.reasoning_tokens??null,reasoningReturned:!!choice?.message?.reasoning_content};
           end(job,'completed');
         } else if (attempt + 1 >= attemptLimit) end(job,'failed','quality_rejected');
       }
@@ -83,7 +88,7 @@ export function createGateway({config, tokens, fetchImpl = fetch, runtimeMs = 18
       if (!owner) return reply(res,401,{error:'unauthorized'});
       const url = new URL(req.url,'http://localhost');
       const route = url.pathname;
-      if (req.method === 'GET' && route === '/api/ai/v1/capabilities') return reply(res,200,{apiVersion:1,reportVersion:saveReport?1:null,contextVersions:['atlas-fortune-context-v1','atlas-fortune-context-v2','atlas-fortune-context-v3','atlas-fortune-context-v4',tarotContextVersion],tarot:{promptVersion:tarotPrompt.version,promptHash:tarotPromptHash},clientRepetitionRepair:true,serverInstanceId:instance,promptVersion:prompt.version,promptHash,models:Object.keys(models()),available:!stalled,capacity:10});
+      if (req.method === 'GET' && route === '/api/ai/v1/capabilities') return reply(res,200,{apiVersion:1,reportVersion:saveReport?1:null,contextVersions:['atlas-fortune-context-v1','atlas-fortune-context-v2','atlas-fortune-context-v3','atlas-fortune-context-v4',shortFortuneContextVersion,tarotContextVersion],shortFortune:{promptVersion:shortFortunePrompt.version,promptHash:shortFortunePromptHash},tarot:{promptVersion:tarotPrompt.version,promptHash:tarotPromptHash},clientRepetitionRepair:true,serverInstanceId:instance,promptVersion:prompt.version,promptHash,models:Object.keys(models()),available:!stalled,capacity:10});
       if (req.method === 'POST' && route === '/api/ai/v1/reports') {
         if (!saveReport) return reply(res,503,{error:'reporting_unavailable'});
         const window = reportCounts.get(owner);
@@ -114,7 +119,9 @@ export function createGateway({config, tokens, fetchImpl = fetch, runtimeMs = 18
             const limits=body.generationLimits;
             if(!Number.isSafeInteger(limits.maxAttempts)||limits.maxAttempts<1||limits.maxAttempts>2||!Number.isSafeInteger(limits.maxDurationMs)||limits.maxDurationMs<1||limits.maxDurationMs>180000) throw new Error();
           }
-          if(body.promptVersion!==(body.context.version === tarotContextVersion ? tarotPrompt.version : prompt.version)) throw new Error();
+          const expectedPrompt = body.context.version === tarotContextVersion ? tarotPrompt :
+            body.context.version === shortFortuneContextVersion ? shortFortunePrompt : prompt;
+          if(body.promptVersion !== expectedPrompt.version) throw new Error();
           if(body.context.version === tarotContextVersion && body.generationLimits?.maxAttempts !== 1) throw new Error();
         } catch { return reply(res,400,{error:'invalid_context_or_version'}); }
         const idempotency = req.headers['idempotency-key'];

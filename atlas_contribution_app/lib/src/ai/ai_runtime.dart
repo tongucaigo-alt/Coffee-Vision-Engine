@@ -24,6 +24,7 @@ class AiRuntime {
     this.reviews,
     this.bridge,
     this.client,
+    this.shortFortuneClient,
     this.readKey,
     this.traces,
   );
@@ -37,6 +38,7 @@ class AiRuntime {
   final ReviewStore reviews;
   final AiBridge bridge;
   final AiClient client;
+  final AiClient? shortFortuneClient;
   UserProfileStore get userProfile => UserProfileStore(
     Directory('${store.directory.parent.path}/user-profile'),
   );
@@ -91,6 +93,13 @@ class AiRuntime {
               await rootBundle.loadString('assets/fortune-prompt-v1.json'),
             ),
           ),
+      client == null && aiLabEnabled && shortFortuneTestEnabled
+          ? AiClient(
+              FortunePrompt(
+                await rootBundle.loadString('assets/fortune-prompt-short.json'),
+              ),
+            )
+          : null,
       readKey,
       traces,
     );

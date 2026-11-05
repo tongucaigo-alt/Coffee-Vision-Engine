@@ -725,6 +725,21 @@ class _AiFortunePageState extends State<AiFortunePage> {
       FortunePhase.generating,
     );
     final contextWatch = Stopwatch()..start();
+    final selected = [
+      _profiles.firstWhere((p) => p.id == _first),
+      if (_compare) _profiles.firstWhere((p) => p.id == _second),
+    ];
+    if (selected.length == 2 &&
+        selected[0].url == selected[1].url &&
+        selected[0].model == selected[1].model) {
+      throw const AiFailure('Karşılaştırma için farklı iki model seç.');
+    }
+    final shortClient =
+        selected.length == 1 &&
+            (isBundledProfile(selected.single) ||
+                selected.single.provider == AiProvider.atlas)
+        ? widget.runtime.shortFortuneClient
+        : null;
     final recent = await widget.runtime.store.recentSuccessfulResults();
     final focus = await widget.runtime.store.readingFocus(session.id);
     final readingKey = readingRequestKey(
@@ -741,6 +756,7 @@ class _AiFortunePageState extends State<AiFortunePage> {
                 'atlas-fortune-context-v2',
                 personalizedContextVersion,
                 currentFortuneContextVersion,
+                shortFortuneContextVersion,
               ].contains((r['context'] as Map?)?['version']) &&
               ((r['context'] as Map?)?['readingFocus'] ?? 'general') == focus &&
               (r['context'] as Map?)?['narrative'] != null,
@@ -765,6 +781,7 @@ class _AiFortunePageState extends State<AiFortunePage> {
         readingIdentity: readingKey,
         profile: profile,
         readingFocus: focus,
+        shortFortune: shortClient != null,
         previousContext: retry == null
             ? null
             : Map<String, dynamic>.from(retry['context'] as Map),
@@ -785,15 +802,6 @@ class _AiFortunePageState extends State<AiFortunePage> {
     stages['context'] = contextWatch.elapsedMilliseconds;
     checkCancelled();
     if (!mounted) return;
-    final selected = [
-      _profiles.firstWhere((p) => p.id == _first),
-      if (_compare) _profiles.firstWhere((p) => p.id == _second),
-    ];
-    if (selected.length == 2 &&
-        selected[0].url == selected[1].url &&
-        selected[0].model == selected[1].model) {
-      throw const AiFailure('Karşılaştırma için farklı iki model seç.');
-    }
     final snapshot = session;
     final result = <String, dynamic>{
       'version': 1,
@@ -819,8 +827,11 @@ class _AiFortunePageState extends State<AiFortunePage> {
     try {
       for (final p in selected) {
         _cancel!.check();
-        final answer = await widget.runtime.client.generate(
-          p,
+        final effectiveProfile = shortClient != null && isBundledProfile(p)
+            ? shortFortuneKimiProfile
+            : p;
+        final answer = await (shortClient ?? widget.runtime.client).generate(
+          effectiveProfile,
           await widget.runtime.key(p),
           contextData,
           cancellation: _cancel!,

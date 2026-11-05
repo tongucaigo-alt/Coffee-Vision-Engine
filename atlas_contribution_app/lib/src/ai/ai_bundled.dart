@@ -10,6 +10,17 @@ const bundledKimiProfile = AiProfile(
   model: 'kimi-k2.6',
   provider: AiProvider.direct,
 );
+const shortFortuneTestEnabled = bool.fromEnvironment(
+  'ATLAS_SHORT_FORTUNE_TEST',
+);
+final shortFortuneKimiProfile = AiProfile(
+  id: bundledKimiProfile.id,
+  name: bundledKimiProfile.name,
+  url: bundledKimiProfile.url,
+  model: 'kimi-k3.1-pro',
+  provider: AiProvider.direct,
+);
+
 bool get bundledKimiEnabled => aiLabEnabled && _testKey.isNotEmpty;
 bool isBundledProfile(AiProfile p) => p.id == bundledKimiProfile.id;
 
@@ -25,8 +36,9 @@ String bundledCredential(AiProfile p) {
   return _testKey;
 }
 
-bool usesKimiInstant(AiProfile p) =>
+bool usesKimiInstant(AiProfile p, {bool shortFortune = false}) =>
     p.provider == AiProvider.direct &&
-    p.model == 'kimi-k2.6' &&
+    (p.model == bundledKimiProfile.model ||
+        (shortFortune && p.model == shortFortuneKimiProfile.model)) &&
     p.noThink &&
     p.url == bundledKimiProfile.url;

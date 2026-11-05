@@ -18,6 +18,7 @@ class _UserProfilePageState extends State<UserProfilePage> {
   final _age = TextEditingController();
   String? _ageError;
   ZodiacSign? _zodiac;
+  MaritalStatus? _maritalStatus;
   bool _useZodiacInReading = false;
   bool _loading = true, _busy = false;
   String? _error;
@@ -47,6 +48,7 @@ class _UserProfilePageState extends State<UserProfilePage> {
       _age.text = profile.age?.toString() ?? '';
       _ageError = null;
       _zodiac = profile.zodiac;
+      _maritalStatus = profile.maritalStatus;
       _useZodiacInReading = profile.useZodiacInReading;
     } catch (_) {
       if (mounted) {
@@ -77,6 +79,7 @@ class _UserProfilePageState extends State<UserProfilePage> {
           zodiac: _zodiac,
           useZodiacInReading: _useZodiacInReading,
           age: age,
+          maritalStatus: _maritalStatus,
         ),
       );
       if (mounted) {
@@ -97,7 +100,9 @@ class _UserProfilePageState extends State<UserProfilePage> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Bilgilerin silinsin mi?'),
-        content: const Text('Hitap adın, burcun ve yaşın bu cihazdan silinir.'),
+        content: const Text(
+          'Hitap adın, burcun, yaşın ve medeni durumun bu cihazdan silinir.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -120,6 +125,7 @@ class _UserProfilePageState extends State<UserProfilePage> {
         _age.clear();
         _ageError = null;
         _zodiac = null;
+        _maritalStatus = null;
         _useZodiacInReading = false;
         _error = null;
       });
@@ -202,8 +208,35 @@ class _UserProfilePageState extends State<UserProfilePage> {
               'Yaşını yazıp kaydedersen yeni fal yorumunun dilini uyarlamak için yorum hizmetine gönderilir. Boş bırakabilirsin.',
             ),
             const SizedBox(height: 24),
+            DropdownButtonFormField<String>(
+              isExpanded: true,
+              key: ValueKey('profile-marital-${_maritalStatus?.name}'),
+              initialValue: _maritalStatus?.name ?? '',
+              decoration: const InputDecoration(
+                labelText: 'Medeni durum (isteğe bağlı)',
+              ),
+              items: [
+                const DropdownMenuItem(
+                  value: '',
+                  child: Text('Belirtmek istemiyorum'),
+                ),
+                for (final status in MaritalStatus.values)
+                  DropdownMenuItem(
+                    value: status.name,
+                    child: Text(status.label),
+                  ),
+              ],
+              onChanged: _busy || _error != null
+                  ? null
+                  : (value) => setState(() {
+                      _maritalStatus = MaritalStatus.values
+                          .where((status) => status.name == value)
+                          .firstOrNull;
+                    }),
+            ),
+            const SizedBox(height: 16),
             const AtlasNotice(
-              'Hitap adın bu cihazda kalır. Burcunu seçip kaydedersen yeni fal isteğinde yorum hizmetine gönderilir. Eski seçimin kendiliğinden kullanılmaz. Bilmiyorum / Belirtmek istemiyorum seçimi bu kullanımı kapatır.',
+              'Kısa kahve falında hitap adın ve medeni durumun, doldurursan yorum hizmetine gönderilir. Burcunu falda kullanmayı seçtiğinde burç bilgisi de ara sıra gönderilebilir. Boş bıraktığın bilgiler gönderilmez.',
             ),
             const SizedBox(height: 24),
             AtlasPrimaryButton(

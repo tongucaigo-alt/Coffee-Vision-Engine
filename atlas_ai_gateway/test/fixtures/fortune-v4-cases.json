@@ -48,7 +48,7 @@
       }
     ]
   },
-  "story": "Üç vakte kadar beklediğin konu hakkında bir haber alacaksın. Anahtarın çözüm çağrışımı, burada uzun uzun konuşmaktan çok yerinde sorulacak kısa bir soruya bağlanıyor. İlk cevap bütün ayrıntıları açmayacak; konuşmanın hangi yönde ilerleyeceği karşılıklı vereceğiniz cevaplara bağlı. Fincanın üst bölümündeki daha açık dağılım da bu anlatıya hareket edecek bir yer bırakıyor. Kimin önce söze gireceği veya konuyu nereye taşıyacağı ise henüz açık.\n\nYakın zamanda küçük bir davetle programın değişecek. Başlangıçta kısa bir uğrama diye düşündüğün görüşmede konuşma başka bir yere açılacak. Birinin söylediği küçük bir ayrıntı aklında kalacak. Oradan hemen karar vermen gereken bir sonuç çıkmıyor; eve dönerken aynı konuşmanın iki ayrı tarafını düşüneceksin. Karşı tarafın senden ne beklediği, ikinci konuşmada daha anlaşılır hale gelecek.\n\nBu arada beklettiğin bir seçim yeniden önüne gelecek. Alışık olduğun seçenek daha rahat, diğeriyse biraz merak uyandırıyor. İlk hareket bir soru sormakla başlayacak; devamında aynı fikirde kalıp kalmayacağını o cevap belirleyecek. Bir başkasının görüşü kulağına farklı gelecek ama seçimi senin yerine yapmayacak.\n\nSon anda değişen bir saat, daha önce aynı ortamda uzun konuşmadığın biriyle seni yan yana getirecek. Konuşma uzarsa asıl meraklı bölüm, ilk başta gelme sebebinizden başka bir konuda açılacak.",
+  "story": "Üç vakte kadar beklediğin konu hakkında bir haber alacaksın. Anahtarın çözüm çağrışımı, burada uzun uzun konuşmaktan çok yerinde sorulacak kısa bir soruya bağlanıyor. İlk cevap bütün ayrıntıları açmayacak; konuşmanın hangi yönde ilerleyeceği karşılıklı vereceğiniz cevaplara bağlı. Kimin önce söze gireceği veya konuyu nereye taşıyacağı ise henüz açık.\n\nYakın zamanda küçük bir davetle programın değişecek. Başlangıçta kısa bir uğrama diye düşündüğün görüşmede konuşma başka bir yere açılacak. Birinin söylediği küçük bir ayrıntı aklında kalacak. Oradan hemen karar vermen gereken bir sonuç çıkmıyor; eve dönerken aynı konuşmanın iki ayrı tarafını düşüneceksin. Karşı tarafın senden ne beklediği, ikinci konuşmada daha anlaşılır hale gelecek.\n\nBu arada beklettiğin bir seçim yeniden önüne gelecek. Alışık olduğun seçenek daha rahat, diğeriyse biraz merak uyandırıyor. İlk hareket bir soru sormakla başlayacak; devamında aynı fikirde kalıp kalmayacağını o cevap belirleyecek. Bir başkasının görüşü kulağına farklı gelecek ama seçimi senin yerine yapmayacak.\n\nSon anda değişen bir saat, daha önce aynı ortamda uzun konuşmadığın biriyle seni yan yana getirecek. Konuşma uzarsa asıl meraklı bölüm, ilk başta gelme sebebinizden başka bir konuda açılacak.",
   "cases": [
     {
       "id": "confident-future-without-required-hedge",
@@ -149,6 +149,70 @@
       "id": "symbol-cannot-be-placed-in-allowed-physical-cue",
       "suffix": "Anahtar, fincanın üst bölümündeki daha açık dağılımda kendini gösteriyor.",
       "error": "unsupported_visual_claim"
+    },
+    {
+      "id": "leke-is-not-fortune-language",
+      "suffix": "Fincanın orta bölümündeki leke bu konuya bir uyarı katıyor.",
+      "error": "unsupported_visual_claim"
+    },
+    {
+      "id": "cue-is-not-required-or-read-aloud",
+      "suffix": "Fincanın üst bölümündeki daha açık dağılım sana alan bırakıyor.",
+      "error": "mechanical_language"
+    },
+    {
+      "id": "meta-narrator-is-mechanical",
+      "suffix": "Bu anlatıya kısa bir uyarı katıyorum.",
+      "error": "mechanical_language"
+    },
+    {
+      "id": "natural-work-density-is-allowed",
+      "suffix": "İş yoğunluğun değişince gündelik programın da değişecek.",
+      "error": null
+    },
+    {
+      "id": "reported-zodiac-not-personality",
+      "zodiac": "pisces",
+      "suffix": "Balık burcunun o hafif temkinli hali burada işine yarayacak.",
+      "error": "unsupported_personalization"
+    },
+    {
+      "id": "leke-word-is-blocked-even-as-a-metaphor",
+      "suffix": "Bu konu küçük bir leke gibi aklında kalacak.",
+      "error": "mechanical_language"
+    },
+    {
+      "id": "zodiac-does-not-drive-decisions",
+      "zodiac": "pisces",
+      "suffix": "Balık burcunun bu dönemdeki hafif dalgalanması karar alma anlarını erteleyecek.",
+      "error": "unsupported_personalization"
+    },
+    {
+      "id": "no-paragraph-announcements",
+      "suffix": "İkinci paragrafta başka bir görüşme açılacak.",
+      "error": "mechanical_language"
+    },
+    {
+      "id": "no-symbol-viewing-metaphor",
+      "suffix": "Ağacın dallarına baktığımda yeni bir karar beliriyor.",
+      "error": "mechanical_language"
+    },
+    {
+      "id": "compact-fields-never-become-prose",
+      "suffix": "physical_background bu konuda yol gösterir.",
+      "error": "technical"
+    },
+    {
+      "id": "zodiac-is-background-not-recited",
+      "zodiac": "pisces",
+      "suffix": "Balık burcunun o akışkanlığı burada devreye giriyor.",
+      "error": "unsupported_personalization"
+    },
+    {
+      "id": "old-plan-is-not-a-confirmed-event",
+      "excerpt": "Bir ziyaret planı kararını yeniden düşünmene neden olacak.",
+      "suffix": "Eski fallarından birinde o ziyaret seni yeniden düşündürmüştü.",
+      "error": "unsupported_memory"
     }
   ]
 }

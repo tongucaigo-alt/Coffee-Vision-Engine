@@ -191,6 +191,7 @@ class AiClient {
             'atlas-fortune-context-v2',
             personalizedContextVersion,
             currentFortuneContextVersion,
+            shortFortuneContextVersion,
           ].contains(contextVersion) &&
           (data['contextVersions'] is! List ||
               !(data['contextVersions'] as List).contains(contextVersion) ||
@@ -199,8 +200,11 @@ class AiClient {
           'Sunucu yeni fal bağlamını desteklemiyor. Atlas servisini güncelle.',
         );
       }
-      if (data['promptHash'] != prompt.hash ||
-          data['promptVersion'] != prompt.version) {
+      final capabilities = prompt.version == shortFortunePromptVersion
+          ? data['shortFortune'] as Map? ?? const {}
+          : data;
+      if (capabilities['promptHash'] != prompt.hash ||
+          capabilities['promptVersion'] != prompt.version) {
         throw const AiFailure(
           'Uygulama ve sunucu prompt sürümleri eşleşmiyor.',
         );
@@ -313,6 +317,7 @@ class AiClient {
                 'atlas-fortune-context-v2',
                 personalizedContextVersion,
                 currentFortuneContextVersion,
+                shortFortuneContextVersion,
               ].contains(input['version']) &&
               narrativeRepetition(result['text'] as String, repetitionTexts) !=
                   null) {
@@ -381,7 +386,10 @@ class AiClient {
       await cancellation.cancel();
       throw const AiFailure('Bekleme süresi doldu.');
     }
-    final kimiInstant = usesKimiInstant(p);
+    final kimiInstant = usesKimiInstant(
+      p,
+      shortFortune: prompt.version == shortFortunePromptVersion,
+    );
     final temperature = kimiInstant ? 0.6 : prompt.data['temperature'];
     final watch = Stopwatch()..start();
     String? lastError, previousReply;
@@ -460,6 +468,7 @@ class AiClient {
                 'atlas-fortune-context-v2',
                 personalizedContextVersion,
                 currentFortuneContextVersion,
+                shortFortuneContextVersion,
               ].contains(input['version']) ||
               content == null
           ? null

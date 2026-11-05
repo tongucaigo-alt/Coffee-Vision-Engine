@@ -1,0 +1,262 @@
+[
+  {
+    "id": "general-creative",
+    "context": {
+      "version": "atlas-fortune-context-v4",
+      "language": "tr",
+      "status": "ready",
+      "readingFocus": "general",
+      "creativeSymbol": {
+        "catalogVersion": "atlas-creative-symbols-v1",
+        "origin": "creativeSelectionNotVisualDetection",
+        "symbolId": "key",
+        "symbolName": "Anahtar"
+      },
+      "photos": [
+        {
+          "photoNumber": 1,
+          "surface": "cup",
+          "declaredRole": "free",
+          "analysisState": "complete",
+          "userObservations": [],
+          "physicalMeasurementsStatus": "available",
+          "physicalMeasurementScope": "wholeImageContentNotUserRegion",
+          "globalPhysicalMeasurements": {
+            "residuePixelCount": 30,
+            "contentResidueRatio": 0.2,
+            "componentCount": 3,
+            "candidateRelationCount": 1,
+            "selectedRelationCount": 0
+          },
+          "regionalSummary": {
+            "version": "atlas-regional-summary-v1",
+            "bands": [
+              {
+                "position": "top",
+                "density": 0.1
+              },
+              {
+                "position": "middle",
+                "density": 0.2
+              },
+              {
+                "position": "bottom",
+                "density": 0.6
+              }
+            ],
+            "components": [],
+            "relations": []
+          }
+        }
+      ]
+    },
+    "brief": {
+      "reading_focus": "general",
+      "user_symbols": [],
+      "creative_motif": "Anahtar",
+      "symbol_origin": "creative_not_detected",
+      "physical_background": {
+        "cup": {
+          "region": "top",
+          "residue": "sparse"
+        }
+      },
+      "past_excerpt": null,
+      "memory_reference_allowed": false
+    }
+  },
+  {
+    "id": "love-age-zodiac-history-and-real-mark",
+    "context": {
+      "version": "atlas-fortune-context-v4",
+      "language": "tr",
+      "status": "ready",
+      "readingFocus": "love",
+      "creativeSymbol": null,
+      "photos": [
+        {
+          "photoNumber": 1,
+          "surface": "cup",
+          "declaredRole": "free",
+          "analysisState": "complete",
+          "userObservations": [
+            {
+              "origin": "userObservation",
+              "symbolName": "Kalp",
+              "box": {
+                "x": 0.1,
+                "y": 0.1,
+                "width": 0.2,
+                "height": 0.2
+              }
+            }
+          ],
+          "physicalMeasurementsStatus": "available",
+          "physicalMeasurementScope": "wholeImageContentNotUserRegion",
+          "globalPhysicalMeasurements": {
+            "residuePixelCount": 30,
+            "contentResidueRatio": 0.2,
+            "componentCount": 3,
+            "candidateRelationCount": 1,
+            "selectedRelationCount": 0
+          },
+          "regionalSummary": {
+            "version": "atlas-regional-summary-v1",
+            "bands": [
+              {
+                "position": "top",
+                "density": 0.1
+              },
+              {
+                "position": "middle",
+                "density": 0.2
+              },
+              {
+                "position": "bottom",
+                "density": 0.6
+              }
+            ],
+            "components": [
+              {
+                "number": 1,
+                "x": 0.5,
+                "y": 0.5,
+                "residueShare": 0.5,
+                "aspectRatio": 1.2
+              }
+            ],
+            "relations": []
+          }
+        }
+      ],
+      "personalization": {
+        "age": 65,
+        "zodiac": "pisces"
+      },
+      "pastReadingExcerpt": "Eski bir konuşma için yeniden bir görüşme gündeme gelecek."
+    },
+    "brief": {
+      "reading_focus": "love",
+      "user_symbols": [
+        "Kalp"
+      ],
+      "creative_motif": null,
+      "symbol_origin": "user_reported",
+      "physical_background": {
+        "cup": {
+          "region": "middle",
+          "residue": "localized"
+        }
+      },
+      "age": 65,
+      "zodiac": "Balık",
+      "past_excerpt": "Eski bir konuşma için yeniden bir görüşme gündeme gelecek.",
+      "memory_reference_allowed": true
+    }
+  },
+  {
+    "id": "money-cup-and-saucer",
+    "context": {
+      "version": "atlas-fortune-context-v4",
+      "language": "tr",
+      "status": "ready",
+      "readingFocus": "money",
+      "creativeSymbol": {
+        "catalogVersion": "atlas-creative-symbols-v1",
+        "origin": "creativeSelectionNotVisualDetection",
+        "symbolId": "key",
+        "symbolName": "Anahtar"
+      },
+      "photos": [
+        {
+          "photoNumber": 1,
+          "surface": "cup",
+          "declaredRole": "free",
+          "analysisState": "complete",
+          "userObservations": [],
+          "physicalMeasurementsStatus": "available",
+          "physicalMeasurementScope": "wholeImageContentNotUserRegion",
+          "globalPhysicalMeasurements": {
+            "residuePixelCount": 30,
+            "contentResidueRatio": 0.2,
+            "componentCount": 3,
+            "candidateRelationCount": 1,
+            "selectedRelationCount": 0
+          },
+          "regionalSummary": {
+            "version": "atlas-regional-summary-v1",
+            "bands": [
+              {
+                "position": "top",
+                "density": 0.1
+              },
+              {
+                "position": "middle",
+                "density": 0.2
+              },
+              {
+                "position": "bottom",
+                "density": 0.6
+              }
+            ],
+            "components": [],
+            "relations": []
+          }
+        },
+        {
+          "photoNumber": 2,
+          "surface": "saucer",
+          "declaredRole": null,
+          "analysisState": "complete",
+          "userObservations": [],
+          "physicalMeasurementsStatus": "available",
+          "physicalMeasurementScope": "wholeImageContentNotUserRegion",
+          "globalPhysicalMeasurements": {
+            "residuePixelCount": 30,
+            "contentResidueRatio": 0.2,
+            "componentCount": 3,
+            "candidateRelationCount": 1,
+            "selectedRelationCount": 0
+          },
+          "regionalSummary": {
+            "version": "atlas-regional-summary-v1",
+            "bands": [
+              {
+                "position": "top",
+                "density": 0.1
+              },
+              {
+                "position": "middle",
+                "density": 0.2
+              },
+              {
+                "position": "bottom",
+                "density": 0.6
+              }
+            ],
+            "components": [],
+            "relations": []
+          }
+        }
+      ]
+    },
+    "brief": {
+      "reading_focus": "money",
+      "user_symbols": [],
+      "creative_motif": "Anahtar",
+      "symbol_origin": "creative_not_detected",
+      "physical_background": {
+        "cup": {
+          "region": "top",
+          "residue": "sparse"
+        },
+        "saucer": {
+          "region": "top",
+          "residue": "sparse"
+        }
+      },
+      "past_excerpt": null,
+      "memory_reference_allowed": false
+    }
+  }
+]

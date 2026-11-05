@@ -21,17 +21,29 @@ enum ZodiacSign {
   final String label;
 }
 
+enum MaritalStatus {
+  single('Bekâr'),
+  married('Evli'),
+  divorced('Boşanmış'),
+  widowed('Dul');
+
+  const MaritalStatus(this.label);
+  final String label;
+}
+
 class UserProfile {
   const UserProfile({
     this.addressName = '',
     this.zodiac,
     this.useZodiacInReading = false,
     this.age,
+    this.maritalStatus,
   });
   final String addressName;
   final ZodiacSign? zodiac;
   final bool useZodiacInReading;
   final int? age;
+  final MaritalStatus? maritalStatus;
 }
 
 /// Kept outside contribution, AI and audit stores; never part of an export.
@@ -85,6 +97,12 @@ class UserProfileStore {
       throw const FormatException('Invalid zodiac preference');
     }
     final age = data['version'] == 3 ? data['age'] : null;
+    final maritalStatus = MaritalStatus.values
+        .where((status) => status.name == data['maritalStatus'])
+        .firstOrNull;
+    if (data['maritalStatus'] != null && maritalStatus == null) {
+      throw const FormatException('Invalid marital status');
+    }
     if (age != null && (age is! int || age < 18 || age > 120)) {
       throw const FormatException('Invalid age');
     }
@@ -93,6 +111,7 @@ class UserProfileStore {
       zodiac: zodiac,
       useZodiacInReading: useZodiac,
       age: age as int?,
+      maritalStatus: maritalStatus,
     );
   });
 
@@ -113,6 +132,8 @@ class UserProfileStore {
         'zodiac': profile.zodiac?.name,
         'useZodiacInReading': profile.useZodiacInReading,
         'age': profile.age,
+        if (profile.maritalStatus != null)
+          'maritalStatus': profile.maritalStatus!.name,
       }),
       flush: true,
     );

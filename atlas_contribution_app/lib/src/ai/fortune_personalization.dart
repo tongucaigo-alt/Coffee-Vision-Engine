@@ -6,10 +6,17 @@ import '../mvp/review_models.dart' show immutableDocument;
 
 const personalizedContextVersion = 'atlas-fortune-context-v3';
 const currentFortuneContextVersion = 'atlas-fortune-context-v4';
+const shortFortuneContextVersion = 'atlas-fortune-context-v5';
+const shortFortunePromptVersion = 'atlas-fortune-prompt-v24';
+const shortFortuneMinimumWords = 75;
+
+bool isFocusedFortuneContextVersion(Object? version) =>
+    version == currentFortuneContextVersion ||
+    version == shortFortuneContextVersion;
 const readingFocusValues = ['general', 'love', 'work', 'money'];
 bool isPersonalizedContextVersion(Object? version) =>
     version == personalizedContextVersion ||
-    version == currentFortuneContextVersion;
+    isFocusedFortuneContextVersion(version);
 const creativeCatalogVersion = 'atlas-creative-symbols-v1';
 const creativeSymbolIds = [
   'key',
@@ -35,6 +42,7 @@ Map<String, dynamic> personalizeFortuneContext(
   Map<String, dynamic>? previousContext,
   String readingFocus = 'general',
   String? pastReadingExcerpt,
+  bool shortFortune = false,
 }) {
   if (!readingFocusValues.contains(readingFocus)) {
     throw const FormatException('Invalid reading focus');
@@ -42,10 +50,21 @@ Map<String, dynamic> personalizeFortuneContext(
   if (pastReadingExcerpt != null) {
     validatePastReadingExcerpt(pastReadingExcerpt);
   }
+  final reported = {
+    for (final photo in base['photos'] as List)
+      for (final observation in photo['userObservations'] as List)
+        observation['symbolName'],
+  };
   Map<String, dynamic>? creative;
-  if (!hasUserSymbols(base)) {
+  if (shortFortune || reported.isEmpty) {
+    final unreported = creativeSymbolIds
+        .where((id) => !reported.contains(contributionLabels[id]))
+        .toList();
+    final choices = shortFortune && unreported.isNotEmpty
+        ? unreported
+        : creativeSymbolIds;
     final prior = previousContext?['creativeSymbol'];
-    if (prior is Map) {
+    if (prior is Map && choices.contains(prior['symbolId'])) {
       validateCreativeSymbol(prior);
       creative = Map<String, dynamic>.from(prior);
     } else {
@@ -53,9 +72,8 @@ Map<String, dynamic> personalizeFortuneContext(
           .convert(utf8.encode('$creativeCatalogVersion|$readingIdentity'))
           .bytes;
       final index =
-          ((digest[0] << 16) | (digest[1] << 8) | digest[2]) %
-          creativeSymbolIds.length;
-      final id = creativeSymbolIds[index];
+          ((digest[0] << 16) | (digest[1] << 8) | digest[2]) % choices.length;
+      final id = choices[index];
       creative = {
         'catalogVersion': creativeCatalogVersion,
         'origin': 'creativeSelectionNotVisualDetection',
@@ -64,20 +82,34 @@ Map<String, dynamic> personalizeFortuneContext(
       };
     }
   }
+  final addressName = profile.addressName
+      .trim()
+      .replaceAll(RegExp(r'[\x00-\x20\x7f-\x9f\s]+'), ' ')
+      .trim();
+  final useZodiac =
+      profile.useZodiacInReading &&
+      profile.zodiac != null &&
+      (!shortFortune ||
+          sha256.convert(utf8.encode('zodiac|$readingIdentity')).bytes.first %
+                  5 ==
+              0);
+  final personalization = {
+    if (useZodiac) 'zodiac': profile.zodiac!.name,
+    if (profile.age != null) 'age': profile.age,
+    if (shortFortune && addressName.isNotEmpty) 'addressName': addressName,
+    if (shortFortune && profile.maritalStatus != null)
+      'maritalStatus': profile.maritalStatus!.name,
+  };
   return immutableDocument({
     ...({...base}
       ..remove('personalization')
       ..remove('pastReadingExcerpt')),
-    'version': currentFortuneContextVersion,
+    'version': shortFortune
+        ? shortFortuneContextVersion
+        : currentFortuneContextVersion,
     'readingFocus': readingFocus,
     'creativeSymbol': creative,
-    if ((profile.useZodiacInReading && profile.zodiac != null) ||
-        profile.age != null)
-      'personalization': {
-        if (profile.useZodiacInReading && profile.zodiac != null)
-          'zodiac': profile.zodiac!.name,
-        if (profile.age != null) 'age': profile.age,
-      },
+    if (personalization.isNotEmpty) 'personalization': personalization,
     'pastReadingExcerpt': ?pastReadingExcerpt,
   });
 }
@@ -100,13 +132,15 @@ void validateCreativeSymbol(Map value) {
       value['catalogVersion'] != creativeCatalogVersion ||
       value['origin'] != 'creativeSelectionNotVisualDetection' ||
       !creativeSymbolIds.contains(value['symbolId']) ||
+      contributionLabels[value['symbolId']] != value['symbolName'] ||
       contributionLabels[value['symbolId']] != value['symbolName']) {
     throw const FormatException('Invalid creative symbol');
   }
 }
 
 void validatePersonalizedContext(Map<String, dynamic> value) {
-  final current = value['version'] == currentFortuneContextVersion;
+  final short = value['version'] == shortFortuneContextVersion;
+  final current = isFocusedFortuneContextVersion(value['version']);
   if (current && !readingFocusValues.contains(value['readingFocus'])) {
     throw const FormatException('Invalid reading focus');
   }
@@ -114,7 +148,7 @@ void validatePersonalizedContext(Map<String, dynamic> value) {
     validatePastReadingExcerpt(value['pastReadingExcerpt']);
   }
   final creative = value['creativeSymbol'];
-  if (hasUserSymbols(value)) {
+  if (!short && hasUserSymbols(value)) {
     if (creative != null) {
       throw const FormatException('User symbols take priority');
     }
@@ -128,7 +162,23 @@ void validatePersonalizedContext(Map<String, dynamic> value) {
     final p = value['personalization'];
     if (p is! Map ||
         p.isEmpty ||
-        p.keys.any((k) => k != 'zodiac' && !(current && k == 'age')) ||
+        p.keys.any(
+          (k) =>
+              k != 'zodiac' &&
+              !(current && k == 'age') &&
+              !(short && (k == 'addressName' || k == 'maritalStatus')),
+        ) ||
+        (p.containsKey('addressName') &&
+            (p['addressName'] is! String ||
+                (p['addressName'] as String).trim().isEmpty ||
+                (p['addressName'] as String).runes.length > 60 ||
+                RegExp(
+                  r'[\x00-\x1f\x7f-\x9f]',
+                ).hasMatch(p['addressName'] as String))) ||
+        (p.containsKey('maritalStatus') &&
+            !MaritalStatus.values.any(
+              (status) => status.name == p['maritalStatus'],
+            )) ||
         (!current && (p.length != 1 || !p.containsKey('zodiac'))) ||
         (p.containsKey('zodiac') &&
             !ZodiacSign.values.any((z) => z.name == p['zodiac'])) ||

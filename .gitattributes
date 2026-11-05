@@ -1,2 +1,3 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+atlas_contribution_app/assets/fortune-prompt-short.json text eol=lf
