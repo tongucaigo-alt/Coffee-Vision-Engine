@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'atlas_design.dart';
+import 'atlas_button_artwork.dart';
 import 'atlas_home_atmosphere.dart';
 import 'atlas_home_hints.dart';
 import 'atlas_intro_transition.dart';
@@ -170,48 +171,51 @@ class _AtlasLandingLayoutState extends State<AtlasLandingLayout>
   }
 
   @override
-  Widget build(BuildContext context) => AtlasHomeHintBinding(
-    controller: _hints!,
-    child: SafeArea(
-      bottom: false,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 460),
-            child: LayoutBuilder(
-              builder: (context, box) => SingleChildScrollView(
-                key: widget.scrollKey,
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(minHeight: box.maxHeight),
-                  child: AtlasAtmosphereSurface(
-                    scene: widget.scene,
-                    child: Stack(
-                      fit: StackFit.passthrough,
-                      children: [
-                        Positioned.fill(
-                          child: IgnorePointer(child: widget.frame),
-                        ),
-                        _LandingSlots(
-                          tarot: widget.scene == AtlasAtmosphereScene.tarotHome,
-                          legacy: _legacyMetrics(context, box.maxWidth),
-                          children: [
-                            widget.content,
-                            widget.secondary,
-                            widget.primary,
-                            _AtlasLandingHintLabel(
-                              button: widget.secondary,
-                              primary: false,
-                            ),
-                            _AtlasLandingHintLabel(
-                              button: widget.primary,
-                              primary: true,
-                            ),
-                          ],
-                        ),
-                        if (widget.resume != null)
-                          Positioned(top: 8, right: 8, child: widget.resume!),
-                      ],
+  Widget build(BuildContext context) => AtlasOriginalButtons(
+    child: AtlasHomeHintBinding(
+      controller: _hints!,
+      child: SafeArea(
+        bottom: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 460),
+              child: LayoutBuilder(
+                builder: (context, box) => SingleChildScrollView(
+                  key: widget.scrollKey,
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(minHeight: box.maxHeight),
+                    child: AtlasAtmosphereSurface(
+                      scene: widget.scene,
+                      child: Stack(
+                        fit: StackFit.passthrough,
+                        children: [
+                          Positioned.fill(
+                            child: IgnorePointer(child: widget.frame),
+                          ),
+                          _LandingSlots(
+                            tarot:
+                                widget.scene == AtlasAtmosphereScene.tarotHome,
+                            legacy: _legacyMetrics(context, box.maxWidth),
+                            children: [
+                              widget.content,
+                              widget.secondary,
+                              widget.primary,
+                              _AtlasLandingHintLabel(
+                                button: widget.secondary,
+                                primary: false,
+                              ),
+                              _AtlasLandingHintLabel(
+                                button: widget.primary,
+                                primary: true,
+                              ),
+                            ],
+                          ),
+                          if (widget.resume != null)
+                            Positioned(top: 8, right: 8, child: widget.resume!),
+                        ],
+                      ),
                     ),
                   ),
                 ),

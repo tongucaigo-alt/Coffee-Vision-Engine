@@ -84,7 +84,10 @@ internal object OpenCvCupDomain {
                     max(ew,eh)>max(w,h)*1.6 || area<=w*h*.08 || area>=w*h*1.2 ||
                     ew/eh !in .30..3.33 || cx !in w*.1..w*.9 || cy !in h*.1..h*.9) return null
                 val ca=cos(e.angle*PI/180);val sa=sin(e.angle*PI/180)
-                var support=0;var ceramic=0;var contrast=0;var visible=0
+                var support=0;var ceramic=0;var visible=0;var outwardContrast=0
+                var pairedUpper=0;var pairedLower=0
+                val edgeQuadrants=IntArray(4)
+                val pairedQuadrants=IntArray(4)
                 // Normalize against visible rim samples for cropped openings;
                 // still require a substantial measured arc and ceramic evidence.
                 for(i in 0 until 72) {
@@ -94,16 +97,32 @@ internal object OpenCvCupDomain {
                     val x=(cx+dx).roundToInt();val y=(cy+dy).roundToInt()
                     if(x !in 0 until w || y !in 0 until h) continue
                     visible++
-                    if(distancePixels[y*w+x]<=max(3.0,min(ew,eh)*.0175)) support++
+                    val sector=(if(dx<0) 0 else 1)+(if(dy<0) 0 else 2)
+                    val hasEdge=distancePixels[y*w+x]<=max(3.0,min(ew,eh)*.0175)
+                    if(hasEdge) {
+                        support++
+                        edgeQuadrants[sector]++
+                    }
                     for(scale in doubleArrayOf(.96,1.0,1.04)) {
                         val px=(cx+dx*scale).roundToInt();val py=(cy+dy*scale).roundToInt()
-                        if(px in 0 until w && py in 0 until h && white[py*w+px]) { ceramic++;break }
+                        if(px in 0 until w && py in 0 until h && white[py*w+px]) {
+                            ceramic++
+                            if(hasEdge) {
+                                if(dy<0) pairedUpper++ else pairedLower++
+                                pairedQuadrants[sector]++
+                            }
+                            break
+                        }
                     }
                     val ix=(cx+dx*.96).roundToInt();val iy=(cy+dy*.96).roundToInt()
                     val ox=(cx+dx*1.08).roundToInt();val oy=(cy+dy*1.08).roundToInt()
                     if(ix in 0 until w && iy in 0 until h && ox in 0 until w && oy in 0 until h &&
-                        (levels[iy*w+ix].toInt() and 255)-(levels[oy*w+ox].toInt() and 255)>=18) contrast++
+                        (levels[iy*w+ix].toInt() and 255)-(levels[oy*w+ox].toInt() and 255)>=18) outwardContrast++
                 }
+                // Cropped rims must show ceramic edges on opposite sides. One
+                // bright arc can belong to the lip of a much larger false ellipse.
+                if(visible<56 && min(pairedUpper,pairedLower)<6) return null
+                if(visible in 56..67 && edgeQuadrants.any { it<2 }) return null
                 val covered=IntArray(4)
                 for(pixel in coffeeSamples) {
                     val x=pixel%w-cx;val y=pixel/w-cy
@@ -123,15 +142,34 @@ internal object OpenCvCupDomain {
                     ((x*ca+y*sa)/(ew/2)).pow(2)+((-x*sa+y*ca)/(eh/2)).pow(2)<=.92*.92
                 }
                 val primaryCoverage=primaryCovered.toDouble()/max(1,primarySamples.size)
+                if(currentAnchor!=anchor && largest>=w*h*.12 &&
+                    anchorStats.get(currentAnchor,Imgproc.CC_STAT_AREA)[0]<largest*.15 &&
+                    covered.sum()*step*step<largest*.15) return null
                 val edgeFraction=if(primaryCoverage>=.85 && ceramic.toDouble()/max(1,visible)>=.70) .40 else .43
-                val reliable=visible>=32 && support>=max(18.0,ceil(visible*edgeFraction)) &&
-                    ceramic>=max(20.0,ceil(visible*.50)) && primaryCoverage>=.72
+                val hasRimEvidence=visible>=32 && support>=max(18.0,ceil(visible*edgeFraction)) &&
+                    ceramic>=max(20.0,ceil(visible*.50))
+                val reliable=hasRimEvidence && primaryCoverage>=.72
+                // A nearly complete rim with ceramic and edges at the same
+                // points can enclose real coffee even if a global anchor joins
+                // that coffee to a large background component.
+                val closedRim=visible>=64 && pairedQuadrants.all { it>=8 } &&
+                    pairedUpper+pairedLower>=ceil(visible*.64) && covered.sum()*step*step>=area*.06
+                // Bright inside-to-outside contrast around the lip supports a
+                // plausible rim even when residue touches an exterior anchor.
+                val contrastedRim=hasRimEvidence && primaryCoverage>=.40 &&
+                    min(pairedUpper,pairedLower)>=6 && outwardContrast>=ceil(visible*.55) &&
+                    pairedUpper+pairedLower>=ceil(visible*.44)
                 // White outer body can inflate a brightness/area score.
                 // Prefer a supported visible rim, not a larger enclosing ellipse.
+                // A partial rim with an unsupported sector may still be the
+                // only plausible rim in a steep view. Rank it below a complete,
+                // independently supported rim when one is also available.
+                val missingSectorPenalty=if(visible in 56..67 && pairedQuadrants.any { it<2 }) 1.5 else 0.0
                 val score=rimEvidence+primaryCoverage*1.8+distributed*1.3-
-                    (1.0-visible/72.0)*2.0
-                if(!reliable) return null
-                return Proposal(score,e,rimEvidence,currentAnchor)
+                    (1.0-visible/72.0)*2.0-missingSectorPenalty
+                if(!reliable && !closedRim && !contrastedRim) return null
+                val fallbackScore=rimEvidence+1.3*distributed+outwardContrast.toDouble()/visible
+                return Proposal(if(reliable) score else fallbackScore,e,rimEvidence,currentAnchor)
             }
             Imgproc.HoughCircles(smooth, circles, Imgproc.HOUGH_GRADIENT, 1.2,
                 max(20.0, min(w, h) * .1), 100.0, 40.0,

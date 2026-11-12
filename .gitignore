@@ -15,3 +15,17 @@ Thumbs.db
 .DS_Store
 atlas_m5b_dataset/
 **/*.mp4
+
+# Local builds, credentials and private phone verification
+**/.gradle/
+**/.cxx/
+**/ephemeral/
+**/node_modules/
+**/__pycache__/
+**/.flutter-plugins-dependencies
+**/local.properties
+**/key.properties
+**/*.jks
+**/*.keystore
+/output/
+/private/

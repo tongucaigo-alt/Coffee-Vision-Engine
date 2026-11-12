@@ -50,25 +50,29 @@ class _TarotMoodPicker extends StatelessWidget {
                       child: OutlinedButton(
                         key: ValueKey('tarot-mood-${value.name}'),
                         onPressed: saving ? null : () => onSelect(value),
-                        style: OutlinedButton.styleFrom(
-                          minimumSize: const Size(48, 48),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 4,
-                          ),
-                          foregroundColor: atlasSageInk,
-                          backgroundColor: value == mood
-                              ? atlasSageSurface
-                              : atlasCream,
-                          disabledForegroundColor: atlasSageInk,
-                          side: BorderSide(
-                            color: value == mood ? atlasSageInk : atlasBorder,
-                            width: value == mood ? 1.5 : 1,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(18),
-                          ),
-                        ),
+                        style:
+                            OutlinedButton.styleFrom(
+                              minimumSize: const Size(48, 48),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 4,
+                              ),
+                              foregroundColor: value == mood
+                                  ? atlasCard
+                                  : atlasCoffee,
+                              backgroundColor: Colors.transparent,
+                              disabledForegroundColor: value == mood
+                                  ? atlasCard
+                                  : atlasCoffee,
+                              side: BorderSide.none,
+                              shape: const StadiumBorder(),
+                            ).copyWith(
+                              overlayColor: WidgetStateProperty.resolveWith(
+                                (states) => states.contains(WidgetState.pressed)
+                                    ? Colors.transparent
+                                    : null,
+                              ),
+                            ),
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [

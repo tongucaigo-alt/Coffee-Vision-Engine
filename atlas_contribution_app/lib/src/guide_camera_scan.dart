@@ -1,8 +1,4 @@
-// Reuse the package's production renderer without changing its public camera API.
-// ignore_for_file: implementation_imports
-
-import 'package:coffee_camera/src/models/target_geometry.dart';
-import 'package:coffee_camera/src/ui/camera_target_overlay.dart';
+import 'package:coffee_camera/coffee_camera_presentation.dart';
 import 'package:flutter/material.dart';
 import 'capture_settings.dart';
 import 'guide_scan_sample.dart';

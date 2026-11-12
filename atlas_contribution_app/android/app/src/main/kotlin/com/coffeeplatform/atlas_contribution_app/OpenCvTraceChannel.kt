@@ -67,6 +67,7 @@ class OpenCvTraceChannel(messenger: BinaryMessenger) {
             val detected = if (!cupDomain) null else if (surface == "saucer")
                 OpenCvSaucerDomain.detect(gray, rgba) else OpenCvCupDomain.detect(gray, rgba)
             var conservativeForeground: ByteArray? = null
+            var adaptiveCoffee: ByteArray? = null
             if (detected != null) owned.add(detected.mask)
             if (detected != null) {
                 val levels = ByteArray(gray.rows()*gray.cols()); gray.get(0,0,levels)
@@ -88,6 +89,8 @@ class OpenCvTraceChannel(messenger: BinaryMessenger) {
                 val conservative = if (recoverMergedCup && surface == "cup" &&
                     detected.ellipse != null && darkLimit > conservativeDarkLimit)
                     ByteArray(levels.size) else null
+                val adaptive = if (recoverMergedCup && surface == "cup" &&
+                    detected.ellipse != null) ByteArray(levels.size) else null
                 for (i in levels.indices) {
                     val r=colors[i*4].toInt() and 255; val g=colors[i*4+1].toInt() and 255
                     val b=colors[i*4+2].toInt() and 255; val level=levels[i].toInt() and 255
@@ -96,6 +99,7 @@ class OpenCvTraceChannel(messenger: BinaryMessenger) {
                     val coffee=(r>b+6 && r>=g-3 && saturation>30 && level<160) ||
                         (level<70 && r>=g && r>b+2 && saturation>20)
                     val allowed = region[i].toInt() != 0 && coffee
+                    if (adaptive != null && allowed) adaptive[i] = foreground[i]
                     if (conservative != null && allowed) {
                         conservative[i] = if (level < conservativeDarkLimit) 255.toByte() else foreground[i]
                     }
@@ -103,6 +107,7 @@ class OpenCvTraceChannel(messenger: BinaryMessenger) {
                         if (level < darkLimit) 255.toByte() else foreground[i]
                 }
                 conservativeForeground = conservative
+                adaptiveCoffee = adaptive
                 mask.put(0,0,foreground)
             }
             val kernel = Imgproc.getStructuringElement(Imgproc.MORPH_ELLIPSE, Size(3.0, 3.0))
@@ -126,18 +131,21 @@ class OpenCvTraceChannel(messenger: BinaryMessenger) {
             val labelPixels = IntArray(w * h)
             val minRegionArea = max(160.0, domainSize * .004)
             val maxRegionArea = domainSize * .12
-            fun collect(): Pair<List<Map<String, Any>>, Boolean> {
+            var mergedRegion: BooleanArray? = null
+            fun collect(rememberMerged: Boolean = false): Pair<List<Map<String, Any>>, Boolean> {
                 Imgproc.morphologyEx(mask, mask, Imgproc.MORPH_OPEN, kernel)
                 Imgproc.morphologyEx(mask, mask, Imgproc.MORPH_CLOSE, kernel)
                 Core.bitwise_and(mask, domain, mask)
                 val count = Imgproc.connectedComponentsWithStats(mask, labels, stats, centroids, 8, CvType.CV_32S)
                 labels.get(0, 0, labelPixels)
                 var oversized = false
+                val mergedLabels = if (rememberMerged) BooleanArray(count) else null
                 val candidates = mutableListOf<Map<String, Any>>()
                 for (id in 1 until count) {
                     val area = stats.get(id, Imgproc.CC_STAT_AREA)[0]
                     if (area > maxRegionArea) {
                         oversized = true
+                        mergedLabels?.set(id, true)
                         continue
                     }
                     if (area < minRegionArea) continue
@@ -166,17 +174,43 @@ class OpenCvTraceChannel(messenger: BinaryMessenger) {
                         "score" to sqrt(area) * (1 - fill * .3),
                         "signature" to signature.toList(), "aspect" to bw.toDouble() / bh))
                 }
+                if (mergedLabels != null && oversized && candidates.size < 4) {
+                    mergedRegion = BooleanArray(labelPixels.size) { mergedLabels[labelPixels[it]] }
+                }
                 return candidates to oversized
             }
-            val (baseline, oversized) = collect()
+            val (baseline, oversized) = collect(rememberMerged = adaptiveCoffee != null)
             val conservative = conservativeForeground
-            val candidates = if (baseline.size <= 2 && oversized && conservative != null) {
+            val originalCandidates = if (baseline.size <= 2 && oversized && conservative != null) {
                 // A large joined mass can hide useful traces. Reuse the same cup domain
                 // and keep the original mask result if the retry finds no additional candidates.
                 mask.put(0, 0, conservative)
                 val (retry, _) = collect()
                 if (retry.size > baseline.size) retry else baseline
             } else baseline
+            val adaptive = adaptiveCoffee
+            val merged = mergedRegion
+            val candidates = if (originalCandidates.size < 4 && adaptive != null && merged != null) {
+                // Recover contrast-supported traces from the rejected mass.
+                // Keep the original traces and apply the same shape and area gates.
+                for (i in adaptive.indices) if (!merged[i]) adaptive[i] = 0
+                mask.put(0, 0, adaptive)
+                val (recovered, _) = collect()
+                val occupied = BooleanArray(w * h)
+                for (candidate in originalCandidates) {
+                    for (pixel in candidate.getValue("pixels") as IntArray) occupied[pixel] = true
+                }
+                var nextId = originalCandidates.maxOfOrNull { it.getValue("id") as Int } ?: 0
+                originalCandidates + recovered.sortedByDescending { it.getValue("score") as Double }
+                    .asSequence()
+                    .filter { candidate ->
+                        val pixels = candidate.getValue("pixels") as IntArray
+                        pixels.count { occupied[it] } * 4 <= pixels.size
+                    }
+                    .take(4 - originalCandidates.size)
+                    .map { it + ("id" to ++nextId) }
+                    .toList()
+            } else originalCandidates
             return mapOf("width" to w, "height" to h,
                 "candidates" to candidates.sortedByDescending { it["score"] as Double }.take(24),
                 "durationMs" to (System.nanoTime() - started) / 1_000_000,

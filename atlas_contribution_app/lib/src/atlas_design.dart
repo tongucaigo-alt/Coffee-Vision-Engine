@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'atlas_button_artwork.dart';
 import 'cropped_photo.dart';
 import 'models.dart';
 import 'theme.dart';
@@ -27,128 +28,137 @@ ThemeData atlasTheme() {
     outline: atlasBorder,
     outlineVariant: atlasBorder,
   );
-  return base.copyWith(
-    colorScheme: colors,
-    scaffoldBackgroundColor: atlasCream,
-    textTheme: base.textTheme
-        .apply(
-          fontFamily: 'Plus Jakarta Sans',
-          bodyColor: atlasInk,
-          displayColor: atlasInk,
-        )
-        .copyWith(
-          titleLarge: const TextStyle(
+  return atlasArtworkTheme(
+    base.copyWith(
+      colorScheme: colors,
+      scaffoldBackgroundColor: atlasCream,
+      textTheme: base.textTheme
+          .apply(
             fontFamily: 'Plus Jakarta Sans',
-            fontSize: 20,
-            fontWeight: FontWeight.w600,
-            color: atlasInk,
+            bodyColor: atlasInk,
+            displayColor: atlasInk,
+          )
+          .copyWith(
+            titleLarge: const TextStyle(
+              fontFamily: 'Plus Jakarta Sans',
+              fontSize: 20,
+              fontWeight: FontWeight.w600,
+              color: atlasInk,
+            ),
           ),
-        ),
-    appBarTheme: const AppBarTheme(
-      backgroundColor: atlasCream,
-      foregroundColor: atlasInk,
-      surfaceTintColor: Colors.transparent,
-      centerTitle: false,
-    ),
-    navigationBarTheme: NavigationBarThemeData(
-      backgroundColor: atlasCream,
-      indicatorColor: atlasSageSurface,
-      labelTextStyle: WidgetStateProperty.all(
-        const TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 13),
+      appBarTheme: const AppBarTheme(
+        backgroundColor: atlasCream,
+        foregroundColor: atlasInk,
+        surfaceTintColor: Colors.transparent,
+        centerTitle: false,
       ),
-    ),
-    segmentedButtonTheme: SegmentedButtonThemeData(
-      style: ButtonStyle(
-        minimumSize: const WidgetStatePropertyAll(Size(48, 48)),
-        textStyle: const WidgetStatePropertyAll(
-          TextStyle(
+      navigationBarTheme: NavigationBarThemeData(
+        backgroundColor: atlasCream,
+        indicatorColor: atlasSageSurface,
+        labelTextStyle: WidgetStateProperty.all(
+          const TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 13),
+        ),
+      ),
+      segmentedButtonTheme: SegmentedButtonThemeData(
+        style: ButtonStyle(
+          minimumSize: const WidgetStatePropertyAll(Size(48, 48)),
+          textStyle: const WidgetStatePropertyAll(
+            TextStyle(
+              fontFamily: 'Plus Jakarta Sans',
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          backgroundColor: WidgetStateProperty.resolveWith(
+            (states) => states.contains(WidgetState.selected)
+                ? atlasSageSurface
+                : atlasCard,
+          ),
+          foregroundColor: const WidgetStatePropertyAll(atlasCoffee),
+          side: const WidgetStatePropertyAll(BorderSide(color: atlasBorder)),
+        ),
+      ),
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(
+          backgroundColor: atlasCoffee,
+          foregroundColor: atlasCard,
+          textStyle: const TextStyle(
             fontFamily: 'Plus Jakarta Sans',
             fontSize: 13,
             fontWeight: FontWeight.w600,
           ),
+          minimumSize: const Size(48, 52),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
         ),
-        backgroundColor: WidgetStateProperty.resolveWith(
-          (states) => states.contains(WidgetState.selected)
-              ? atlasSageSurface
-              : atlasCard,
-        ),
-        foregroundColor: const WidgetStatePropertyAll(atlasCoffee),
-        side: const WidgetStatePropertyAll(BorderSide(color: atlasBorder)),
       ),
-    ),
-    filledButtonTheme: FilledButtonThemeData(
-      style: FilledButton.styleFrom(
-        backgroundColor: atlasCoffee,
-        foregroundColor: atlasCard,
-        textStyle: const TextStyle(
-          fontFamily: 'Plus Jakarta Sans',
-          fontSize: 13,
-          fontWeight: FontWeight.w600,
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          minimumSize: const Size(48, 52),
+          foregroundColor: atlasInk,
+          textStyle: const TextStyle(
+            fontFamily: 'Plus Jakarta Sans',
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+          ),
+          backgroundColor: atlasCard,
+          side: const BorderSide(color: atlasBorder),
+          padding: const EdgeInsets.all(14),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
         ),
-        minimumSize: const Size(48, 52),
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
       ),
-    ),
-    outlinedButtonTheme: OutlinedButtonThemeData(
-      style: OutlinedButton.styleFrom(
-        minimumSize: const Size(48, 52),
-        foregroundColor: atlasInk,
-        textStyle: const TextStyle(
-          fontFamily: 'Plus Jakarta Sans',
-          fontSize: 13,
-          fontWeight: FontWeight.w600,
+      cardTheme: CardThemeData(
+        color: atlasCard,
+        elevation: 0,
+        margin: EdgeInsets.zero,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(22),
+          side: const BorderSide(color: atlasBorder, width: .8),
         ),
+      ),
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(
+          minimumSize: const Size(48, 48),
+          foregroundColor: atlasSageInk,
+          textStyle: const TextStyle(
+            fontFamily: 'Plus Jakarta Sans',
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: atlasCard,
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 14,
+        ),
+        labelStyle: const TextStyle(fontSize: 12, color: atlasMuted),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(18),
+          borderSide: const BorderSide(color: atlasBorder),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(18),
+          borderSide: const BorderSide(color: atlasBorder),
+        ),
+      ),
+      bottomSheetTheme: const BottomSheetThemeData(
         backgroundColor: atlasCard,
-        side: const BorderSide(color: atlasBorder),
-        padding: const EdgeInsets.all(14),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-      ),
-    ),
-    cardTheme: CardThemeData(
-      color: atlasCard,
-      elevation: 0,
-      margin: EdgeInsets.zero,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(22),
-        side: const BorderSide(color: atlasBorder, width: .8),
-      ),
-    ),
-    textButtonTheme: TextButtonThemeData(
-      style: TextButton.styleFrom(
-        minimumSize: const Size(48, 48),
-        foregroundColor: atlasSageInk,
-        textStyle: const TextStyle(
-          fontFamily: 'Plus Jakarta Sans',
-          fontSize: 13,
-          fontWeight: FontWeight.w500,
+        showDragHandle: true,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
         ),
       ),
-    ),
-    inputDecorationTheme: InputDecorationTheme(
-      filled: true,
-      fillColor: atlasCard,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      labelStyle: const TextStyle(fontSize: 12, color: atlasMuted),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(18),
-        borderSide: const BorderSide(color: atlasBorder),
+      dialogTheme: DialogThemeData(
+        backgroundColor: atlasCard,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
       ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(18),
-        borderSide: const BorderSide(color: atlasBorder),
-      ),
-    ),
-    bottomSheetTheme: const BottomSheetThemeData(
-      backgroundColor: atlasCard,
-      showDragHandle: true,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-      ),
-    ),
-    dialogTheme: DialogThemeData(
-      backgroundColor: atlasCard,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
     ),
   );
 }
@@ -243,15 +253,19 @@ class AtlasPrimaryButton extends StatelessWidget {
   static const preferredWidth = AtlasActionWidth.preferredWidth;
 
   @override
-  Widget build(BuildContext context) => AtlasActionWidth(
-    child: icon == null
-        ? FilledButton(onPressed: onPressed, style: style, child: child)
-        : FilledButton.icon(
-            onPressed: onPressed,
-            style: style,
-            icon: icon!,
-            label: child,
-          ),
+  Widget build(BuildContext context) => AtlasButtonCaption(
+    label: child,
+    icon: icon,
+    child: AtlasActionWidth(
+      child: icon == null
+          ? FilledButton(onPressed: onPressed, style: style, child: child)
+          : FilledButton.icon(
+              onPressed: onPressed,
+              style: style,
+              icon: icon!,
+              label: child,
+            ),
+    ),
   );
 }
 

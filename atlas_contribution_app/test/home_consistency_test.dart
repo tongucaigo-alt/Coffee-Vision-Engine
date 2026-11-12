@@ -7,6 +7,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:atlas_contribution_app/src/atlas_design.dart';
+import 'package:atlas_contribution_app/src/atlas_button_artwork.dart';
 import 'package:atlas_contribution_app/src/contribution_home.dart';
 import 'package:atlas_contribution_app/src/tarot/tarot_pages.dart';
 import 'package:atlas_contribution_app/src/tarot/tarot_runtime.dart';
@@ -14,6 +15,7 @@ import 'package:atlas_contribution_app/src/tarot/tarot_store.dart';
 import 'contribution_save_status_test.dart' show MemoryStore, PausedService;
 import 'package:atlas_contribution_app/src/privacy_support.dart';
 import 'tarot_test.dart' show catalog, fixture;
+import 'atlas_button_artwork_test.dart' as button_art_test show capture;
 
 void main() {
   late Directory temp;
@@ -77,7 +79,12 @@ void main() {
     await settle(tester);
   }
 
-  Future<GlobalKey> mount(WidgetTester tester, Size size, double scale) async {
+  Future<GlobalKey> mount(
+    WidgetTester tester,
+    Size size,
+    double scale, {
+    bool bold = false,
+  }) async {
     tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
@@ -92,7 +99,7 @@ void main() {
           builder: (context, child) => MediaQuery(
             data: MediaQuery.of(
               context,
-            ).copyWith(textScaler: TextScaler.linear(scale)),
+            ).copyWith(textScaler: TextScaler.linear(scale), boldText: bold),
             child: child!,
           ),
           home: ContributionHome(
@@ -147,6 +154,17 @@ void main() {
         tester,
       ) async {
         final key = await mount(tester, Size(width, 700), scale);
+        expect(
+          find.descendant(
+            of: find.byKey(const ValueKey('atlas-profile')),
+            matching: find.byWidgetPredicate(
+              (w) =>
+                  w.key is ValueKey &&
+                  (w.key as ValueKey).value.toString().startsWith('atlas-art:'),
+            ),
+          ),
+          findsNothing,
+        );
         final navigation = tester.getRect(find.byType(NavigationBar));
         final header = tester.getRect(find.byType(AppBar));
         final coffeeFrame = tester.getRect(
@@ -178,6 +196,17 @@ void main() {
         expect(tester.getRect(find.byType(NavigationBar)), navigation);
         expect(tester.getRect(find.byType(AppBar)), header);
         expect(find.byTooltip('Bilgilerim'), findsOneWidget);
+        expect(
+          find.descendant(
+            of: find.byKey(const ValueKey('atlas-profile')),
+            matching: find.byWidgetPredicate(
+              (w) =>
+                  w.key is ValueKey &&
+                  (w.key as ValueKey).value.toString().startsWith('atlas-art:'),
+            ),
+          ),
+          findsNothing,
+        );
         expect(find.text('Tarot Geçmişi'), findsNothing);
         expect(
           tester
@@ -318,4 +347,64 @@ void main() {
     expect(calls, 0);
     await tester.pumpWidget(const SizedBox());
   });
+
+  for (final scale in [.9, 2.0]) {
+    testWidgets(
+      'record selections remain legible and preserve actions at $scale',
+      (tester) async {
+        final key = await mount(
+          tester,
+          const Size(384, 832),
+          scale,
+          bold: true,
+        );
+        await mainTab(tester, 'Kay\u0131tlar\u0131m');
+        final tabs = find.byKey(const ValueKey('history-kind-tabs'));
+        final widget = tester.widget<SegmentedButton<int>>(tabs);
+        expect(
+          widget.style!.foregroundColor!.resolve({WidgetState.selected}),
+          atlasCream,
+        );
+        final surfaces = find.descendant(
+          of: tabs,
+          matching: find.byType(AtlasSelectionFace),
+        );
+        expect(
+          tester
+              .widgetList<AtlasSelectionFace>(surfaces)
+              .map((face) => face.selected),
+          [true, false],
+        );
+        final filter = find.byKey(const ValueKey('history-filter-1'));
+        await tester.ensureVisible(filter);
+        await tester.tap(filter);
+        await settle(tester);
+        expect(
+          tester
+              .widget<AtlasSelectionFace>(
+                find.descendant(
+                  of: filter,
+                  matching: find.byType(AtlasSelectionFace),
+                ),
+              )
+              .selected,
+          isTrue,
+        );
+        await button_art_test.capture(tester, key, 'records-${scale}x-bold');
+        await tester.tap(
+          find.descendant(of: tabs, matching: find.text('Tarot')),
+        );
+        await settle(tester);
+        expect(
+          tester
+              .widgetList<AtlasSelectionFace>(surfaces)
+              .map((face) => face.selected),
+          [false, true],
+        );
+        expect(calls, 0);
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox());
+      },
+    );
+  }
 }

@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:atlas_contribution_app/src/atlas_design.dart';
+import 'package:atlas_contribution_app/src/atlas_button_artwork.dart';
 import 'package:atlas_contribution_app/src/contribution_home.dart';
 import 'package:atlas_contribution_app/src/offline_contribution.dart';
 import 'package:atlas_contribution_app/src/record_summary.dart';
@@ -136,7 +137,19 @@ void main() {
           matching: find.byType(TextButton),
         ),
       );
-      expect(filter.style!.backgroundColor!.resolve({}), atlasCoffee);
+      expect(filter.style!.backgroundColor!.resolve({}), Colors.transparent);
+      expect(filter.style!.foregroundColor!.resolve({}), atlasCream);
+      expect(
+        tester
+            .widget<AtlasSelectionFace>(
+              find.descendant(
+                of: find.byWidget(filter),
+                matching: find.byType(AtlasSelectionFace),
+              ),
+            )
+            .selected,
+        isTrue,
+      );
       await tester.tap(find.text('Fincanın Hikâyesi').hitTestable().first);
       await tester.pumpAndSettle();
       expect(batches, 1);

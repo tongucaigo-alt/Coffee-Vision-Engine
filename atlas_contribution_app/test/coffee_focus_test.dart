@@ -178,12 +178,13 @@ void main() {
         final modeSurface = tester.getRect(
           find.byKey(const ValueKey('coffee-mode-surface-true')),
         );
+        expect(modeSurface.bottom, lessThanOrEqualTo(frame.top - 24));
         for (final label in ['Aşk', 'İş', 'Para']) {
           final surface = tester.getRect(
             find.byKey(ValueKey('coffee-focus-surface-$label')),
           );
-          expect(surface.center.dy, closeTo(modeSurface.center.dy, .1));
-          expect(surface.bottom, lessThanOrEqualTo(frame.top));
+          expect(surface.top, greaterThanOrEqualTo(mode.top));
+          expect(surface.bottom, lessThanOrEqualTo(frame.top - 24));
         }
         if (scale == 1) {
           for (final label in ['Aşk', 'İş', 'Para']) {
@@ -191,7 +192,7 @@ void main() {
             expect(choice.hitTestable(), findsOneWidget);
             expect(
               tester.getRect(choice).left,
-              greaterThanOrEqualTo(mode.right),
+              greaterThanOrEqualTo(mode.left),
             );
             expect(tester.getRect(choice).bottom, lessThanOrEqualTo(frame.top));
           }

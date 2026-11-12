@@ -4,6 +4,8 @@ import 'package:flutter/services.dart';
 import 'atlas_design.dart';
 import 'theme.dart';
 import 'user_profile_store.dart';
+import 'umay_guide_scope.dart';
+import 'umay_guide_catalog.dart';
 
 class UserProfilePage extends StatefulWidget {
   const UserProfilePage({required this.store, super.key});
@@ -138,7 +140,14 @@ class _UserProfilePageState extends State<UserProfilePage> {
   }
 
   @override
-  Widget build(BuildContext context) => PopScope(
+  Widget build(BuildContext context) => UmayGuideOnce(
+    id: 'profile',
+    steps: umayProfileSteps,
+    ready: !_loading && !_busy && _error == null,
+    child: _buildProfile(context),
+  );
+
+  Widget _buildProfile(BuildContext context) => PopScope(
     canPop: !_busy,
     child: Scaffold(
       appBar: AppBar(title: const Text('Bilgilerim')),
@@ -177,6 +186,7 @@ class _UserProfilePageState extends State<UserProfilePage> {
             const SizedBox(height: 16),
             Card(
               child: ListTile(
+                key: const ValueKey('profile-zodiac'),
                 enabled: !_busy && _error == null,
                 title: const Text('Burç (isteğe bağlı)'),
                 subtitle: Text(
@@ -240,6 +250,7 @@ class _UserProfilePageState extends State<UserProfilePage> {
             ),
             const SizedBox(height: 24),
             AtlasPrimaryButton(
+              key: const ValueKey('profile-save'),
               onPressed: _busy || _error != null ? null : _save,
               child: Text(_busy ? 'İşleniyor…' : 'Kaydet'),
             ),

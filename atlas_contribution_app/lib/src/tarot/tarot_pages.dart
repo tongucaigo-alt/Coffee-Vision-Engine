@@ -1,3 +1,6 @@
+import '../atlas_button_artwork.dart';
+import '../umay_guide_catalog.dart';
+import '../umay_guide_scope.dart';
 import 'dart:async';
 import '../local_revision_cache.dart';
 import 'dart:math' as math;
@@ -35,7 +38,12 @@ String _errorText(Object error) =>
     : 'İşlem tamamlanamadı. Kayıtların silinmedi; yeniden deneyebilirsin.';
 
 class TarotHomePage extends StatefulWidget {
-  const TarotHomePage({required this.runtime, super.key});
+  const TarotHomePage({
+    required this.runtime,
+    this.embedded = false,
+    super.key,
+  });
+  final bool embedded;
   final TarotRuntime runtime;
   @override
   State<TarotHomePage> createState() => _TarotHomePageState();
@@ -95,7 +103,16 @@ class _TarotHomePageState extends State<TarotHomePage> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => widget.embedded
+      ? _buildHome(context)
+      : UmayGuideOnce(
+          id: 'tarot',
+          steps: umayTarotHomeSteps,
+          ready: _draws != null && !_busy && _error == null,
+          child: _buildHome(context),
+        );
+
+  Widget _buildHome(BuildContext context) {
     final pending = _draws
         ?.where(
           (d) =>
@@ -351,6 +368,25 @@ class _TarotDrawPageState extends State<TarotDrawPage>
 
   @override
   Widget build(BuildContext context) {
+    final id = _reading && _draw.result.state == TarotResultState.completed
+        ? 'tarot-reading'
+        : _draw.ready
+        ? 'tarot-ready'
+        : 'tarot-selection';
+    final steps = id == 'tarot-reading'
+        ? umayTarotReadingSteps
+        : id == 'tarot-ready'
+        ? umayTarotReadySteps
+        : umayTarotSelectionSteps;
+    return UmayGuideOnce(
+      id: id,
+      steps: steps,
+      ready: !_locked,
+      child: _buildDraw(context),
+    );
+  }
+
+  Widget _buildDraw(BuildContext context) {
     final complete = _draw.result.state == TarotResultState.completed;
     final generating = widget.runtime.busy(_draw.id);
     final selectedAll = _draw.selected.length == _draw.requiredCards;
@@ -364,6 +400,7 @@ class _TarotDrawPageState extends State<TarotDrawPage>
           actions: [
             if (complete)
               IconButton(
+                key: const ValueKey('tarot-star'),
                 tooltip: _draw.starred ? 'Yıldızı kaldır' : 'Yıldızla',
                 onPressed: _locked
                     ? null
@@ -414,7 +451,10 @@ class _TarotDrawPageState extends State<TarotDrawPage>
                     const SizedBox(height: 22),
                     AtlasAtmosphereRegion(
                       kind: AtlasAtmosphereRegionKind.protected,
-                      child: _slots(compact: _reading && complete),
+                      child: KeyedSubtree(
+                        key: const ValueKey('tarot-selected-slots'),
+                        child: _slots(compact: _reading && complete),
+                      ),
                     ),
                     if (selectedAll && !_reading) ...[
                       const SizedBox(height: 4),
@@ -446,7 +486,10 @@ class _TarotDrawPageState extends State<TarotDrawPage>
                         ),
                       ),
                       const SizedBox(height: 8),
-                      _deck(),
+                      KeyedSubtree(
+                        key: const ValueKey('tarot-selection-deck'),
+                        child: _deck(),
+                      ),
                       const Text(
                         'Desteyi yana kaydır · Dokunduğun kart korunur',
                         textAlign: TextAlign.center,
@@ -458,6 +501,7 @@ class _TarotDrawPageState extends State<TarotDrawPage>
                       ),
                       if (_draw.selected.isEmpty)
                         TextButton.icon(
+                          key: const ValueKey('tarot-reshuffle'),
                           onPressed: _locked ? null : _reshuffle,
                           icon: const Icon(Icons.shuffle),
                           label: const Text('Yeniden Karıştır'),
@@ -1055,7 +1099,16 @@ class _TarotHistoryPageState extends State<TarotHistoryPage>
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => widget.embedded
+      ? _buildHistory(context)
+      : UmayGuideOnce(
+          id: 'tarot-records',
+          steps: umayTarotHistorySteps,
+          ready: _draws != null && !_busy && _error == null,
+          child: _buildHistory(context),
+        );
+
+  Widget _buildHistory(BuildContext context) {
     final rows = _draws?.where((d) => !_starredOnly || d.starred).toList();
     final content = SafeArea(
       child: SingleChildScrollView(
@@ -1070,12 +1123,14 @@ class _TarotHistoryPageState extends State<TarotHistoryPage>
                 Wrap(
                   spacing: 8,
                   children: [
-                    ChoiceChip(
+                    atlasChoiceChip(
+                      key: const ValueKey('tarot-history-filter-0'),
                       label: const Text('Tümü'),
                       selected: !_starredOnly,
                       onSelected: (_) => _filter(false),
                     ),
-                    ChoiceChip(
+                    atlasChoiceChip(
+                      key: const ValueKey('tarot-history-filter-1'),
                       label: Text(
                         'Yıldızlılar · ${_draws?.where((d) => d.starred).length ?? 0}/20',
                       ),
@@ -1230,6 +1285,9 @@ class _TarotHistoryPageState extends State<TarotHistoryPage>
                                     ),
                                   ),
                                 IconButton(
+                                  key: ValueKey(
+                                    'tarot-history-delete-${draw.id}',
+                                  ),
                                   tooltip: 'Kaydı sil',
                                   onPressed:
                                       _busy || widget.runtime.busy(draw.id)

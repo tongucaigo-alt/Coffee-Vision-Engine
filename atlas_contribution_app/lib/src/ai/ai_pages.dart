@@ -1,3 +1,5 @@
+import '../umay_guide_catalog.dart';
+import '../umay_guide_scope.dart';
 import 'dart:io';
 import '../photo_suitability.dart';
 import 'dart:async';
@@ -286,36 +288,45 @@ class _AiLabPageState extends State<AiLabPage> {
   @override
   Widget build(BuildContext context) => playTestEnabled
       ? PlayAccessPage(runtime: widget.runtime)
-      : Scaffold(
-          appBar: AppBar(title: const Text('AI Laboratuvarı · Test')),
-          body: ListView(
-            padding: const EdgeInsets.all(20),
-            children: [
-              const Text(
-                'Yalnız test ekibi için. Fotoğraflar gönderilmez; seçilen sunucuya metinsel gözlemler ve fiziksel özet iletilir.',
-              ),
-              if (_message != null) Text(_message!),
-              for (final p in _profiles)
-                ListTile(
-                  title: Text(p.name),
-                  subtitle: Text(
-                    isBundledProfile(p)
-                        ? '${p.model} · Hazır test bağlantısı\nİnternet bağlantısıyla kullanılır.'
-                        : '${p.model}\n${p.url}',
-                  ),
-                  isThreeLine: true,
-                  trailing: isBundledProfile(p)
-                      ? const Icon(Icons.lock_outline)
-                      : null,
-                  onTap: isBundledProfile(p) ? null : () => _edit(p),
-                ),
-              AtlasPrimaryButton(
-                onPressed: () => _edit(),
-                child: const Text('Bağlantı ekle'),
-              ),
-            ],
-          ),
+      : UmayGuideOnce(
+          id: 'connection',
+          steps: umayConnectionSteps,
+          child: _buildConnections(context),
         );
+
+  Widget _buildConnections(BuildContext context) => Scaffold(
+    appBar: AppBar(title: const Text('AI Laboratuvarı · Test')),
+    body: ListView(
+      key: const ValueKey('connection-list'),
+      padding: const EdgeInsets.all(20),
+      children: [
+        const Text(
+          'Yalnız test ekibi için. Fotoğraflar gönderilmez; seçilen sunucuya metinsel gözlemler ve fiziksel özet iletilir.',
+        ),
+        if (_message != null) Text(_message!),
+        for (final p in _profiles)
+          ListTile(
+            key: ValueKey('connection-profile-${p.id}'),
+            title: Text(p.name),
+            subtitle: Text(
+              isBundledProfile(p)
+                  ? '${p.model} · Hazır test bağlantısı\nİnternet bağlantısıyla kullanılır.'
+                  : '${p.model}\n${p.url}',
+            ),
+            isThreeLine: true,
+            trailing: isBundledProfile(p)
+                ? const Icon(Icons.lock_outline)
+                : null,
+            onTap: isBundledProfile(p) ? null : () => _edit(p),
+          ),
+        AtlasPrimaryButton(
+          key: const ValueKey('connection-add'),
+          onPressed: () => _edit(),
+          child: const Text('Bağlantı ekle'),
+        ),
+      ],
+    ),
+  );
 }
 
 class AiFortunePage extends StatefulWidget {
@@ -958,6 +969,16 @@ class _AiFortunePageState extends State<AiFortunePage> {
 
   @override
   Widget build(BuildContext context) {
+    final hasAnswers = _results.any((r) => (r['answers'] as List).isNotEmpty);
+    return UmayGuideOnce(
+      id: 'coffee-reading',
+      steps: umayCoffeeReadingSteps,
+      ready: hasAnswers && !_busy && !widget.runtime.preparation.active,
+      child: _buildFortune(context),
+    );
+  }
+
+  Widget _buildFortune(BuildContext context) {
     final modern =
         Theme.of(context).textTheme.bodyMedium?.fontFamily ==
         'Plus Jakarta Sans';
@@ -1450,6 +1471,7 @@ class _AiFortunePageState extends State<AiFortunePage> {
       ),
       if (result['state'] == 'completed')
         OutlinedButton.icon(
+          key: ValueKey('fortune-star-${result['id']}'),
           onPressed: _busy
               ? null
               : () => _act(() async {
@@ -1483,6 +1505,7 @@ class _AiFortunePageState extends State<AiFortunePage> {
           ),
         ),
         FortuneStory(
+          key: ValueKey('fortune-story-${result['id']}-$i'),
           text: result['answers'][i]['text'] as String,
           hasSymbols: ((result['context'] as Map)['photos'] as List).any(
             (p) => (p['userObservations'] as List).isNotEmpty,

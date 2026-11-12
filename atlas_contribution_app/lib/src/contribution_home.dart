@@ -19,6 +19,7 @@ import 'gallery_import.dart';
 import 'capture_settings.dart';
 import 'cropped_photo.dart';
 import 'atlas_design.dart';
+import 'atlas_button_artwork.dart';
 import 'atlas_home_atmosphere.dart';
 import 'atlas_landing_layout.dart';
 import 'atlas_home_hints.dart';
@@ -31,9 +32,14 @@ import 'user_profile_store.dart';
 import 'record_summary.dart';
 import 'local_revision_cache.dart';
 import 'privacy_support.dart';
+import 'umay_guide_scope.dart';
+import 'umay_guide_catalog.dart';
+import 'umay_annotation_guide.dart';
+import 'umay_camera_guide.dart';
 
 part 'contribution_design.dart';
 part 'photo_set_flow.dart';
+part 'contribution_guides.dart';
 
 enum RecordPreparationStatus {
   notRequested,
@@ -61,13 +67,23 @@ Future<CameraCaptureResult?> _openContributionCamera(
   required String captureTitle,
   required String captureInstruction,
   Future<void> Function()? onFinishSequence,
-}) => showCoffeeCamera(
-  context,
-  config: config,
-  captureTitle: captureTitle,
-  captureInstruction: captureInstruction,
-  onFinishSequence: onFinishSequence,
-);
+}) async {
+  await showUmayLesson(
+    context,
+    id: 'camera',
+    steps: umayCameraSteps,
+    builder: (presented, finish) =>
+        UmayCameraGuide(onPresented: presented, onFinish: finish),
+  );
+  if (!context.mounted) return null;
+  return showCoffeeCamera(
+    context,
+    config: config,
+    captureTitle: captureTitle,
+    captureInstruction: captureInstruction,
+    onFinishSequence: onFinishSequence,
+  );
+}
 
 class ContributionHome extends StatefulWidget {
   const ContributionHome({
@@ -1529,7 +1545,17 @@ class _ContributionHistoryState extends State<ContributionHistory>
   }
 
   @override
-  Widget build(BuildContext context) => widget.modern && widget.onlyRoot == null
+  Widget build(BuildContext context) => widget.onlyRoot != null
+      ? UmayGuideOnce(
+          id: 'record-detail',
+          steps: umayRecordDetailSteps,
+          ready: !_busy && _message == null,
+          child: _buildHistoryBody(context),
+        )
+      : _buildHistoryBody(context);
+
+  Widget _buildHistoryBody(BuildContext context) =>
+      widget.modern && widget.onlyRoot == null
       ? (widget.embedded
             ? _atlasHistory()
             : Scaffold(
@@ -1566,6 +1592,9 @@ class _ContributionHistoryState extends State<ContributionHistory>
                   ),
                   if (widget.onReadFortune != null)
                     AtlasPrimaryButton(
+                      key: ValueKey(
+                        '${_fortuneActionLabel(_rows[i]).toLowerCase().contains('oku') ? 'record-read-fortune' : 'record-create-fortune'}-${_rows[i]['id']}',
+                      ),
                       onPressed: _busy
                           ? null
                           : () => _act(() => _openFortune(_rows[i])),
@@ -1579,6 +1608,9 @@ class _ContributionHistoryState extends State<ContributionHistory>
                     Padding(
                       padding: const EdgeInsets.only(bottom: 12),
                       child: MarkedPhoto(
+                        key: ValueKey(
+                          'record-detail-photos-${_rows[i]['id']}-${p.fileKey}',
+                        ),
                         photo: p,
                         image: FileImage(widget.store.file(p.localName)),
                         displayCrop: p.visibleCrop,
@@ -1675,6 +1707,7 @@ class _ContributionHistoryState extends State<ContributionHistory>
                             onPressed: _busy
                                 ? null
                                 : () => _act(() => widget.onEdit(_rows[i])),
+                            key: ValueKey('record-edit-${_rows[i]['id']}'),
                             child: const Text('İşaretleri düzenle'),
                           ),
                           if ((_rows[i]['document'] as Map)['kind'] !=
@@ -1690,6 +1723,7 @@ class _ContributionHistoryState extends State<ContributionHistory>
                         ],
                         TextButton(
                           onPressed: _busy ? null : () => _remove(_rows[i]),
+                          key: ValueKey('record-delete-${_rows[i]['id']}'),
                           child: const Text('Katkımı sil'),
                         ),
                       ],

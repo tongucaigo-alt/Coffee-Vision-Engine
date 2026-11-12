@@ -13,6 +13,7 @@ import 'src/atlas_home_hints.dart';
 import 'src/coffee_guide_gate.dart';
 import 'src/coffee_guide_page.dart';
 import 'src/coffee_guide_store.dart';
+import 'src/umay_guide_scope.dart';
 import 'src/models.dart';
 import 'src/fortune_progress.dart';
 import 'src/fortune_preparation.dart';
@@ -210,14 +211,25 @@ class OfflineContributionApp extends StatelessWidget {
     title: 'Atlas',
     debugShowCheckedModeBanner: false,
     theme: atlasTheme(),
-    builder: (context, child) => AtlasHomeHintScope(
-      directory: Directory('${store.directory.parent.path}/home-action-hints'),
-      child: ai == null
-          ? child!
-          : FortunePreparationHost(controller: ai!.preparation, child: child!),
+    builder: (context, child) => UmayGuideScope(
+      directory: Directory('${store.directory.parent.path}/umay-guides'),
+      // A supplied legacy presenter owns onboarding; the default uses Umay tours.
+      enabled: guideStore == null,
+      child: AtlasHomeHintScope(
+        directory: Directory(
+          '${store.directory.parent.path}/home-action-hints',
+        ),
+        child: ai == null
+            ? child!
+            : FortunePreparationHost(
+                controller: ai!.preparation,
+                child: child!,
+              ),
+      ),
     ),
     home: Builder(
       builder: (context) => CoffeeGuideGate(
+        bypass: guideStore == null,
         store:
             guideStore ??
             CoffeeGuideStore(
@@ -239,7 +251,7 @@ class OfflineContributionApp extends StatelessWidget {
               ? TarotHistoryPage(runtime: tarot!, embedded: true)
               : null,
           tarotPage: tarot != null
-              ? TarotHomePage(runtime: tarot!)
+              ? TarotHomePage(runtime: tarot!, embedded: true)
               : tarotError != null
               ? Center(
                   child: Padding(

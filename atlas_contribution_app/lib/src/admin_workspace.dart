@@ -1,3 +1,4 @@
+import 'atlas_button_artwork.dart';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -294,7 +295,7 @@ class _AdminWorkspaceState extends State<AdminWorkspace> {
                     'uncertain': 'Belirsiz',
                     'unsuitable': 'Uygun değil',
                   }.entries)
-                    ChoiceChip(
+                    atlasChoiceChip(
                       label: Text(e.value),
                       selected: outcome == e.key,
                       onSelected: busy

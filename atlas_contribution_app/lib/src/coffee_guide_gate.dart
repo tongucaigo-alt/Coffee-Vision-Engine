@@ -4,9 +4,15 @@ import 'coffee_guide_store.dart';
 
 /// One check per root-widget lifetime; resume/rebuild/navigation is not a launch.
 class CoffeeGuideGate extends StatefulWidget {
-  const CoffeeGuideGate({required this.store, required this.child, super.key});
+  const CoffeeGuideGate({
+    required this.store,
+    required this.child,
+    this.bypass = false,
+    super.key,
+  });
   final CoffeeGuideStore store;
   final Widget child;
+  final bool bypass;
 
   @override
   State<CoffeeGuideGate> createState() => _CoffeeGuideGateState();
@@ -20,7 +26,12 @@ class _CoffeeGuideGateState extends State<CoffeeGuideGate> {
   @override
   void initState() {
     super.initState();
-    _load();
+    if (widget.bypass) {
+      _show = false;
+      _state = const CoffeeGuideState();
+    } else {
+      _load();
+    }
   }
 
   Future<void> _load() async {

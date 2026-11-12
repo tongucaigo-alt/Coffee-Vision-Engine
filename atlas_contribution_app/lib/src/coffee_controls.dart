@@ -10,6 +10,7 @@ class CoffeeAction {
     this.tooltip,
     this.iconWidget,
     this.emphasized = false,
+    this.key,
   });
   final String label;
   final VoidCallback? onPressed;
@@ -17,6 +18,7 @@ class CoffeeAction {
   final String? tooltip;
   final Widget? iconWidget;
   final bool emphasized;
+  final Key? key;
 }
 
 class CoffeeSaucerAddIcon extends StatelessWidget {
@@ -129,12 +131,13 @@ class CoffeeActions extends StatelessWidget {
   Widget _button(CoffeeAction action) => Tooltip(
     message: action.tooltip ?? action.label,
     child: TextButton(
+      key: action.key,
       onPressed: action.onPressed,
       style: TextButton.styleFrom(
         minimumSize: const Size(48, 48),
         padding: EdgeInsets.symmetric(horizontal: compact ? 0 : 4, vertical: 8),
         textStyle: textStyle,
-        foregroundColor: atlasSageInk,
+        foregroundColor: atlasCoffee,
       ),
       child: action.icon != null
           ? Column(

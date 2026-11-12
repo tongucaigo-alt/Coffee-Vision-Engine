@@ -1,3 +1,5 @@
+import '../umay_guide_catalog.dart';
+import '../umay_guide_scope.dart';
 import 'package:flutter/material.dart';
 import 'ai_contract.dart';
 import 'ai_runtime.dart';
@@ -83,45 +85,51 @@ class _ContentReportButtonState extends State<ContentReportButton> {
       final confirmed = await showDialog<bool>(
         context: context,
         builder: (ctx) => StatefulBuilder(
-          builder: (ctx, update) => AlertDialog(
-            title: const Text('Bu yorumu bildir'),
-            content: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    'Yalnız aşağıdaki yorum ve seçtiğin neden Atlas bildirim hizmetine ($recipient) gönderilecek. Fotoğraf, yaş, burç ve diğer falların eklenmez.',
-                  ),
-                  DropdownButton<String>(
-                    value: reason,
-                    isExpanded: true,
-                    items: const [
-                      DropdownMenuItem(
-                        value: 'misleading',
-                        child: Text('Yanıltıcı yorum'),
-                      ),
-                      DropdownMenuItem(
-                        value: 'harmful',
-                        child: Text('Rahatsız edici içerik'),
-                      ),
-                      DropdownMenuItem(value: 'other', child: Text('Diğer')),
-                    ],
-                    onChanged: (value) => update(() => reason = value!),
-                  ),
-                  SelectableText(widget.text),
-                ],
+          builder: (ctx, update) => UmayGuideOnce(
+            id: 'report',
+            steps: umayReportSteps,
+            child: AlertDialog(
+              title: const Text('Bu yorumu bildir'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Yalnız aşağıdaki yorum ve seçtiğin neden Atlas bildirim hizmetine ($recipient) gönderilecek. Fotoğraf, yaş, burç ve diğer falların eklenmez.',
+                    ),
+                    DropdownButton<String>(
+                      key: const ValueKey('report-reason'),
+                      value: reason,
+                      isExpanded: true,
+                      items: const [
+                        DropdownMenuItem(
+                          value: 'misleading',
+                          child: Text('Yanıltıcı yorum'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'harmful',
+                          child: Text('Rahatsız edici içerik'),
+                        ),
+                        DropdownMenuItem(value: 'other', child: Text('Diğer')),
+                      ],
+                      onChanged: (value) => update(() => reason = value!),
+                    ),
+                    SelectableText(widget.text),
+                  ],
+                ),
               ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx, false),
+                  child: const Text('Vazgeç'),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx, true),
+                  key: const ValueKey('report-confirm'),
+                  child: const Text('Bildir'),
+                ),
+              ],
             ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx, false),
-                child: const Text('Vazgeç'),
-              ),
-              TextButton(
-                onPressed: () => Navigator.pop(ctx, true),
-                child: const Text('Bildir'),
-              ),
-            ],
           ),
         ),
       );
@@ -158,6 +166,7 @@ class _ContentReportButtonState extends State<ContentReportButton> {
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
       TextButton.icon(
+        key: ValueKey('content-report-${widget.contentId}'),
         onPressed: _busy || !widget.enabled ? null : _report,
         icon: const Icon(Icons.flag_outlined),
         label: Text(_busy ? 'Bildirim işleniyor…' : 'Bu yorumu bildir'),

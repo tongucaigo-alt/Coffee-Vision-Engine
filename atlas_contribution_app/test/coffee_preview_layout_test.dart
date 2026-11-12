@@ -103,16 +103,23 @@ void main({
       });
     }
   }
-  for (final width in capture == null ? [360.0, 412.0] : [360.0]) {
-    for (final scale in [1.0, 2.0]) {
+  for (final width in capture == null ? [360.0, 384.0, 412.0] : [360.0]) {
+    for (final scale in width == 384 ? [.9] : [1.0, 2.0]) {
       for (final gallery in capture == null ? [false, true] : [true]) {
         for (final count in [1, 3]) {
           testWidgets(
             'preview stages: $count ${gallery ? "gallery" : "camera"}, $width, $scale',
             (tester) async {
               if (!device) {
-                tester.view.physicalSize = Size(width, 700);
+                tester.view.physicalSize = Size(
+                  width,
+                  width == 384 ? 832 : 700,
+                );
                 tester.view.devicePixelRatio = 1;
+                if (width == 384) {
+                  tester.view.padding = const FakeViewPadding(top: 34);
+                  addTearDown(tester.view.resetPadding);
+                }
                 addTearDown(tester.view.resetPhysicalSize);
                 addTearDown(tester.view.resetDevicePixelRatio);
               }
@@ -151,9 +158,10 @@ void main({
                   builder: (context, child) => RepaintBoundary(
                     key: const ValueKey('coffee-test-surface'),
                     child: MediaQuery(
-                      data: MediaQuery.of(
-                        context,
-                      ).copyWith(textScaler: TextScaler.linear(scale)),
+                      data: MediaQuery.of(context).copyWith(
+                        textScaler: TextScaler.linear(scale),
+                        boldText: width == 384,
+                      ),
                       child: child!,
                     ),
                   ),
@@ -202,16 +210,15 @@ void main({
                     .style!
                     .backgroundColor!
                     .resolve({}),
-                atlasCard,
+                Colors.transparent,
               );
               expect(
                 tester
                     .widget<TextButton>(saucerButton)
                     .style!
                     .side!
-                    .resolve({})!
-                    .color,
-                atlasSage,
+                    .resolve({}),
+                BorderSide.none,
               );
               expect(find.byType(CoffeeSaucerAddIcon), findsOneWidget);
               expect(
@@ -222,11 +229,14 @@ void main({
               final measuredFrame = tester.getRect(
                 find.byKey(const ValueKey('coffee-photo-frame')),
               );
-              // V63 geometry stays fixed; the new header does not consume body space.
-              expect(measuredFrame, Rect.fromLTWH(16, 88, width - 32, 428));
+              expect(measuredFrame.left, 16);
+              expect(measuredFrame.right, width - 16);
+              expect(measuredFrame.bottom, width == 384 ? 648 : 516);
+              expect(measuredFrame.height, greaterThan(0));
+              expect(measuredFrame.top, greaterThan(88));
               expect(
                 tester.getRect(find.text('Fotoğraflarına Bak')).center.dy,
-                40,
+                width == 384 ? 74 : 40,
               );
               if (count < 3) {
                 final target = tester.getSize(find.byTooltip('Fotoğraf ekle'));
@@ -237,10 +247,16 @@ void main({
                       .widget<Text>(find.text('Fotoğraf ekle'))
                       .style!
                       .fontSize,
-                  9,
+                  13,
                 );
+                final add = tester.getRect(
+                  find.byKey(const ValueKey('coffee-add-photo')),
+                );
+                expect(add.bottom, lessThanOrEqualTo(measuredFrame.top - 8));
+                expect(add.left, greaterThanOrEqualTo(16));
+                expect(add.right, lessThanOrEqualTo(width - 16));
               }
-              if (scale == 1) {
+              if (scale <= 1) {
                 frames[frameKey] = measuredFrame;
               } else {
                 expect(measuredFrame, frames[frameKey]);
@@ -264,7 +280,24 @@ void main({
                 final title = tester.getRect(find.text('Fotoğraflarına Bak'));
                 expect(angleText.top, greaterThanOrEqualTo(title.bottom));
                 expect(angleText.bottom, lessThanOrEqualTo(measuredFrame.top));
-                expect(tester.getRect(angle).left, greaterThanOrEqualTo(56));
+                expect(tester.getRect(angle).left, greaterThanOrEqualTo(16));
+                expect(
+                  tester.widget<Text>(find.text('Açı seç')).style!.fontSize,
+                  14,
+                );
+                if (count < 3) {
+                  final add = tester.getRect(
+                    find.byKey(const ValueKey('coffee-add-photo')),
+                  );
+                  expect(
+                    tester.getRect(angle).center.dy,
+                    closeTo(add.center.dy, .01),
+                  );
+                  expect(
+                    tester.getRect(angle).right,
+                    lessThanOrEqualTo(add.left - 7.9),
+                  );
+                }
                 await tester.tap(angle);
                 await tester.pumpAndSettle();
                 final menu = find
@@ -312,8 +345,11 @@ void main({
                 final mode = tester.getRect(
                   find.byKey(const ValueKey('coffee-mode-control')),
                 );
-                expect(mode.bottom, lessThanOrEqualTo(previewFrame.top));
-                expect(mode.left, 56);
+                final annotationFrame = tester.getRect(
+                  find.byKey(const ValueKey('coffee-photo-frame')),
+                );
+                expect(mode.bottom, lessThanOrEqualTo(annotationFrame.top));
+                expect(mode.left, 16);
                 expect(
                   mode.overlaps(tester.getRect(find.byType(BackButton))),
                   false,
@@ -326,18 +362,35 @@ void main({
                 );
                 expect(
                   tester.getRect(find.text('Sen ne görüyorsun?')).center.dy,
-                  40,
+                  width == 384 ? 74 : 40,
                 );
                 final fit = tester.getSize(find.byTooltip('Fotoğrafı sığdır'));
                 expect(fit.width, greaterThanOrEqualTo(48));
                 expect(fit.height, greaterThanOrEqualTo(48));
                 expect(
-                  tester.getRect(
-                    find.byKey(const ValueKey('coffee-photo-frame')),
-                  ),
-                  previewFrame,
+                  (annotationFrame.topLeft - previewFrame.topLeft).distance,
+                  lessThan(.01),
                 );
-                expect(tester.getRect(find.byType(CroppedPhoto)), previewImage);
+                expect(
+                  (annotationFrame.bottomRight - previewFrame.bottomRight)
+                      .distance,
+                  lessThan(.01),
+                );
+                final imageAfter = tester.getRect(find.byType(CroppedPhoto));
+                expect(
+                  imageAfter.size.aspectRatio,
+                  closeTo(previewImage.size.aspectRatio, .01),
+                );
+                expect(imageAfter.height, greaterThan(0));
+                expect(
+                  (imageAfter.topLeft - previewImage.topLeft).distance,
+                  lessThan(.01),
+                );
+                expect(
+                  (imageAfter.bottomRight - previewImage.bottomRight).distance,
+                  lessThan(.01),
+                );
+                expect(annotationFrame.contains(imageAfter.center), isTrue);
                 expect(find.text('Tabaksız devam et'), findsNothing);
                 await tester.pageBack();
                 await tester.pumpAndSettle();

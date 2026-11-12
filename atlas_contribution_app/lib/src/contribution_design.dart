@@ -135,6 +135,7 @@ extension _AtlasHomePresentation on _ContributionHomeState {
           _saveActions(!disabled || _savePhase == _SavePhase.failed)
         else ...[
           AtlasPrimaryButton(
+            key: const ValueKey('coffee-review-continue'),
             onPressed: disabled || !draft.cupsComplete
                 ? null
                 : draft.isSet
@@ -288,23 +289,29 @@ extension _AtlasHomePresentation on _ContributionHomeState {
     final generate = await Navigator.push<bool>(
       context,
       MaterialPageRoute<bool>(
-        builder: (_) => AnnotationSequence(
-          photos: draft.photos,
-          canGenerate: _fortunePhotosReady,
-          initialFocus: initialFocus,
-          onFocusChanged: widget.onReadingFocusChanged == null
-              ? null
-              : (focus) => widget.onReadingFocusChanged!(draft.rootId, focus),
-          loadTraces: widget.loadAnnotationTraces == null
-              ? null
-              : () => widget.loadAnnotationTraces!(draft),
-          onTraceShown: widget.onAnnotationTraceShown == null
-              ? null
-              : (photo) => widget.onAnnotationTraceShown!(draft, photo),
-          imageFor: (p) => FileImage(widget.store.file(p.localName)),
-          onSave: (p) async {
-            await _save(_draft!.withPhoto(p));
-          },
+        builder: (_) => UmayGuideOnce(
+          id: 'annotation',
+          steps: umayAnnotationSteps,
+          lessonBuilder: (presented, finish) =>
+              UmayAnnotationGuide(onPresented: presented, onFinish: finish),
+          child: AnnotationSequence(
+            photos: draft.photos,
+            canGenerate: _fortunePhotosReady,
+            initialFocus: initialFocus,
+            onFocusChanged: widget.onReadingFocusChanged == null
+                ? null
+                : (focus) => widget.onReadingFocusChanged!(draft.rootId, focus),
+            loadTraces: widget.loadAnnotationTraces == null
+                ? null
+                : () => widget.loadAnnotationTraces!(draft),
+            onTraceShown: widget.onAnnotationTraceShown == null
+                ? null
+                : (photo) => widget.onAnnotationTraceShown!(draft, photo),
+            imageFor: (p) => FileImage(widget.store.file(p.localName)),
+            onSave: (p) async {
+              await _save(_draft!.withPhoto(p));
+            },
+          ),
         ),
       ),
     );
@@ -354,9 +361,15 @@ extension _AtlasHomePresentation on _ContributionHomeState {
     });
   }
 
-  Widget _buildAtlas() {
+  Widget _buildAtlasContent() {
     final inFlow = _flowOpen && _draft != null;
-    return PopScope(
+    final home = !inFlow && (_tab == 0 || (_hasTarot && _tab == 1));
+    final theme = home
+        ? atlasOriginalButtonTheme(Theme.of(context))
+        : inFlow
+        ? coffeeFlowTheme(Theme.of(context))
+        : Theme.of(context);
+    final content = PopScope(
       canPop: !inFlow && _tab == 0 && widget.preparation?.active != true,
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop && widget.preparation?.active == true) {
@@ -371,57 +384,76 @@ extension _AtlasHomePresentation on _ContributionHomeState {
         }
       },
       child: Theme(
-        data: (inFlow ? coffeeFlowTheme(Theme.of(context)) : Theme.of(context))
-            .copyWith(
-              snackBarTheme: inFlow
-                  ? Theme.of(context).snackBarTheme.copyWith(
-                      behavior: SnackBarBehavior.floating,
-                      insetPadding: EdgeInsets.fromLTRB(
-                        16,
-                        0,
-                        16,
-                        MediaQuery.sizeOf(context).height * .4,
-                      ),
-                    )
-                  : !inFlow && _tab == 0
-                  ? Theme.of(context).snackBarTheme.copyWith(
-                      behavior: SnackBarBehavior.floating,
-                      insetPadding: EdgeInsets.fromLTRB(
-                        16,
-                        0,
-                        16,
-                        MediaQuery.textScalerOf(context).scale(16) > 22 ||
-                                MediaQuery.sizeOf(context).height < 800
-                            ? 184
-                            : 224,
-                      ),
-                    )
-                  : Theme.of(context).snackBarTheme,
-            ),
+        data: theme.copyWith(
+          snackBarTheme: inFlow
+              ? Theme.of(context).snackBarTheme.copyWith(
+                  behavior: SnackBarBehavior.floating,
+                  insetPadding: EdgeInsets.fromLTRB(
+                    16,
+                    0,
+                    16,
+                    MediaQuery.sizeOf(context).height * .4,
+                  ),
+                )
+              : !inFlow && _tab == 0
+              ? Theme.of(context).snackBarTheme.copyWith(
+                  behavior: SnackBarBehavior.floating,
+                  insetPadding: EdgeInsets.fromLTRB(
+                    16,
+                    0,
+                    16,
+                    MediaQuery.textScalerOf(context).scale(16) > 22 ||
+                            MediaQuery.sizeOf(context).height < 800
+                        ? 184
+                        : 224,
+                  ),
+                )
+              : Theme.of(context).snackBarTheme,
+        ),
         child: AtlasAtmosphereSurface(
           scene: inFlow ? AtlasAtmosphereScene.coffeePhoto : null,
           child: Scaffold(
             appBar: AppBar(
               automaticallyImplyLeading: false,
               toolbarHeight: inFlow
-                  ? CoffeePhotoLayout.toolbarHeight
+                  ? CoffeePhotoLayout.annotationHeader(
+                      MediaQuery.sizeOf(context).width,
+                    ).toolbarHeight
                   : _tab == 0 || (_hasTarot && _tab == 1)
                   ? 72
                   : null,
               flexibleSpace: inFlow ? _coffeeAngleHeader() : null,
               leading: inFlow
-                  ? IconButton(
-                      tooltip: 'Ana sayfaya dön',
-                      onPressed: _atlasBusy
-                          ? null
-                          : () => _change(() => _flowOpen = false),
-                      icon: const Icon(Icons.arrow_back),
+                  ? Align(
+                      alignment: Alignment.topCenter,
+                      child: Padding(
+                        padding: const EdgeInsets.only(top: 16),
+                        child: SizedBox(
+                          height: 48,
+                          child: IconButton(
+                            tooltip: 'Ana sayfaya d\u00f6n',
+                            onPressed: _atlasBusy
+                                ? null
+                                : () => _change(() => _flowOpen = false),
+                            icon: const Icon(Icons.arrow_back),
+                          ),
+                        ),
+                      ),
                     )
                   : null,
               title: inFlow
-                  ? const Text(
-                      'Fotoğraflarına Bak',
-                      style: TextStyle(fontFamily: 'Literata', fontSize: 18),
+                  ? Padding(
+                      padding: EdgeInsets.only(
+                        bottom:
+                            CoffeePhotoLayout.annotationHeader(
+                              MediaQuery.sizeOf(context).width,
+                            ).toolbarHeight -
+                            80,
+                      ),
+                      child: const Text(
+                        'Foto\u011fraflar\u0131na Bak',
+                        style: TextStyle(fontFamily: 'Literata', fontSize: 18),
+                      ),
                     )
                   : _tab == 0 || (_hasTarot && _tab == 1)
                   ? Row(
@@ -466,6 +498,7 @@ extension _AtlasHomePresentation on _ContributionHomeState {
                       Padding(
                         padding: const EdgeInsets.only(right: 16),
                         child: IconButton.filled(
+                          key: const ValueKey('atlas-profile'),
                           tooltip: 'Bilgilerim',
                           onPressed: _atlasBusy
                               ? null
@@ -533,15 +566,18 @@ extension _AtlasHomePresentation on _ContributionHomeState {
                               ),
                               if (_hasTarot)
                                 const NavigationDestination(
+                                  key: ValueKey('atlas-nav-tarot'),
                                   icon: Icon(Icons.style_outlined),
                                   selectedIcon: Icon(Icons.style),
                                   label: 'Tarot',
                                 ),
                               const NavigationDestination(
+                                key: ValueKey('atlas-nav-records'),
                                 icon: Icon(Icons.history),
                                 label: 'Kayıtlarım',
                               ),
                               const NavigationDestination(
+                                key: ValueKey('atlas-nav-settings'),
                                 icon: Icon(Icons.settings_outlined),
                                 label: 'Ayarlar',
                               ),
@@ -566,6 +602,7 @@ extension _AtlasHomePresentation on _ContributionHomeState {
         ),
       ),
     );
+    return content;
   }
 
   Widget _atlasRecords() {
@@ -597,14 +634,37 @@ extension _AtlasHomePresentation on _ContributionHomeState {
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-          child: SegmentedButton<int>(
-            segments: const [
-              ButtonSegment(value: 0, label: Text('Kahve')),
-              ButtonSegment(value: 1, label: Text('Tarot')),
-            ],
-            selected: {_recordsSection},
-            onSelectionChanged: (value) =>
-                _change(() => _recordsSection = value.single),
+          child: AtlasOriginalButtons(
+            child: SegmentedButton<int>(
+              key: const ValueKey('history-kind-tabs'),
+              showSelectedIcon: false,
+              style: ButtonStyle(
+                padding: const WidgetStatePropertyAll(EdgeInsets.zero),
+                backgroundColor: const WidgetStatePropertyAll(
+                  Colors.transparent,
+                ),
+                overlayColor: const WidgetStatePropertyAll(Colors.transparent),
+                side: const WidgetStatePropertyAll(BorderSide.none),
+                foregroundColor: WidgetStateProperty.resolveWith(
+                  (states) => states.contains(WidgetState.selected)
+                      ? atlasCream
+                      : atlasCoffee,
+                ),
+              ),
+              segments: [
+                for (var i = 0; i < 2; i++)
+                  ButtonSegment(
+                    value: i,
+                    label: AtlasSelectionFace(
+                      selected: _recordsSection == i,
+                      child: Text(i == 0 ? 'Kahve' : 'Tarot'),
+                    ),
+                  ),
+              ],
+              selected: {_recordsSection},
+              onSelectionChanged: (value) =>
+                  _change(() => _recordsSection = value.single),
+            ),
           ),
         ),
         Expanded(
@@ -721,7 +781,8 @@ extension _AtlasHomePresentation on _ContributionHomeState {
       const SizedBox(height: 8),
       if (widget.onOpenGuide != null) ...[
         _atlasSettingsItem(
-          onPressed: _atlasBusy ? null : widget.onOpenGuide,
+          guideKey: 'settings-guide',
+          onPressed: _atlasBusy ? null : _openUmayGuides,
           icon: Icons.menu_book_outlined,
           label: 'Kullanım Rehberi',
         ),
@@ -729,6 +790,7 @@ extension _AtlasHomePresentation on _ContributionHomeState {
       ],
       if (widget.onAiSettings != null) ...[
         _atlasSettingsItem(
+          guideKey: 'settings-connection',
           onPressed: _atlasBusy ? null : widget.onAiSettings,
           icon: Icons.science_outlined,
           label: playTestEnabled
@@ -757,6 +819,11 @@ extension _AtlasHomePresentation on _ContributionHomeState {
         (Icons.help_outline, 'Destek'),
       ])
         _atlasSettingsItem(
+          guideKey: item.$2 == 'Gizlilik Politikası'
+              ? 'settings-privacy'
+              : item.$2 == 'Destek'
+              ? 'settings-support'
+              : 'settings-report',
           icon: item.$1,
           label: item.$2,
           onPressed: () => _atlasPlaceholderInfo(item.$2),
@@ -769,9 +836,11 @@ extension _AtlasHomePresentation on _ContributionHomeState {
     required IconData icon,
     required String label,
     String? description,
+    String? guideKey,
     required VoidCallback? onPressed,
   }) => Card(
     child: ListTile(
+      key: guideKey == null ? null : ValueKey(guideKey),
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
       leading: Container(
@@ -891,27 +960,31 @@ extension _AtlasHistoryPresentation on _ContributionHistoryState {
             for (var i = 0; i < 4; i++)
               Padding(
                 padding: const EdgeInsets.only(right: 6),
-                child: TextButton(
-                  style: TextButton.styleFrom(
-                    minimumSize: const Size(48, 48),
-                    padding: const EdgeInsets.symmetric(horizontal: 14),
-                    backgroundColor: _filter == i
-                        ? atlasCoffee
-                        : Colors.transparent,
-                    foregroundColor: _filter == i ? atlasCream : atlasMuted,
-                    textStyle: const TextStyle(
-                      fontFamily: 'Plus Jakarta Sans',
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
+                child: AtlasOriginalButtons(
+                  child: TextButton(
+                    key: ValueKey('history-filter-$i'),
+                    style: TextButton.styleFrom(
+                      minimumSize: const Size(48, 48),
+                      padding: EdgeInsets.zero,
+                      backgroundColor: Colors.transparent,
+                      foregroundColor: _filter == i ? atlasCream : atlasMuted,
+                      textStyle: const TextStyle(
+                        fontFamily: 'Plus Jakarta Sans',
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      shape: const StadiumBorder(),
                     ),
-                    shape: const StadiumBorder(),
-                  ),
-                  isSemanticButton: true,
-                  onPressed: () => _changeFilter(i),
-                  child: Semantics(
-                    selected: _filter == i,
-                    child: Text(
-                      ['Tümü', 'Kayıtlı', 'Taslaklar', 'Yıldızlılar'][i],
+                    isSemanticButton: true,
+                    onPressed: () => _changeFilter(i),
+                    child: Semantics(
+                      selected: _filter == i,
+                      child: AtlasSelectionFace(
+                        selected: _filter == i,
+                        child: Text(
+                          ['Tümü', 'Kayıtlı', 'Taslaklar', 'Yıldızlılar'][i],
+                        ),
+                      ),
                     ),
                   ),
                 ),

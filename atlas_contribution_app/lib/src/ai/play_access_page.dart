@@ -1,3 +1,5 @@
+import '../umay_guide_catalog.dart';
+import '../umay_guide_scope.dart';
 import 'package:flutter/material.dart';
 import 'ai_contract.dart';
 import 'ai_runtime.dart';
@@ -106,7 +108,14 @@ class _PlayAccessPageState extends State<PlayAccessPage> {
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
+  Widget build(BuildContext context) => UmayGuideOnce(
+    id: 'connection',
+    steps: umayAccessSteps,
+    ready: !_busy,
+    child: _buildAccess(context),
+  );
+
+  Widget _buildAccess(BuildContext context) => Scaffold(
     appBar: AppBar(title: const Text('Atlas Test Bağlantısı')),
     body: ListView(
       padding: const EdgeInsets.all(20),
@@ -116,6 +125,7 @@ class _PlayAccessPageState extends State<PlayAccessPage> {
         ),
         const SizedBox(height: 20),
         TextField(
+          key: const ValueKey('access-address'),
           controller: _address,
           enabled: !_busy,
           keyboardType: TextInputType.url,
@@ -124,6 +134,7 @@ class _PlayAccessPageState extends State<PlayAccessPage> {
         ),
         const SizedBox(height: 16),
         TextField(
+          key: const ValueKey('access-code'),
           controller: _code,
           enabled: !_busy,
           obscureText: true,
@@ -133,6 +144,7 @@ class _PlayAccessPageState extends State<PlayAccessPage> {
         ),
         const SizedBox(height: 16),
         FilledButton(
+          key: const ValueKey('access-save'),
           onPressed: _busy ? null : _save,
           child: const Text('Bağlantıyı Kaydet'),
         ),

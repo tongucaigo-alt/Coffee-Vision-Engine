@@ -1,5 +1,8 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'atlas_design.dart';
+import 'atlas_button_artwork.dart';
 import 'atlas_atmosphere.dart';
 import 'coffee_controls.dart';
 import 'models.dart';
@@ -20,6 +23,43 @@ class CoffeePhotoLayout extends StatelessWidget {
   });
   final Widget photo, tools, footer;
   static const toolbarHeight = 80.0;
+  static const topicArtworkWidth = 69.0;
+  static const topicArtworkHeight = 62.0;
+
+  /// Shared header space keeps preview and annotation photographs identical.
+  static ({
+    double modeWidth,
+    double topicWidth,
+    double rowHeight,
+    double modeHeight,
+    double topicHeight,
+    bool wrapped,
+    double toolbarHeight,
+  })
+  annotationHeader(double width) {
+    final available = math.max(96.0, width - 32);
+    // These PNGs contain their own lettering, just like the unchanged home
+    // artwork. Keep their original proportions and use native semantic labels.
+    final modeWidth = math.min(128.0, available) / 2;
+    final topicWidth = math.min(48.0, (available - 8) / 3);
+    final modeHeight = modeWidth * 2 * 59 / 113;
+    const topicHeight = topicArtworkHeight;
+    final rowHeight = math.max(48.0, math.max(modeHeight, topicHeight));
+    // Preserve the approved photo geometry while tightening only the targets.
+    final wrapped = modeWidth * 2 + 8 + topicArtworkWidth * 3 + 8 > available;
+    return (
+      modeWidth: modeWidth,
+      topicWidth: topicWidth,
+      rowHeight: rowHeight,
+      modeHeight: modeHeight,
+      topicHeight: topicHeight,
+      wrapped: wrapped,
+      // Reserve the complete PNG, including its transparent rim and shadow,
+      // then a separate gap before the photograph.
+      toolbarHeight: 64 + rowHeight * (wrapped ? 2 : 1) + 16,
+    );
+  }
+
   @override
   Widget build(BuildContext context) => Padding(
     padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -103,7 +143,7 @@ class CoffeeOverlayButton extends StatelessWidget {
     required this.onPressed,
     required this.tooltip,
     this.selected,
-    this.foregroundColor = atlasSageInk,
+    this.foregroundColor = atlasCoffee,
     super.key,
   });
   final Widget child;
@@ -121,25 +161,21 @@ class CoffeeOverlayButton extends StatelessWidget {
     excludeSemantics: true,
     child: Tooltip(
       message: tooltip,
-      child: TextButton(
-        onPressed: onPressed,
-        style: TextButton.styleFrom(
-          minimumSize: const Size(48, 48),
-          padding: EdgeInsets.zero,
-          foregroundColor: foregroundColor,
-          textStyle: const TextStyle(
-            fontFamily: 'Plus Jakarta Sans',
-            fontSize: 9,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        child: Material(
-          color: selected == true ? atlasSageSurface : atlasCard,
-          elevation: 2,
-          shadowColor: atlasCoffee.withValues(alpha: .2),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-            side: const BorderSide(color: atlasBorder),
+      child: AtlasButtonCaption(
+        label: child,
+        child: TextButton(
+          onPressed: onPressed,
+          style: TextButton.styleFrom(
+            minimumSize: const Size(48, 48),
+            padding: EdgeInsets.zero,
+            foregroundColor: selected == true ? atlasCard : foregroundColor,
+            backgroundColor: Colors.transparent,
+            side: BorderSide.none,
+            textStyle: const TextStyle(
+              fontFamily: 'Plus Jakarta Sans',
+              fontSize: 9,
+              fontWeight: FontWeight.w600,
+            ),
           ),
           child: DefaultTextStyle.merge(
             style: TextStyle(
@@ -148,6 +184,8 @@ class CoffeeOverlayButton extends StatelessWidget {
               fontWeight: FontWeight.w600,
               color: onPressed == null
                   ? Theme.of(context).disabledColor
+                  : selected == true
+                  ? atlasCard
                   : foregroundColor,
             ),
             child: Padding(
@@ -191,18 +229,14 @@ class CoffeeActionStrip extends StatelessWidget {
       Widget button(CoffeeAction a) => Tooltip(
         message: a.tooltip ?? a.label,
         child: TextButton(
+          key: a.key,
           onPressed: a.onPressed,
           style: TextButton.styleFrom(
             minimumSize: const Size(48, 48),
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            foregroundColor: atlasSageInk,
-            backgroundColor: a.emphasized ? atlasCard : null,
-            side: a.emphasized ? const BorderSide(color: atlasSage) : null,
-            shape: a.emphasized
-                ? RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  )
-                : null,
+            foregroundColor: atlasCoffee,
+            backgroundColor: Colors.transparent,
+            side: BorderSide.none,
             textStyle: textStyle,
           ),
           child: above && a.icon != null

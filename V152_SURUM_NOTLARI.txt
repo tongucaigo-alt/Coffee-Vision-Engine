@@ -1,0 +1,22 @@
+Atlas V152 - Onaylanan tus tasarimi ve secim duzeni
+13 Kasim 2026
+
+GitHub temeli: codex/atlas-short-fortune-v131, 42e60850b6dead3af21d60ea54b4a8a542edef68.
+Bu kaynak, telefonda onaylanan V152 uygulamasini ve V141 Umay rehberlerini birlikte tasir. Kahve ve Tarot ana ekranlarindaki onayli tuslar korunur.
+
+- Kullanicinin sagladigi ozgun 1x/2x/3x tus PNG'leri kullanilir (63 dosya).
+- Fotograf ekleme, aci secimi, Tasi/Isaret ve kayit/Tarot secim duzenlemeleri korunur.
+- Ask, Is, Para sagda yan yana ve daha dar araliklidir.
+- Sembol secimi uygulamanin krem rengiyle uyumludur.
+- Bu alani sec, secim beklerken fotograf cercevesinin altinda daha kucuk gorunur; sembol kaydedilince normal islem tusu geri gelir.
+- Fotograf boyutu ve cercevesi korunur.
+- Knowledge dataset ham baytlari ve butunluk kontrolu korunur; CRLF donusumu engellenir.
+- Umay ilk kullanim rehberleri ve kamera sunum katmaninin public disa aktarimi dahildir.
+
+Dogrulama:
+V152: 152 ilgili test basarili; Flutter analizi temiz; diagnostic APK derlendi ve fiziksel telefonda goruntuler kontrol edildi. Kurulum uygulama kaldirilmadan yapildi; kurulumda asil gecmis ve taslak korundu. Gorsel kontrolde 916 dosyanin tamami degismedi.
+V151: ilgili 104 test ve kamera sunumu 12 test; V150 tam guvenli grupta 861 basarili, 15 atlanan. Bu sayilar farkli surumlerdeki ortusen gruplardir, toplanmamalidir.
+V152 kontrolunde ucretli AI istegi baslatilmadi.
+
+Yeniden derleme: Flutter 3.44.6; hedef lib/offline_main.dart; --build-number=152 --build-name=1.0.0-kimi-test.152. Diagnostic derlemede ATLAS_DIAGNOSTIC, ATLAS_AI_LAB, ATLAS_IMAGE_SCREEN ve ATLAS_KIMI_LOCAL_TEST true olarak kullanildi. Gizli dart-define ayarlari depoda bulunmaz. pubspec genel paket surumu derleme sirasinda bu bayraklarla gecersiz kilinir.
+APK, imza anahtarlari, telefon ekran goruntuleri, kullanici fotograflari/kayitlari ve ozel baglanti ayarlari kaynak yayininin disindadir.

@@ -200,10 +200,18 @@ extension _PhotoSetFlow on _ContributionHomeState {
 
   Widget? _coffeeAngleHeader() {
     final draft = _draft;
-    if (draft == null || !draft.isSet || draft.photos.isEmpty) return null;
-    final p = draft.photos[_previewIndex.clamp(0, draft.photos.length - 1)];
-    if (p.surface != PhotoSurface.cup || p.origin != 'gallery') return null;
-    final angle = p.angle == CaptureRole.top ? CaptureRole.free : p.angle;
+    if (draft == null) return null;
+    final p = draft.photos.isEmpty
+        ? null
+        : draft.photos[_previewIndex.clamp(0, draft.photos.length - 1)];
+    final showAngle =
+        draft.isSet &&
+        p != null &&
+        p.surface == PhotoSurface.cup &&
+        p.origin == 'gallery';
+    final showAdd = draft.cups.length < 3;
+    if (!showAngle && !showAdd) return null;
+    final angle = p?.angle == CaptureRole.top ? CaptureRole.free : p?.angle;
     return LayoutBuilder(
       builder: (context, box) {
         final scale = (MediaQuery.textScalerOf(context).scale(14) / 14).clamp(
@@ -211,86 +219,125 @@ extension _PhotoSetFlow on _ContributionHomeState {
           2.0,
         );
         final menuWidth = (280 * scale).clamp(0.0, box.maxWidth - 32);
-        final targetWidth = (180 * scale).clamp(0.0, box.maxWidth - 112);
-        return Stack(
-          clipBehavior: Clip.none,
-          children: [
-            Positioned(
-              bottom: -4,
-              left: (box.maxWidth - targetWidth) / 2,
-              width: targetWidth,
-              height: 48,
-              child: PopupMenuButton<String>(
-                key: const ValueKey('coffee-angle-control'),
-                enabled: !_atlasBusy && !draft.queued,
-                tooltip: 'Fotoğrafın açısı — isteğe bağlı',
-                padding: EdgeInsets.zero,
-                position: PopupMenuPosition.under,
-                offset: Offset((targetWidth - menuWidth) / 2, 0),
-                constraints: BoxConstraints(
-                  minWidth: menuWidth,
-                  maxWidth: menuWidth,
-                ),
-                onSelected: (value) => _setAngle(p, value),
-                itemBuilder: (_) => [
-                  const PopupMenuItem(
-                    value: 'unknown',
-                    child: Text('Açı seç — isteğe bağlı'),
-                  ),
-                  for (final value in freeCaptureRoles)
-                    if (angle == value ||
-                        !draft.cups.any(
-                          (q) =>
-                              q.id != p.id &&
-                              (q.angle == CaptureRole.top
-                                      ? CaptureRole.free
-                                      : q.angle) ==
-                                  value,
-                        ))
-                      PopupMenuItem(
-                        value: value.name,
-                        child: Text(value.title),
-                      ),
-                ],
-                child: Align(
-                  alignment: Alignment.bottomCenter,
-                  child: Material(
-                    color: atlasCard,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      side: const BorderSide(color: atlasBorder),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 6,
-                        vertical: 1,
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            angle?.title ?? 'Açı seç',
-                            style: const TextStyle(
-                              fontFamily: 'Plus Jakarta Sans',
-                              fontSize: 12,
-                              height: 1,
-                              color: atlasCoffee,
+        final paired = showAngle && showAdd;
+        final groupWidth = paired
+            ? box.maxWidth - 32
+            : 184.0.clamp(0.0, box.maxWidth - 32);
+        final angleLeft = (box.maxWidth - groupWidth) / 2;
+        final layout = CoffeePhotoLayout.annotationHeader(box.maxWidth);
+        return SafeArea(
+          bottom: false,
+          child: AtlasOriginalButtons(
+            child: Align(
+              alignment: Alignment.topCenter,
+              child: Padding(
+                padding: const EdgeInsets.only(top: 64),
+                child: SizedBox(
+                  width: groupWidth,
+                  height: layout.rowHeight + 12,
+                  child: Row(
+                    children: [
+                      if (showAngle)
+                        Expanded(
+                          child: PopupMenuButton<String>(
+                            key: const ValueKey('coffee-angle-control'),
+                            enabled: !_atlasBusy && !draft.queued,
+                            tooltip:
+                                'Foto\u011fraf\u0131n a\u00e7\u0131s\u0131 \u2014 iste\u011fe ba\u011fl\u0131',
+                            padding: EdgeInsets.zero,
+                            position: PopupMenuPosition.under,
+                            offset: Offset(
+                              (box.maxWidth - menuWidth) / 2 - angleLeft,
+                              0,
+                            ),
+                            constraints: BoxConstraints(
+                              minWidth: menuWidth,
+                              maxWidth: menuWidth,
+                            ),
+                            onSelected: (value) => _setAngle(p, value),
+                            itemBuilder: (_) => [
+                              const PopupMenuItem(
+                                value: 'unknown',
+                                child: Text('Açı seç — isteğe bağlı'),
+                              ),
+                              for (final value in freeCaptureRoles)
+                                if (angle == value ||
+                                    !draft.cups.any(
+                                      (q) =>
+                                          q.id != p.id &&
+                                          (q.angle == CaptureRole.top
+                                                  ? CaptureRole.free
+                                                  : q.angle) ==
+                                              value,
+                                    ))
+                                  PopupMenuItem(
+                                    value: value.name,
+                                    child: Text(value.title),
+                                  ),
+                            ],
+                            child: AtlasPhotoHeaderFace(
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    angle?.title ?? 'A\u00e7\u0131 se\u00e7',
+                                    style: const TextStyle(
+                                      fontFamily: 'Plus Jakarta Sans',
+                                      fontSize: 14,
+                                      height: 1.1,
+                                      fontWeight: FontWeight.w600,
+                                      color: atlasCoffee,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  const Icon(
+                                    Icons.arrow_drop_down,
+                                    size: 18,
+                                    color: atlasCoffee,
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
-                          const SizedBox(width: 4),
-                          const Icon(
-                            Icons.arrow_drop_down,
-                            size: 14,
-                            color: atlasCoffee,
+                        ),
+                      if (paired) const SizedBox(width: 8),
+                      if (showAdd)
+                        Expanded(
+                          child: Tooltip(
+                            message: 'Foto\u011fraf ekle',
+                            child: TextButton(
+                              key: const ValueKey('coffee-add-photo'),
+                              onPressed: _atlasBusy || draft.queued
+                                  ? null
+                                  : draft.isGallery
+                                  ? _setGallery
+                                  : () => _continueAtlasCapture(
+                                      addRemaining: true,
+                                    ),
+                              style: TextButton.styleFrom(
+                                padding: EdgeInsets.zero,
+                                minimumSize: const Size(48, 48),
+                                backgroundColor: Colors.transparent,
+                                foregroundColor: atlasCoffee,
+                                overlayColor: Colors.transparent,
+                                side: BorderSide.none,
+                              ),
+                              child: const AtlasPhotoHeaderFace(
+                                artwork: 'fotograf_ekle',
+                                child: Text(
+                                  'Foto\u011fraf ekle',
+                                  style: TextStyle(fontSize: 13),
+                                ),
+                              ),
+                            ),
                           ),
-                        ],
-                      ),
-                    ),
+                        ),
+                    ],
                   ),
                 ),
               ),
             ),
-          ],
+          ),
         );
       },
     );
@@ -347,27 +394,6 @@ extension _PhotoSetFlow on _ContributionHomeState {
                     : (i) => _change(() => _previewIndex = i),
                 overlay: true,
                 bottomInset: navBottom,
-              ),
-            ),
-          if (draft.cups.length < 3)
-            Positioned(
-              top: 8,
-              right: 8,
-              child: CoffeeOverlayButton(
-                tooltip: 'Fotoğraf ekle',
-                onPressed: _atlasBusy || draft.queued
-                    ? null
-                    : draft.isGallery
-                    ? _setGallery
-                    : () => _continueAtlasCapture(addRemaining: true),
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.add_photo_alternate_outlined, size: 18),
-                    SizedBox(width: 4),
-                    Text('Fotoğraf ekle', style: TextStyle(fontSize: 9)),
-                  ],
-                ),
               ),
             ),
           if (phase.isNotEmpty)
@@ -513,6 +539,7 @@ extension _PhotoSetFlow on _ContributionHomeState {
                   }
                 },
           icon: Icons.refresh,
+          key: const ValueKey('coffee-replace-photo'),
           tooltip: p.surface == PhotoSurface.saucer
               ? 'Tabak fotoğrafını değiştir'
               : 'Fotoğrafı değiştir',
@@ -524,11 +551,13 @@ extension _PhotoSetFlow on _ContributionHomeState {
             icon: Icons.add_circle_outline,
             iconWidget: const CoffeeSaucerAddIcon(),
             emphasized: true,
+            key: const ValueKey('coffee-add-saucer'),
             tooltip: 'Tabak fotoğrafı ekle',
           ),
         CoffeeAction(
           'Kaldır',
           disabled ? null : () => _removeSetPhoto(p),
+          key: const ValueKey('coffee-remove-photo'),
           icon: Icons.remove_circle_outline,
         ),
       ],

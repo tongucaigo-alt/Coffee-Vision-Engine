@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'umay_guide_scope.dart';
+import 'umay_guide_catalog.dart';
 import 'package:flutter/services.dart';
 
 class SupportConfiguration {
@@ -98,7 +100,13 @@ class _PrivacySupportPageState extends State<PrivacySupportPage> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => UmayGuideOnce(
+    id: widget.support ? 'support' : 'privacy',
+    steps: widget.support ? umaySupportSteps : umayPrivacySteps,
+    child: _buildContent(context),
+  );
+
+  Widget _buildContent(BuildContext context) {
     final config = widget.configuration;
     final uri = widget.support
         ? config.contact
@@ -108,6 +116,7 @@ class _PrivacySupportPageState extends State<PrivacySupportPage> {
         title: Text(widget.support ? 'Destek' : 'Gizlilik Politikası'),
       ),
       body: ListView(
+        key: ValueKey(widget.support ? 'support-content' : 'privacy-content'),
         padding: const EdgeInsets.all(20),
         children: [
           if (config.operatorName.trim().isNotEmpty)
@@ -115,6 +124,7 @@ class _PrivacySupportPageState extends State<PrivacySupportPage> {
           if (!widget.support) ...[
             const Text(
               'Atlas — veri kullanımı ve gizlilik',
+              key: ValueKey('privacy-heading'),
               style: TextStyle(fontSize: 22),
             ),
             const SizedBox(height: 12),
@@ -133,6 +143,7 @@ class _PrivacySupportPageState extends State<PrivacySupportPage> {
           ] else ...[
             const Text(
               'Yardım ve geri bildirim',
+              key: ValueKey('support-heading'),
               style: TextStyle(fontSize: 22),
             ),
             const SizedBox(height: 12),
@@ -149,6 +160,7 @@ class _PrivacySupportPageState extends State<PrivacySupportPage> {
           if (uri != null) ...[
             SelectableText(uri.toString()),
             OutlinedButton(
+              key: ValueKey(widget.support ? 'support-open' : 'privacy-open'),
               onPressed: () => _open(uri),
               child: Text(
                 widget.support

@@ -1,3 +1,4 @@
+import 'atlas_button_artwork.dart';
 import 'dart:math' as math;
 import 'dart:async';
 import 'package:flutter/material.dart';
@@ -703,210 +704,217 @@ class _AnnotationPageState extends State<AnnotationPage> {
     );
   }
 
-  Widget _focusChoices(double modeHeight) => LayoutBuilder(
-    builder: (context, box) {
-      const labels = ['Aşk', 'İş', 'Para'];
-      const icons = [
-        LucideIcons.heart,
-        LucideIcons.briefcaseBusiness,
-        LucideIcons.circleDollarSign,
-      ];
-      const colors = [atlasCopperInk, atlasCoffee, atlasSageInk];
-      const style = TextStyle(
-        fontFamily: 'Plus Jakarta Sans',
-        fontSize: 10,
-        height: 1.1,
-        fontWeight: FontWeight.w600,
-      );
-      final text = TextPainter(
-        text: const TextSpan(text: 'Para', style: style),
-        textDirection: Directionality.of(context),
-        textScaler: MediaQuery.textScalerOf(context),
-      )..layout();
-      final inline = text.height > 18;
-      final width = math.max(
-        48.0,
-        text.width.ceilToDouble() + (inline ? 25 : 8),
-      );
-      final selected = widget.onFocusChanged == null
-          ? _localFocus
-          : widget.selectedFocus;
-      final choices = Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          for (var i = 0; i < labels.length; i++) ...[
-            if (i > 0) const SizedBox(width: 4),
-            SizedBox(
-              width: width,
-              height: 48,
-              child: TextButton(
-                key: ValueKey('coffee-focus-${labels[i]}'),
-                onPressed: _saving || widget.focusBusy
-                    ? null
-                    : () {
-                        final next = selected == labels[i] ? null : labels[i];
-                        if (widget.onFocusChanged case final changed?) {
-                          changed(next);
-                        } else {
-                          setState(() => _localFocus = next);
-                        }
-                      },
-                style: TextButton.styleFrom(
-                  padding: EdgeInsets.zero,
-                  minimumSize: const Size(48, 48),
-                  foregroundColor: colors[i],
-                ),
-                child: Semantics(
-                  selected: selected == labels[i],
-                  child: Transform.translate(
-                    offset: Offset(0, 24 - modeHeight / 2),
-                    child: Container(
-                      key: ValueKey('coffee-focus-surface-${labels[i]}'),
-                      width: width,
-                      padding: const EdgeInsets.symmetric(
-                        vertical: 3,
-                        horizontal: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        color: selected == labels[i]
-                            ? atlasSageSurface
-                            : atlasCard,
-                        border: Border.all(
-                          color: selected == labels[i]
-                              ? atlasSageInk
-                              : atlasBorder,
-                        ),
-                        borderRadius: BorderRadius.circular(9),
-                      ),
-                      child: Flex(
-                        direction: inline ? Axis.horizontal : Axis.vertical,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(icons[i], size: 13),
-                          SizedBox(
-                            width: inline ? 4 : 0,
-                            height: inline ? 0 : 2,
-                          ),
-                          Text(
-                            labels[i],
-                            style: style,
-                            maxLines: 1,
-                            softWrap: false,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ],
-      );
-      return Align(
-        alignment: Alignment.bottomRight,
-        child: width * 3 + 8 <= box.maxWidth
-            ? choices
-            : SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: choices,
-              ),
-      );
-    },
+  ({
+    double modeWidth,
+    double topicWidth,
+    double rowHeight,
+    double modeHeight,
+    double topicHeight,
+    bool wrapped,
+    double toolbarHeight,
+  })
+  _headerSize(BuildContext context, double width) {
+    return CoffeePhotoLayout.annotationHeader(width);
+  }
+
+  Widget _headerArtwork(String name, double width, double height) => Opacity(
+    opacity: _saving || widget.focusBusy ? .45 : 1,
+    child: SizedBox(
+      width: width,
+      height: height,
+      child: Image.asset(
+        'assets/tuslar/3.0x/$name.png',
+        key: ValueKey('atlas-art:assets/tuslar/$name.png'),
+        fit: BoxFit.contain,
+        filterQuality: FilterQuality.high,
+        excludeFromSemantics: true,
+        gaplessPlayback: true,
+      ),
+    ),
   );
 
-  Widget _modeHeader() => LayoutBuilder(
-    builder: (context, box) {
-      const style = TextStyle(
-        fontFamily: 'Plus Jakarta Sans',
-        fontSize: 12,
-        height: 1.1,
-        fontWeight: FontWeight.w600,
-        color: atlasCoffee,
-      );
-      final text = TextPainter(
-        text: const TextSpan(text: 'İşaret', style: style),
-        textDirection: Directionality.of(context),
-        textScaler: MediaQuery.textScalerOf(context),
-      )..layout();
-      final width = (text.width.ceilToDouble() + 12).clamp(
-        48.0,
-        (box.maxWidth - 64) / 2,
-      );
-      final height = math.max(28.0, text.height + 4);
-      return Stack(
-        clipBehavior: Clip.none,
-        children: [
-          Positioned(
-            left: 56 + width * 2 + 8,
-            right: 16,
-            bottom: -4,
-            height: 48,
-            child: _focusChoices(height),
-          ),
-          Positioned(
-            left: 56,
-            bottom: -4,
-            height: 48,
-            child: Row(
-              key: const ValueKey('coffee-mode-control'),
-              mainAxisSize: MainAxisSize.min,
+  ButtonStyle get _headerButtonStyle => TextButton.styleFrom(
+    padding: EdgeInsets.zero,
+    minimumSize: const Size(48, 48),
+    backgroundColor: Colors.transparent,
+    foregroundColor: atlasCoffee,
+    shadowColor: Colors.transparent,
+    surfaceTintColor: Colors.transparent,
+    overlayColor: Colors.transparent,
+    side: BorderSide.none,
+  );
+
+  Widget _focusChoices(
+    BuildContext context,
+    double width,
+    double rowHeight,
+    double faceHeight,
+  ) {
+    const labels = ['Aşk', 'İş', 'Para'];
+    const names = ['ask', 'is', 'para'];
+    final selected = widget.onFocusChanged == null
+        ? _localFocus
+        : widget.selectedFocus;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (var i = 0; i < labels.length; i++) ...[
+          if (i > 0) const SizedBox(width: 4),
+          SizedBox(
+            width: width,
+            height: rowHeight,
+            child: Stack(
+              alignment: Alignment.center,
+              clipBehavior: Clip.none,
               children: [
-                for (final mode in [false, true])
-                  SizedBox(
-                    width: width,
-                    height: 48,
-                    child: Semantics(
-                      label: mode ? 'İşaret' : 'Taşı',
-                      button: true,
-                      selected: _markMode == mode,
-                      enabled: !_saving,
-                      onTap: _saving ? null : () => _selectMode(mode),
-                      excludeSemantics: true,
-                      child: Tooltip(
-                        message: mode ? 'İşaret' : 'Taşı',
-                        child: TextButton(
-                          onPressed: _saving ? null : () => _selectMode(mode),
-                          style: TextButton.styleFrom(
-                            minimumSize: const Size(48, 48),
-                            padding: EdgeInsets.zero,
-                          ),
-                          child: Align(
-                            alignment: Alignment.bottomCenter,
-                            child: Container(
-                              key: ValueKey('coffee-mode-surface-$mode'),
-                              height: height,
-                              width: width,
-                              alignment: Alignment.center,
-                              decoration: BoxDecoration(
-                                color: _markMode == mode
-                                    ? atlasSageSurface
-                                    : atlasCard,
-                                border: Border.all(color: atlasBorder),
-                                borderRadius: BorderRadius.horizontal(
-                                  left: mode
-                                      ? Radius.zero
-                                      : const Radius.circular(24),
-                                  right: mode
-                                      ? const Radius.circular(24)
-                                      : Radius.zero,
-                                ),
-                              ),
-                              child: Text(
-                                mode ? 'İşaret' : 'Taşı',
-                                style: style,
-                              ),
-                            ),
+                IgnorePointer(
+                  child: OverflowBox(
+                    minWidth: CoffeePhotoLayout.topicArtworkWidth,
+                    maxWidth: CoffeePhotoLayout.topicArtworkWidth,
+                    minHeight: faceHeight,
+                    maxHeight: faceHeight,
+                    child: SizedBox(
+                      key: ValueKey('coffee-focus-surface-${labels[i]}'),
+                      child: _headerArtwork(
+                        'kategori_${names[i]}${selected == labels[i] ? '_secili' : ''}',
+                        CoffeePhotoLayout.topicArtworkWidth,
+                        faceHeight,
+                      ),
+                    ),
+                  ),
+                ),
+                Positioned.fill(
+                  child: Semantics(
+                    selected: selected == labels[i],
+                    child: TextButton(
+                      key: ValueKey('coffee-focus-${labels[i]}'),
+                      style: _headerButtonStyle,
+                      onPressed: _saving || widget.focusBusy
+                          ? null
+                          : () {
+                              final next = selected == labels[i]
+                                  ? null
+                                  : labels[i];
+                              if (widget.onFocusChanged case final changed?) {
+                                changed(next);
+                              } else {
+                                setState(() => _localFocus = next);
+                              }
+                            },
+                      child: Opacity(
+                        opacity: 0,
+                        alwaysIncludeSemantics: true,
+                        child: Text(
+                          labels[i],
+                          textScaler: TextScaler.noScaling,
+                          maxLines: 1,
+                          softWrap: false,
+                          style: const TextStyle(
+                            fontFamily: 'Plus Jakarta Sans',
+                            fontSize: 10,
+                            height: 1.1,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
                       ),
                     ),
                   ),
+                ),
               ],
             ),
           ),
         ],
+      ],
+    );
+  }
+
+  Widget _modeHeader() => LayoutBuilder(
+    builder: (context, box) {
+      final layout = _headerSize(context, box.maxWidth);
+      return SafeArea(
+        bottom: false,
+        child: AtlasOriginalButtons(
+          child: Stack(
+            children: [
+              Positioned(
+                right: 16,
+                top: 64 + (layout.wrapped ? layout.rowHeight : 0),
+                height: layout.rowHeight,
+                child: _focusChoices(
+                  context,
+                  layout.topicWidth,
+                  layout.rowHeight,
+                  layout.topicHeight,
+                ),
+              ),
+              Positioned(
+                left: 16,
+                top: 64,
+                width: layout.modeWidth * 2,
+                height: layout.rowHeight,
+                child: Stack(
+                  key: const ValueKey('coffee-mode-control'),
+                  alignment: Alignment.center,
+                  children: [
+                    IgnorePointer(
+                      child: _headerArtwork(
+                        _markMode ? 'isaret_secili' : 'tasi_secili',
+                        layout.modeWidth * 2,
+                        layout.modeHeight,
+                      ),
+                    ),
+                    Positioned.fill(
+                      child: Row(
+                        children: [
+                          for (final mode in [false, true])
+                            Expanded(
+                              child: Semantics(
+                                label: mode ? 'İşaret' : 'Taşı',
+                                button: true,
+                                selected: _markMode == mode,
+                                enabled: !_saving,
+                                onTap: _saving ? null : () => _selectMode(mode),
+                                excludeSemantics: true,
+                                child: Tooltip(
+                                  message: mode ? 'İşaret' : 'Taşı',
+                                  child: SizedBox.expand(
+                                    child: TextButton(
+                                      key: ValueKey('coffee-mode-button-$mode'),
+                                      onPressed: _saving
+                                          ? null
+                                          : () => _selectMode(mode),
+                                      style: _headerButtonStyle,
+                                      child: Opacity(
+                                        opacity: 0,
+                                        alwaysIncludeSemantics: true,
+                                        child: Text(
+                                          mode ? 'İşaret' : 'Taşı',
+                                          textScaler: TextScaler.noScaling,
+                                          key: ValueKey(
+                                            'coffee-mode-surface-$mode',
+                                          ),
+                                          style: const TextStyle(
+                                            fontFamily: 'Plus Jakarta Sans',
+                                            fontSize: 12,
+                                            height: 1.1,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
       );
     },
   );
@@ -921,6 +929,7 @@ class _AnnotationPageState extends State<AnnotationPage> {
         .where((r) => r.id == _editingId)
         .firstOrNull;
     final large = MediaQuery.textScalerOf(context).scale(14) > 19;
+    final pendingSelection = _box != null && _editingId == null;
     return CoffeePhotoLayout(
       key: const ValueKey('coffee-annotation-body'),
       photo: LayoutBuilder(
@@ -946,18 +955,6 @@ class _AnnotationPageState extends State<AnnotationPage> {
                 child: const Icon(LucideIcons.maximize, size: 16),
               ),
             ),
-            if (_box != null && _editingId == null)
-              Positioned(
-                left: 56,
-                right: 56,
-                top: 72,
-                child: CoffeeControlSurface(
-                  child: TextButton(
-                    onPressed: _saving ? null : _choose,
-                    child: const Text('Bu alanı seç'),
-                  ),
-                ),
-              ),
           ],
         ),
       ),
@@ -966,14 +963,17 @@ class _AnnotationPageState extends State<AnnotationPage> {
               CoffeeAction(
                 'Göremedim',
                 _saving ? null : () => _decision(PhotoDecision.notSeen),
+                key: const ValueKey('coffee-not-seen'),
               ),
               CoffeeAction(
                 'Emin değilim',
                 _saving ? null : () => _decision(PhotoDecision.uncertain),
+                key: const ValueKey('coffee-uncertain'),
               ),
               CoffeeAction(
                 'Bu fotoğrafı geç',
                 _saving ? null : () => _decision(PhotoDecision.skipped),
+                key: const ValueKey('coffee-skip-photo'),
               ),
             ])
           : Row(
@@ -995,7 +995,8 @@ class _AnnotationPageState extends State<AnnotationPage> {
                     itemBuilder: (_, i) {
                       final region = _photo.regions[i];
                       return Center(
-                        child: ChoiceChip(
+                        child: atlasChoiceChip(
+                          key: ValueKey('coffee-region-${region.id}'),
                           showCheckmark: false,
                           avatar: LabelIcon(region.label, size: 20),
                           label: Text(region.title),
@@ -1029,10 +1030,12 @@ class _AnnotationPageState extends State<AnnotationPage> {
                 ),
                 if (selected != null) ...[
                   TextButton(
+                    key: const ValueKey('coffee-change-region'),
                     onPressed: _saving ? null : _choose,
                     child: const Text('Değiştir'),
                   ),
                   TextButton(
+                    key: const ValueKey('coffee-remove-region'),
                     onPressed: _saving ? null : () => _remove(selected),
                     child: const Text('Kaldır'),
                   ),
@@ -1040,19 +1043,72 @@ class _AnnotationPageState extends State<AnnotationPage> {
               ],
             ),
       footer: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8),
+        padding: EdgeInsets.symmetric(vertical: pendingSelection ? 5 : 8),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            AtlasPrimaryButton.icon(
-              onPressed: _saving ? null : widget.onFinish,
-              icon: const Icon(Icons.auto_awesome),
-              label: const Text('Falımı Oluştur'),
-            ),
+            if (pendingSelection)
+              Center(
+                child: SizedBox(
+                  width: 200,
+                  height: large ? 88 : 54,
+                  child: AtlasOriginalButtons(
+                    child: TextButton(
+                      key: const ValueKey('coffee-choose-area'),
+                      onPressed: _saving ? null : _choose,
+                      style: TextButton.styleFrom(
+                        padding: EdgeInsets.zero,
+                        minimumSize: const Size(48, 48),
+                        backgroundColor: Colors.transparent,
+                        foregroundColor: atlasCoffee,
+                        side: BorderSide.none,
+                        overlayColor: Colors.transparent,
+                      ),
+                      child: const AtlasSelectionFace(
+                        selected: false,
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(LucideIcons.scan, size: 16),
+                              SizedBox(width: 6),
+                              Text(
+                                'Bu alanı seç',
+                                style: TextStyle(
+                                  fontFamily: 'Plus Jakarta Sans',
+                                  fontSize: 13,
+                                  height: 1.1,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              )
+            else
+              AtlasPrimaryButton.icon(
+                key: const ValueKey('coffee-create-fortune'),
+                onPressed: _saving ? null : widget.onFinish,
+                icon: const Icon(Icons.auto_awesome),
+                label: const Text('Falımı Oluştur'),
+              ),
             CoffeeActionStrip([
-              CoffeeAction('Yalnız Kaydet', _saving ? null : widget.onSaveOnly),
-              CoffeeAction('Kalanları geç', _saving ? null : widget.onSkip),
+              CoffeeAction(
+                'Yalnız Kaydet',
+                _saving ? null : widget.onSaveOnly,
+                key: const ValueKey('coffee-save-only'),
+              ),
+              CoffeeAction(
+                'Kalanları geç',
+                _saving ? null : widget.onSkip,
+                key: const ValueKey('coffee-skip-remaining'),
+              ),
             ]),
           ],
         ),
@@ -1065,17 +1121,42 @@ class _AnnotationPageState extends State<AnnotationPage> {
     scene: widget.modern ? AtlasAtmosphereScene.coffeePhoto : null,
     child: Scaffold(
       appBar: AppBar(
-        toolbarHeight: widget.modern ? CoffeePhotoLayout.toolbarHeight : null,
+        leading: widget.modern
+            ? const Align(
+                alignment: Alignment.topCenter,
+                child: Padding(
+                  padding: EdgeInsets.only(top: 16),
+                  child: SizedBox(height: 48, child: BackButton()),
+                ),
+              )
+            : null,
+        toolbarHeight: widget.modern
+            ? _headerSize(
+                context,
+                MediaQuery.sizeOf(context).width,
+              ).toolbarHeight
+            : null,
         flexibleSpace: widget.modern ? _modeHeader() : null,
-        title: Text(
-          widget.modern ? 'Sen ne görüyorsun?' : _photo.title,
-          style: widget.modern
-              ? const TextStyle(
-                  fontFamily: 'Literata',
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                )
-              : null,
+        title: Padding(
+          padding: EdgeInsets.only(
+            bottom: widget.modern
+                ? _headerSize(
+                        context,
+                        MediaQuery.sizeOf(context).width,
+                      ).toolbarHeight -
+                      80
+                : 0,
+          ),
+          child: Text(
+            widget.modern ? 'Sen ne görüyorsun?' : _photo.title,
+            style: widget.modern
+                ? const TextStyle(
+                    fontFamily: 'Literata',
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                  )
+                : null,
+          ),
         ),
       ),
       body: SafeArea(

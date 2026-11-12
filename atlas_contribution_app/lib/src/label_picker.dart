@@ -1,3 +1,5 @@
+import 'atlas_button_artwork.dart';
+import 'atlas_palette.dart';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -75,6 +77,8 @@ Future<String?> pickContributionLabel(BuildContext context) =>
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
+      backgroundColor: atlasCream,
+      clipBehavior: Clip.antiAlias,
       builder: (_) => const LabelPicker(),
     );
 
@@ -152,111 +156,121 @@ class _LabelPickerState extends State<LabelPicker> {
     final columns = MediaQuery.sizeOf(context).width < 380 || scale > 1.3
         ? 2
         : 3;
-    return Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
-      child: ConstrainedBox(
-        constraints: BoxConstraints(
-          maxHeight:
-              (MediaQuery.sizeOf(context).height -
-                  MediaQuery.viewInsetsOf(context).bottom) *
-              .92,
+    return ColoredBox(
+      key: const ValueKey('coffee-label-picker-background'),
+      color: atlasCream,
+      child: Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.viewInsetsOf(context).bottom,
         ),
-        child: ListView(
-          shrinkWrap: true,
-          children: [
-            const Padding(
-              padding: EdgeInsets.fromLTRB(16, 8, 16, 12),
-              child: Text(
-                'Neye benziyor?',
-                style: TextStyle(
-                  fontFamily: 'Literata',
-                  fontSize: 18,
-                  fontWeight: FontWeight.w500,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight:
+                (MediaQuery.sizeOf(context).height -
+                    MediaQuery.viewInsetsOf(context).bottom) *
+                .92,
+          ),
+          child: ListView(
+            shrinkWrap: true,
+            children: [
+              const Padding(
+                padding: EdgeInsets.fromLTRB(16, 8, 16, 12),
+                child: Text(
+                  'Neye benziyor?',
+                  style: TextStyle(
+                    fontFamily: 'Literata',
+                    fontSize: 18,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
               ),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: TextField(
-                controller: _search,
-                decoration: const InputDecoration(
-                  labelText: 'Şekil ara',
-                  prefixIcon: Icon(Icons.search),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: TextField(
+                  key: const ValueKey('coffee-label-search'),
+                  controller: _search,
+                  decoration: const InputDecoration(
+                    labelText: 'Şekil ara',
+                    filled: true,
+                    fillColor: atlasCard,
+                    prefixIcon: Icon(Icons.search),
+                  ),
+                  onChanged: (v) => setState(() => _query = v),
                 ),
-                onChanged: (v) => setState(() => _query = v),
               ),
-            ),
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.all(12),
-              child: Row(
-                children: [
-                  for (final category in ['Tümü', ...labelCategories.keys])
-                    Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: ChoiceChip(
-                        label: Text(category),
-                        selected: _category == category,
-                        onSelected: (_) => setState(() {
-                          _category = category;
-                          _query = '';
-                          _search.clear();
-                        }),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.all(12),
+                child: Row(
+                  children: [
+                    for (final category in ['Tümü', ...labelCategories.keys])
+                      Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: atlasChoiceChip(
+                          label: Text(category),
+                          selected: _category == category,
+                          onSelected: (_) => setState(() {
+                            _category = category;
+                            _query = '';
+                            _search.clear();
+                          }),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              items.isEmpty
+                  ? const Center(child: Text('Bu adla şekil bulunamadı.'))
+                  : GridView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                      itemCount: items.length,
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: columns,
+                        mainAxisExtent: 84 + 88 * (scale - 1).clamp(0, 2),
+                        mainAxisSpacing: 10,
+                        crossAxisSpacing: 10,
+                      ),
+                      itemBuilder: (context, i) => OutlinedButton(
+                        key: ValueKey('coffee-label-${items[i].key}'),
+                        onPressed: () => Navigator.pop(context, items[i].key),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.all(8),
+                        ),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            LabelIcon(items[i].key, size: 20),
+                            const SizedBox(height: 4),
+                            Text(
+                              items[i].value,
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(fontSize: 16, height: 1.3),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                ],
-              ),
-            ),
-            items.isEmpty
-                ? const Center(child: Text('Bu adla şekil bulunamadı.'))
-                : GridView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                    itemCount: items.length,
-                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: columns,
-                      mainAxisExtent: 84 + 88 * (scale - 1).clamp(0, 2),
-                      mainAxisSpacing: 10,
-                      crossAxisSpacing: 10,
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                child: Wrap(
+                  alignment: WrapAlignment.center,
+                  spacing: 12,
+                  children: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context, 'uncertain'),
+                      child: const Text('Emin değilim'),
                     ),
-                    itemBuilder: (context, i) => OutlinedButton(
-                      onPressed: () => Navigator.pop(context, items[i].key),
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.all(8),
-                      ),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          LabelIcon(items[i].key, size: 20),
-                          const SizedBox(height: 4),
-                          Text(
-                            items[i].value,
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(fontSize: 16, height: 1.3),
-                          ),
-                        ],
-                      ),
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('Vazgeç'),
                     ),
-                  ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-              child: Wrap(
-                alignment: WrapAlignment.center,
-                spacing: 12,
-                children: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(context, 'uncertain'),
-                    child: const Text('Emin değilim'),
-                  ),
-                  TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text('Vazgeç'),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

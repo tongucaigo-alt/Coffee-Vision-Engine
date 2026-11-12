@@ -1,3 +1,4 @@
+import 'atlas_button_artwork.dart';
 import 'package:flutter/material.dart';
 import 'opencv_traces.dart';
 import 'photo_crop.dart';
@@ -206,7 +207,7 @@ class _TracePhotoViewerState extends State<TracePhotoViewer> {
           spacing: 8,
           children: [
             for (final option in [false, true])
-              ChoiceChip(
+              atlasChoiceChip(
                 label: Text(option ? 'Renkli izler' : 'Orijinal'),
                 selected: colored == option,
                 onSelected: (_) => setState(() => colored = option),

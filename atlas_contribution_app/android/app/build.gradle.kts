@@ -91,7 +91,7 @@ android {
         versionName = flutter.versionName
         manifestPlaceholders["atlasCleartext"] = if (atlasAiLab) "true" else "false"
         val atlasBaseLabel = if (atlasUiPreview) "Atlas Görsel Önizleme" else if (atlasDiagnostic) "Atlas Fotoğraf Testi" else if (atlasKimiLocalTest) "Atlas Kimi Test" else if (atlasAiLab) "Atlas AI Beta" else if (atlasPlayTest) "Atlas" else "Atlas Katkı"
-        manifestPlaceholders["atlasLabel"] = if (atlasDiagnostic || atlasAiLab) "$atlasBaseLabel V${flutter.versionCode}" else atlasBaseLabel
+        manifestPlaceholders["atlasLabel"] = if (atlasUiPreview) "Atlas · Umay Rehber" else if (atlasDiagnostic || atlasAiLab) "$atlasBaseLabel V${flutter.versionCode}" else atlasBaseLabel
     }
 
     signingConfigs {

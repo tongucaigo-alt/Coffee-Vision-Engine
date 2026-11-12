@@ -17,9 +17,9 @@ const openCvTracesEnabled = bool.fromEnvironment(
 );
 // The optional contrast experiment keeps its own cache identity.
 const adaptiveTracesEnabled = bool.fromEnvironment('ATLAS_OPENCV_ADAPTIVE');
-const normalTraceAlgorithm = 'opencv-4.13-traces-v7-merged-cup-recovery';
+const normalTraceAlgorithm = 'opencv-4.13-traces-v8-rim-residue';
 const adaptiveTraceAlgorithm =
-    'opencv-4.13-traces-v7-merged-cup-recovery-selective';
+    'opencv-4.13-traces-v8-rim-residue-selective';
 const maxTracesPerPhoto = 7;
 const traceAlgorithm = adaptiveTracesEnabled
     ? adaptiveTraceAlgorithm
